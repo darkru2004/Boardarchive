@@ -664,7 +664,8 @@ function mountLL(self, container, ctx) {
     let closed = false;
     const close = () => { if (closed) return; closed = true; popBox.style.display = 'none'; popBox.replaceChildren(); done(); };
     popBox.onclick = close;
-    later(close, ctx.delay(item.died ? 4200 : item.mine ? 3200 : 1900));
+    // 내가 살아 있으면 직접 눌러야 닫힌다(AI끼리의 행동도 포함). 이미 탈락했으면 자동으로 넘어간다
+    if (s.out[H] && !item.died) later(close, ctx.delay(1700));
   }
 
   function roundOver(e) {
