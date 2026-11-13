@@ -26,8 +26,11 @@ const WAIT_RESERVE = 2, WAIT_LOOK = 4;                          // 기다리기:
 const DENY_W = 0.075;                                           // 견제(일반): 남이 공짜로 키우는 카드를 막는 강도
 const ALLY_W = 1.0, ALLY_CAP = 4, ALLY_MIN_CHIPS = 4, ALLY_MAX_COST = 8;   // 도와주기: 동료(relations ally)에게 공짜인 카드는 내가 크게 손해가 아니면 양보, 선두(동료 제외)는 견제
 const SHIELD_CHIPS = 3, SHIELD_HURT = 3;                            // 방패: 동료 칩 3개 이하 & 동료 순손해 3점 초과일 때
-const CHIP_EARLY = 0.7, POT_SWING = 0.45;                       // 초반 칩 가치 가산, 판 위 칩이 쌓일수록 받을 만해짐(남에게 넘기는 부담)
+const CHIP_EARLY = 0.7, POT_SWING = 0.45, SWING_N = 1.6;      // SWING_N: 인원수 효과 세기                       // 초반 칩 가치 가산, 판 위 칩이 쌓일수록 받을 만해짐(남에게 넘기는 부담)
 // 칩 1개의 가치(점): 남은 카드가 많을수록 1보다 크다. 마지막엔 정확히 1.
+// 판 위 칩이 쌓이는 속도는 인원수만큼 빠르고(한 바퀴에 n개) 내가 내는 칩은 1개뿐이다.
+// 인원이 많을수록 같은 칩을 모으는 데 내 부담이 작아서 더 오래 버티고(문턱↑), 적을수록 일찍 먹는다.
+const swingN = n => POT_SWING * Math.pow(4 / n, SWING_N);
 const chipValue = (s, skill) => 1 + CHIP_EARLY * (s.deck.length / 23) * (0.4 + 0.06 * skill);
 
 // 상대 q가 이 카드를 받을지 대략 예측 (봇은 칩 개수를 센다). 막으러 오는 것까지 감안해 문턱을 높게 잡는다.
@@ -35,7 +38,7 @@ function wouldTake(s, q, card, potAt, chipsLeft, ownerMarginal) {
   if (chipsLeft <= 0) return true;                                     // 칩이 없으면 강제로 받는다
   const net = marginal(s.cards[q], card) - potAt * chipValue(s, 6);
   const deny = ownerMarginal <= 0 ? Math.min(4, potAt * 0.35) : 0;      // 내가 공짜로 키우는 게 보이면 막으러 올 수 있다
-  return net <= BASE + potAt * POT_SWING * 0.88 + (chipsLeft <= 2 ? 4 : 0) + deny;
+  return net <= BASE + potAt * swingN(s.n) * 0.88 + (chipsLeft <= 2 ? 4 : 0) + deny;
 }
 // 몇 바퀴까지 돌려도 아무도 채 가지 않을지 (0 = 지금 바로 받아야 안전)
 function safeRounds(s, me, card, mine) {
@@ -73,7 +76,7 @@ function allyTargetSeat(s, me, allies) {
 
 export default {
   meta: {
-    id: 'nothanks', name: '노땡스!', version: '1.6.0',
+    id: 'nothanks', name: '노땡스!', version: '1.7.0',
     players: { min: 3, max: 7 }, minutes: 10,
     campaign: null
   },
@@ -131,7 +134,7 @@ export default {
     // 칩 압박: 칩이 바닥나면 다음 카드는 뭐가 와도 강제로 받는다. 남은 칩이 적을수록 "지금 이 정도면 먹자"로 기운다.
     const pressure = (PRESSURE[s.chips[me]] || 0) * (1 - t.risk * RISK_W * 0.5) * (0.6 + t.skill * 0.04) * Math.min(1, s.deck.length / 8);
     const A = BASE + (5 - t.patience) * PAT_W + pressure - t.aggression * AGG_W * harm
-      + pot * POT_SWING * (0.7 + t.skill * 0.03);                     // 작은 카드도 칩 0개면 일단 넘겨 본다. 칩이 쌓일수록 받을 만해짐
+      + pot * swingN(s.n) * (0.7 + t.skill * 0.03);                     // 작은 카드도 칩 0개면 일단 넘겨 본다. 칩이 쌓일수록 받을 만해짐
 
     // 견제: 대상에게 이득인 카드를 내가 손해를 보더라도 먼저 가져간다 (한도 있음)
     let grudge = 0;

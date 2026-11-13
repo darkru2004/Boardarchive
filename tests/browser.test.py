@@ -195,7 +195,7 @@ try:
         check("노땡스", "실제 화면을 눌러 4인 한 판을 끝까지 플레이하면 결과 화면이 나온다", play_nt)
         check("노땡스", "결과 화면에 순위 4줄이 나온다", lambda: (None if p2.locator(".modal .rank-row").count() == 4 else (_ for _ in ()).throw(AssertionError("순위 줄 수"))))
         rec2 = p2.evaluate("window.__ba.storage.all('records').then(a => a[0].value)")
-        check("노땡스", "기록에 노땡스·버전 1.6.0·4명이 저장된다", lambda: (None if rec2["gameId"] == "nothanks" and rec2["gameVersion"] == "1.6.0" and len(rec2["players"]) == 4 else (_ for _ in ()).throw(AssertionError(str(rec2)[:200]))))
+        check("노땡스", "기록에 노땡스·버전 1.7.0·4명이 저장된다", lambda: (None if rec2["gameId"] == "nothanks" and rec2["gameVersion"] == "1.7.0" and len(rec2["players"]) == 4 else (_ for _ in ()).throw(AssertionError(str(rec2)[:200]))))
         p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=nothanks]")
         check("노땡스", "게임에서 나오면 게임 전용 스타일이 남지 않는다 (앨범 화면 보호)", lambda: (None if p2.evaluate("![...document.querySelectorAll('style')].some(s => s.textContent.includes('.g-nt'))") else (_ for _ in ()).throw(AssertionError("스타일이 남음"))))
         # ---------- 러브레터: 실제 화면에서 2인 한 판 끝까지 ----------

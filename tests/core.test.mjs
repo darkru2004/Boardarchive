@@ -461,6 +461,13 @@ await test('노땡스', '내 칩이 1개뿐이면 17(판 위 칩 3)을 대부분
   assert(rate(1, 0) >= 0.7 && rate(1, 1) >= 0.6, `칩 1개: 라피 ${rate(1, 0)} 에델 ${rate(1, 1)}`);
   assert(rate(6, 0) <= 0.1 && rate(6, 1) <= 0.1, '칩 6개인데 먹음');
 });
+await test('노땡스', '인원수 반영: 같은 고숫자(29)를 3인은 7인보다 일찍 먹는다 (판 위 칩이 3인<7인)', () => {
+  const avgPot = n => { const rng = makeRng(30 + n); let sum = 0; const T = 400; const ids = REAL.filter(c => c.status !== 'retired').map(c => c.id);
+    for (let t = 0; t < T; t++) { const seats = rng.shuffle(ids).slice(0, n).map((id, i) => ({ seat: i, human: false, characterId: id })); const pl = buildPlayers(seats, REAL, 'nothanks');
+      const s = nothanks.newGame({ players: seats, rng }); s.deck = s.deck.filter(x => x !== 29); s.card = 29; s.turn = 0;
+      for (let k = 0; k < 200; k++) { const q = s.turn; if (nothanks.botChoose(s, pl[q].traits, rng, { seat: q, rivalSeats: [] }).move === 'take') break; nothanks.applyMove(s, 'pass'); } sum += s.pot; } return sum / T; };
+  const a = avgPot(3), b = avgPot(7); assert(a + 1.5 < b, `3인 ${a.toFixed(1)} / 7인 ${b.toFixed(1)}`);
+});
 await test('노땡스', '게임별 대사(gameTweaks)를 추가해도 공통 대사는 그대로이고, 대사만 늘려도 규격 검사에 영향 없다', () => {
   const c = REAL.find(x => x.id === 'rapi');
   eq(linesFor(c, 'nothanks', 'start'), c.lines.start);                 // 공통 대사 유지
