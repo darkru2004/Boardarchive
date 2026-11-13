@@ -468,6 +468,27 @@ await test('노땡스', '인원수 반영: 같은 고숫자(29)를 3인은 7인�
       for (let k = 0; k < 200; k++) { const q = s.turn; if (nothanks.botChoose(s, pl[q].traits, rng, { seat: q, rivalSeats: [] }).move === 'take') break; nothanks.applyMove(s, 'pass'); } sum += s.pot; } return sum / T; };
   const a = avgPot(3), b = avgPot(7); assert(a + 1.5 < b, `3인 ${a.toFixed(1)} / 7인 ${b.toFixed(1)}`);
 });
+// v1.8.0: 뒤 사람 읽기 · 판세
+const ntRate = (seed, n, setup, N = 800) => { const rng = makeRng(seed); const ids = REAL.filter(c => c.status !== 'retired').map(c => c.id); let k = 0;
+  for (let t = 0; t < N; t++) { const seats = rng.shuffle(ids).slice(0, n).map((id, i) => ({ seat: i, human: false, characterId: id })); const pl = buildPlayers(seats, REAL, 'nothanks');
+    const s = nothanks.newGame({ players: seats, rng }); setup(s); if (nothanks.botChoose(s, pl[s.turn].traits, rng, { seat: s.turn, rivalSeats: [], allySeats: [] }).move === 'take') k++; } return k / N; };
+await test('노땡스', '뒤 사람 읽기: 다음 사람이 공짜로 먹을 카드(14, 판 위 4)는 먼저 먹고, 아무도 안 노리면 한 바퀴 돌린다', () => {
+  const base = s => { s.deck = s.deck.filter(x => x < 13 || x > 15).slice(0, 14); s.card = 14; s.pot = 4; s.turn = 0; s.cards = s.cards.map(() => []); };
+  for (const n of [4, 7]) { const a = ntRate(81 + n, n, s => { base(s); s.cards[1] = [15]; }), b = ntRate(91 + n, n, base);
+    assert(a >= b + 0.06 && b <= 0.1, `${n}인: 노림 ${a} / 안 노림 ${b}`); }
+});
+await test('노땡스', '판세: 후반에 선두는 무난한 카드(13, 판 위 5)를 빨리 정리하고, 크게 뒤처진 봇은 버틴다', () => {
+  const L = s => { s.deck = s.deck.filter(x => x < 12 || x > 15).slice(0, 4); s.card = 13; s.pot = 5; s.turn = 0; s.chips = s.chips.map(() => 6); };
+  const lead = ntRate(101, 4, s => { L(s); s.cards = s.cards.map((x, i) => i === 0 ? [5, 25] : [33, 30, 27, 24]); });
+  const trail = ntRate(102, 4, s => { L(s); s.cards = s.cards.map((x, i) => i === 0 ? [33, 30, 27, 24] : [5, 25]); });
+  assert(lead >= trail + 0.2, `선두 ${lead} / 꼴찌 ${trail}`);
+});
+await test('노땡스', '판세: 선두가 공짜로 먹을 카드는 꼴찌가 공짜로 먹을 카드보다 더 견제한다 (후반, 카드 12, 판 위 5)', () => {
+  const L = s => { s.deck = s.deck.filter(x => x < 11 || x > 13).slice(0, 4); s.card = 12; s.pot = 5; s.turn = 0; s.chips = s.chips.map(() => 6); };
+  const vsLead = ntRate(111, 4, s => { L(s); s.cards = s.cards.map((x, i) => i === 0 ? [33, 30] : i === 2 ? [13] : [34, 31, 28]); });
+  const vsLast = ntRate(112, 4, s => { L(s); s.cards = s.cards.map((x, i) => i === 0 ? [33, 30] : i === 2 ? [13, 34, 31, 28] : [6]); });
+  assert(vsLead >= vsLast + 0.1, `선두 견제 ${vsLead} / 꼴찌 ${vsLast}`);
+});
 await test('노땡스', '마지막 칩 1개가 남아도 34(판 위 칩 12)처럼 너무 아픈 카드는 넘긴다 (7인, 받을 확률 10% 미만)', () => {
   const rng = makeRng(34); const act = REAL.filter(c => c.status !== 'retired').map(c => c.id); let k = 0; const N = 500;
   for (let t = 0; t < N; t++) { const ids = rng.shuffle(act).slice(0, 7); const seats = ids.map((id, i) => ({ seat: i, human: false, characterId: id })); const pl = buildPlayers(seats, REAL, 'nothanks');

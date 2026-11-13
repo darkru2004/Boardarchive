@@ -27,6 +27,8 @@ const WAIT_RESERVE = 2, WAIT_LOOK = 4;                          // 기다리기:
 const DENY_W = 0.075;                                           // 견제(일반): 남이 공짜로 키우는 카드를 막는 강도
 const ALLY_W = 1.0, ALLY_CAP = 4, ALLY_MIN_CHIPS = 4, ALLY_MAX_COST = 8;   // 도와주기: 동료(relations ally)에게 공짜인 카드는 내가 크게 손해가 아니면 양보, 선두(동료 제외)는 견제
 const SHIELD_CHIPS = 3, SHIELD_HURT = 3;                            // 방패: 동료 칩 3개 이하 & 동료 순손해 3점 초과일 때
+const LOOK_SNATCH = 2.0, LOOK_RETURN = 0.45;                     // 뒤 사람 읽기: 뺏길 것 같으면 먼저 먹고, 아무도 안 먹을 것 같으면 한 바퀴 돌린다
+const LEAD_W = 1.5, TRAIL_W = 3.0, STAND_GAP = 4;                 // 판세: 선두는 무난한 카드를 빨리 정리, 꼴찌는 칩을 더 모으며 버틴다. 선두가 좋아할 카드는 더 견제
 const CHIP_EARLY = 0.7, POT_SWING = 0.45, SWING_N = 1.6;      // SWING_N: 인원수 효과 세기                       // 초반 칩 가치 가산, 판 위 칩이 쌓일수록 받을 만해짐(남에게 넘기는 부담)
 // 칩 1개의 가치(점): 남은 카드가 많을수록 1보다 크다. 마지막엔 정확히 1.
 // 판 위 칩이 쌓이는 속도는 인원수만큼 빠르고(한 바퀴에 n개) 내가 내는 칩은 1개뿐이다.
@@ -55,6 +57,25 @@ function safeRounds(s, me, card, mine) {
   return WAIT_LOOK;
 }
 
+// 뒤 사람들이 이 카드를 먹을 확률(부드러운 예측). 반환: 내게 다시 돌아올 확률(아무도 안 먹음)
+function backChance(s, me, card, allyIds) {
+  let back = 1;
+  for (let k = 1; k < s.n; k++) {
+    const q = (me + k) % s.n, potAt = s.pot + k, chipsLeft = s.chips[q];
+    if (allyIds.has(q)) continue;                                      // 동료가 가져가는 건 뺏기는 게 아니다
+    if (chipsLeft <= 0) return 0;
+    const netq = marginal(s.cards[q], card) - potAt * chipValue(s, 6);
+    const margin = BASE + potAt * swingN(s.n) * 0.88 + (chipsLeft <= 2 ? 4 : 0) - netq;
+    back *= 1 - 1 / (1 + Math.exp(-margin / 1.5));
+  }
+  return back;
+}
+// 판세: 나와 '나를 뺀 1등'의 점수 차 (양수 = 내가 뒤처짐). 봇은 칩 개수를 센다.
+function standingGap(s, me) {
+  let best = Infinity; for (let i = 0; i < s.n; i++) if (i !== me) best = Math.min(best, finalScore(s, i));
+  return finalScore(s, me) - best;
+}
+
 // 이 봇이 지금 노리는 상대 자리 (없으면 -1)
 function targetSeat(s, me, t, info) {
   if (t.targetMode === 'human') return s.humanSeat >= 0 && s.humanSeat !== me ? s.humanSeat : -1;
@@ -77,7 +98,7 @@ function allyTargetSeat(s, me, allies) {
 
 export default {
   meta: {
-    id: 'nothanks', name: '노땡스!', version: '1.7.1',
+    id: 'nothanks', name: '노땡스!', version: '1.8.0',
     players: { min: 3, max: 7 }, minutes: 10,
     campaign: null
   },
@@ -124,19 +145,35 @@ export default {
 
     // 다른 사람들이 이 카드를 받으면 얼마나 아플까 (대상은 가중)
     const allyIds = new Set(allies.map(a => a.seat));                // 동료에게 생길 손해는 '견제 거리'가 아니다
+    const late = 1 - s.deck.length / 23;                              // 0 = 시작, 1 = 마지막 카드
+    let leader = -1, ls = Infinity;
+    for (let q = 0; q < s.n; q++) { if (q === me || allyIds.has(q)) continue; const v = finalScore(s, q); if (v < ls) { ls = v; leader = q; } }
+    if (!(ls < finalScore(s, me))) leader = -1;                       // 내가 1등이면 견제할 선두 없음
     let harm = 0, w = 0;
     for (let q = 0; q < s.n; q++) {
       if (q === me || allyIds.has(q)) continue;
-      const wt = q === tg ? 2.5 : 1;
+      const wt = q === tg ? 2.5 : q === leader ? 1 + late : 1;
       harm += clip(marginal(s.cards[q], card) - pot, 0, 10) * wt; w += wt;
     }
     harm = w ? harm / w : 0;
+
+    // 뒤 사람 읽기: 내 뒤 사람들이 이 카드를 먹을 것 같으면(돌아올 확률 낮음) 지금 먹고, 아무도 안 먹을 것 같으면 한 바퀴 돌려 칩을 더 얹는다.
+    //   돌아올 땐 판 위에 칩이 (인원수−1)개 더 쌓여 있다. 실력이 높을수록 잘 읽는다.
+    const back = backChance(s, me, card, allyIds), read = 0.4 + t.skill * 0.06;
+    const look = mine > 0 && s.chips[me] > WAIT_RESERVE
+      ? read * ((1 - back) * LOOK_SNATCH - back * LOOK_RETURN * (s.n - 1) * chipValue(s, t.skill) * 0.5) : 0;
+
+    // 판세: 앞서면 무난한 카드를 빨리 정리해 판을 굳히고, 크게 뒤처지면 칩을 더 모으며 버틴다(도박). 후반일수록 강하다.
+    const gap = standingGap(s, me);
+    const stand = gap < 0 ? LEAD_W * clip(-gap / 8, 0, 1) * late
+      : -TRAIL_W * clip((gap - STAND_GAP) / 10, 0, 1) * late * (0.6 + t.risk * 0.08);
 
     // 칩 압박: 칩이 바닥나면 다음 카드는 뭐가 와도 강제로 받는다. 남은 칩이 적을수록 "지금 이 정도면 먹자"로 기운다.
     const pressure = (PRESSURE[s.chips[me]] || 0) * (1 - t.risk * RISK_W * 0.5) * (0.6 + t.skill * 0.04) * Math.min(1, s.deck.length / 8)
       * Math.min(1, Math.max(0, (PRESSURE_CUT - net) / 4));            // 이 카드가 너무 아프면 마지막 칩이라도 넘기는 게 낫다(돌아올 땐 판 위 칩이 더 쌓여 있다)
     const A = BASE + (5 - t.patience) * PAT_W + pressure - t.aggression * AGG_W * harm
-      + pot * swingN(s.n) * (0.7 + t.skill * 0.03);                     // 작은 카드도 칩 0개면 일단 넘겨 본다. 칩이 쌓일수록 받을 만해짐
+      + pot * swingN(s.n) * (0.7 + t.skill * 0.03)                      // 작은 카드도 칩 0개면 일단 넘겨 본다. 칩이 쌓일수록 받을 만해짐
+      + look + stand;
 
     // 견제: 대상에게 이득인 카드를 내가 손해를 보더라도 먼저 가져간다 (한도 있음)
     let grudge = 0;
@@ -149,7 +186,7 @@ export default {
     // 견제(일반): 누군가 이 카드를 공짜로 받을 수 있고 판 위 칩이 두둑하면, 손해를 감수하고 먼저 가져간다
     if (s.chips[me] >= BLOCK_MIN_CHIPS) {
       let dv = 0;
-      for (let q = 0; q < s.n; q++) { if (q === me || allyIds.has(q)) continue; const qm = marginal(s.cards[q], card); if (qm <= 0) dv = Math.max(dv, pot + Math.min(2, -qm)); }   // 막을 가치 ≈ 그 사람이 챙길 칩
+      for (let q = 0; q < s.n; q++) { if (q === me || allyIds.has(q)) continue; const qm = marginal(s.cards[q], card); if (qm <= 0) dv = Math.max(dv, (pot + Math.min(2, -qm)) * (q === leader ? 1 + late * 0.8 : 1)); }   // 막을 가치 ≈ 그 사람이 챙길 칩
       grudge = Math.max(grudge, Math.min(BLOCK_CAP, dv * t.aggression * DENY_W));
     }
 
