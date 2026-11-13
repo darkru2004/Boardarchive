@@ -67,51 +67,61 @@ export default {
     return { ranking, summary: `최고점 ${order[0].score}점` };
   },
 
-  // ---- 화면 (게임이 자기 화면을 직접 소유) ----
+  // ---- 화면 (게임이 자기 화면을 직접 소유). 껍데기의 게임 키트 클래스(hud/mini/note/diecard/acts/btn)를 사용 ----
   mount(container, ctx) {
     const rng = ctx.rng;
     const s = this.newGame({ players: ctx.players });
-    let timer = null, dead = false, finished = false;
-    const bubbles = {};
+    let timer = null, dead = false, finished = false, speech = null;
     const self = this;
     container.innerHTML = `<div class="g-stop">
-      <div class="g-rows"></div>
-      <div class="g-die-box"><div class="g-die">?</div><div class="g-sub"></div></div>
-      <div class="g-btns"><button class="btn red" data-a="roll">굴리기</button><button class="btn blue" data-a="hold">멈추기</button></div>
+      <div class="hud"></div>
+      <div class="g-mid"><div class="g-say"></div><div class="diecard"><div class="tt">ROLL</div><span class="g-die"></span><div class="tot">이번 차례 <b>0</b></div></div>
+        <div class="g-goal">GOAL<br><b>${s.target}</b></div></div>
+      <div class="g-sub"></div>
+      <div class="acts"><button class="btn go" data-a="roll">굴리기<small>ROLL</small></button><button class="btn" data-a="hold">멈추기<small>HOLD</small></button></div>
       <div class="g-log"></div></div>`;
-    const rows = container.querySelector('.g-rows'), die = container.querySelector('.g-die'), sub = container.querySelector('.g-sub');
-    const bRoll = container.querySelector('[data-a=roll]'), bHold = container.querySelector('[data-a=hold]'), logBox = container.querySelector('.g-log');
+    const q = sel => container.querySelector(sel);
+    const hud = q('.hud'), sayBox = q('.g-say'), dieBox = q('.g-die'), tot = q('.tot b'), sub = q('.g-sub'), mid = q('.g-mid');
+    const bRoll = q('[data-a=roll]'), bHold = q('[data-a=hold]'), logBox = q('.g-log');
+    if (ctx.kit) mid.append(ctx.kit.ornament(90, 'left:-6px;bottom:-14px'), ...ctx.kit.bubbles([['22%', '78%', 16], ['26%', '72%', 8], ['74%', '10%', 12]]));
 
     function say(seat, key) {
       const t = ctx.say(seat, key);
       if (!t) return;
-      bubbles[seat] = t; draw();
-      setTimeout(() => { if (bubbles[seat] === t) { delete bubbles[seat]; if (!dead) draw(); } }, 2600);
+      speech = { seat, t }; drawSay();
+      setTimeout(() => { if (speech && speech.t === t) { speech = null; if (!dead) drawSay(); } }, 2600);
+    }
+    function drawSay() {
+      sayBox.replaceChildren();
+      if (!speech) return;
+      const n = document.createElement('div'); n.className = 'note';
+      const em = document.createElement('em'); em.textContent = ctx.players[speech.seat].name;
+      n.append(em, document.createTextNode(speech.t)); sayBox.append(n);
     }
     function logLine(t) { const d = document.createElement('div'); d.textContent = t; logBox.appendChild(d); logBox.scrollTop = logBox.scrollHeight; }
     function draw() {
-      rows.innerHTML = '';
-      ctx.players.forEach((p, i) => {
-        const row = document.createElement('div');
-        row.className = 'g-row' + (!s.over && s.turn === i ? ' turn' : '');
-        row.style.setProperty('--c', p.color);
-        row.appendChild(ctx.avatar(i, 40));
-        const info = document.createElement('div'); info.className = 'g-info';
-        info.innerHTML = `<b></b><span>${s.scores[i]}점${!s.over && s.turn === i && s.turnTotal ? ` (+${s.turnTotal})` : ''}</span>`;
-        info.querySelector('b').textContent = p.name;
-        row.appendChild(info);
-        if (bubbles[i]) { const b = document.createElement('div'); b.className = 'g-say'; b.textContent = bubbles[i]; row.appendChild(b); }
-        rows.appendChild(row);
-      });
-      die.textContent = s.lastRoll ?? '?';
+      hud.replaceChildren(...ctx.players.map((p, i) => {
+        const m = document.createElement('div');
+        m.className = 'mini' + (!s.over && s.turn === i ? ' turn' : '');
+        m.append(ctx.avatar(i, 'css'));
+        const b = document.createElement('b'); b.textContent = p.human ? '나' : p.name.split(' ').pop();
+        const sc = document.createElement('div'); sc.className = 'sc'; sc.textContent = s.scores[i];
+        if (!s.over && s.turn === i && s.turnTotal) { const sm = document.createElement('small'); sm.textContent = ` +${s.turnTotal}`; sc.append(sm); }
+        const bar = document.createElement('div'); bar.className = 'bar';
+        const fill = document.createElement('i'); fill.style.width = Math.min(100, s.scores[i] / s.target * 100) + '%'; bar.append(fill);
+        m.append(b, sc, bar);
+        return m;
+      }));
+      dieBox.replaceChildren(ctx.kit ? ctx.kit.dieSvg(s.lastRoll, 76) : document.createTextNode(s.lastRoll ?? '?'));
+      tot.textContent = s.turnTotal;
       const mine = !s.over && ctx.players[s.turn].human;
       bRoll.disabled = !mine; bHold.disabled = !mine || !s.turnTotal;
-      sub.textContent = s.over ? '게임 종료' : `${ctx.players[s.turn].name}의 차례 · 이번 차례 합계 ${s.turnTotal} · 목표 ${s.target}${s.triggered ? ' · 마지막 바퀴!' : ''}`;
+      sub.textContent = s.over ? '게임 종료' : `${ctx.players[s.turn].human ? '나' : ctx.players[s.turn].name}의 차례 · 이번 차례 합계 ${s.turnTotal}${s.triggered ? ' · 마지막 바퀴!' : ''}`;
     }
-    function step(seat, move, reason) {
+    function step(seat, move) {
       const before = s.turnTotal;
       self.applyMove(s, move, rng);
-      const name = ctx.players[seat].name;
+      const name = ctx.players[seat].human ? '나' : ctx.players[seat].name;
       if (move === 'roll') {
         if (s.lastRoll === 1 && s.turn !== seat) { logLine(`${name}: 1! 이번 차례 합계 ${before} 소멸`); if (!ctx.players[seat].human) say(seat, 'bad'); }
         else logLine(`${name}: 굴림 ${s.lastRoll}`);
@@ -126,7 +136,8 @@ export default {
     function finish() {
       if (finished) return; finished = true;
       const res = self.result(s);
-      res.ranking.forEach(r => { const p = ctx.players[r.seat]; if (!p.human) say(r.seat, r.rank === 1 ? 'win' : (r.rank === res.ranking.length ? 'lose' : 'good')); });
+      const top = res.ranking.find(r => !ctx.players[r.seat].human);
+      if (top) say(top.seat, top.rank === 1 ? 'win' : 'lose');
       timer = setTimeout(() => { if (!dead) ctx.finish(res); }, ctx.delay(1200));
     }
     function loop() {
@@ -136,13 +147,14 @@ export default {
       timer = setTimeout(() => {
         if (dead) return;
         const ch = self.botChoose(s, p.traits, rng, { seat: s.turn, rivalSeats: p.rivalSeats });
-        step(s.turn, ch.move, ch.reason);
+        step(s.turn, ch.move);
       }, ctx.delay(650));
     }
     bRoll.onclick = () => { if (ctx.players[s.turn].human && !s.over) step(s.turn, 'roll'); };
     bHold.onclick = () => { if (ctx.players[s.turn].human && !s.over && s.turnTotal) step(s.turn, 'hold'); };
     draw();
-    ctx.players.forEach((p, i) => { if (!p.human && rng.chance(0.4)) say(i, 'start'); });
+    const opener = ctx.players.findIndex(p => !p.human);
+    if (opener >= 0) say(opener, 'start');
     loop();
     return { destroy() { dead = true; clearTimeout(timer); } };
   }

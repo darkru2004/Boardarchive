@@ -1,5 +1,5 @@
 // 공통 상수·검증. 스키마 버전은 여기서만 관리한다.
-export const APP_VERSION = '0.2.0';
+export const APP_VERSION = '0.3.0';
 export const SCHEMA = { record: 1, backup: 1, character: 1, data: 1 };
 
 export const TRAIT_KEYS = ['skill', 'aggression', 'risk', 'patience', 'bluff'];

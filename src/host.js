@@ -5,7 +5,7 @@ import { buildRecord, saveRecord, listRecords } from '../core/records.js';
 import { computeAchievements } from '../core/stats.js';
 import { campaignKey, saveCampaign, loadCampaign } from '../core/storage.js';
 import { linesFor, activeOnly } from '../core/characters.js';
-import { h, avatar, modal, toast } from './ui.js';
+import { h, avatar, modal, toast, dieSvg, ornament, bubbles } from './ui.js';
 
 export async function unlockNew(app) {
   const recs = await listRecords(app.storage);
@@ -33,14 +33,15 @@ export async function launchGame(app, entry, seats) {
     if (!confirmExit) { confirmExit = true; exitBtn.textContent = '정말 나갈까요? (기록 안 남음)'; setTimeout(() => { confirmExit = false; exitBtn.textContent = '나가기'; }, 3000); return; }
     leave();
   } }, '나가기');
-  root.append(h('div', { class: 'gamebar' }, h('b', {}, entry.name), exitBtn), gameRoot);
+  root.append(h('div', { class: 'gamebar' }, h('div', { class: 'brand', style: 'font-size:28px' }, entry.name.replace(/\s*\(.*\)\s*$/, ''), h('small', {}, `${players.length}인 · v${entry.version}`)), exitBtn), gameRoot);
 
   const leave = () => { if (instance && instance.destroy) instance.destroy(); document.body.classList.remove('playing'); return app.goHome(); };
 
   const ctx = {
     gameId: entry.id,
     players,
-    delay: ms => (app.fast ? 5 : ms),     // 자동 테스트에서만 빠르게
+    delay: ms => (app.fast ? 5 : ms),
+    kit: { dieSvg, ornament, bubbles },      // 공용 디자인 조각(주사위·장식·물방울)     // 자동 테스트에서만 빠르게
     rng: makeRng(),
     avatar: (seat, size) => avatar(app, players[seat].characterId, size),
     say: (seat, key) => {
@@ -70,16 +71,15 @@ function showResult(app, entry, seats, rec, fresh, { again, home }) {
   const sorted = rec.players.slice().sort((a, b) => a.rank - b.rank || a.seat - b.seat);
   const me = rec.players.find(p => p.human);
   const body = [
-    h('h2', { style: 'margin-top:0' }, me.rank === 1 ? '🎉 승리!' : `${me.rank}위로 마무리`),
-    h('div', { class: 'muted' }, rec.summary),
+    h('div', { class: 'brand', style: 'font-size:34px' }, me.rank === 1 ? 'Victory' : `Rank ${me.rank}`, h('small', {}, me.rank === 1 ? '승리했습니다' : `${me.rank}위로 마무리 · ${rec.summary}`)),
     ...sorted.map(p => h('div', { class: 'rank-row' + (p.rank === 1 ? ' first' : '') },
-      h('div', { class: 'r' }, p.rank), avatar(app, p.characterId, 34),
+      h('div', { class: 'r' }, p.rank), avatar(app, p.characterId, 38),
       h('div', { class: 'grow' }, p.human ? '나' : app.lookup(p.characterId).name),
-      h('div', {}, p.score != null ? `${p.score}점` : ''))),
-    fresh.length ? h('div', { class: 'banner', style: 'margin-top:12px' }, '업적 달성: ' + fresh.map(a => app.achievementDefs.find(d => d.id === a.id).name).join(', ')) : null,
-    h('div', { class: 'row', style: 'margin-top:14px' },
-      h('button', { class: 'btn blue grow', onclick: () => { m.close(); again(); } }, '한 판 더'),
-      h('button', { class: 'btn grow', onclick: () => { m.close(); home(); } }, '홈으로'))
+      h('div', { style: 'font-family:var(--fd);font-size:18px' }, p.score != null ? `${p.score}` : ''))),
+    fresh.length ? h('div', { class: 'paper taped', style: 'margin-top:16px;--r:-1deg;background:#efece4' }, '업적 달성 · ' + fresh.map(a => app.achievementDefs.find(d => d.id === a.id).name).join(', ')) : null,
+    h('div', { class: 'row', style: 'margin-top:16px' },
+      h('button', { class: 'btn go grow', onclick: () => { m.close(); again(); } }, '한 판 더', h('small', {}, 'AGAIN')),
+      h('button', { class: 'btn grow', onclick: () => { m.close(); home(); } }, '홈으로', h('small', {}, 'HOME')))
   ];
   const m = modal(body);
   toast('기록이 저장되었습니다');

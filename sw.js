@@ -13,7 +13,14 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', e => {
   const req = e.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  if (req.method !== 'GET') return;
+  const u = new URL(req.url);
+  // 글꼴(구글 폰트)은 한 번 받으면 저장해 두고 재사용 → 오프라인에서도 같은 글꼴
+  if (u.hostname === 'fonts.googleapis.com' || u.hostname === 'fonts.gstatic.com') {
+    e.respondWith(caches.open('boardarchive-fonts').then(async c => (await c.match(req)) || fetch(req).then(r => { if (r.ok || r.type === 'opaque') c.put(req, r.clone()); return r; })));
+    return;
+  }
+  if (u.origin !== location.origin) return;
   e.respondWith((async () => {
     const c = await caches.open(CACHE);
     try {

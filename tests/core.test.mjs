@@ -276,7 +276,7 @@ await test('배포 파일', 'precache.json이 최신이다 (파일을 추가했�
 });
 await test('배포 파일', 'index.html·매니페스트가 가리키는 파일이 모두 존재한다 (아이콘·스크립트·스타일)', () => {
   const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
-  for (const m of html.matchAll(/(?:src|href)="([^"#]+)"/g)) assert(existsSync(join(ROOT, m[1])), `없음: ${m[1]}`);
+  for (const m of html.matchAll(/(?:src|href)="([^"#]+)"/g)) if (!/^https?:/.test(m[1])) assert(existsSync(join(ROOT, m[1])), `없음: ${m[1]}`);
   for (const i of readJson('manifest.webmanifest').icons) assert(existsSync(join(ROOT, i.src)), `아이콘 없음: ${i.src}`);
 });
 await test('배포 파일', '모든 경로가 상대 경로다 (하위 폴더에 올려도 동작: 절대경로 "/..." 사용 없음)', () => {

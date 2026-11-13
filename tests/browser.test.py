@@ -17,7 +17,10 @@ errors = []
 try:
     with sync_playwright() as pw:
         br = pw.chromium.launch(executable_path="/usr/bin/google-chrome", headless=True, args=["--no-sandbox"])
+        # 테스트 환경은 외부 인터넷이 막혀 있어 글꼴(구글 폰트)은 빈 응답으로 대체 (실제 기기에서는 정상 로드)
+        FONT_STUB = lambda r: r.fulfill(status=200, body="", content_type="text/css")
         ctx = br.new_context(viewport={"width": 390, "height": 844}, accept_downloads=True)
+        ctx.route(re.compile(r"https://fonts\.(googleapis|gstatic)\.com/.*"), FONT_STUB)
         page = ctx.new_page()
         page.on("pageerror", lambda e: errors.append("pageerror: " + str(e)))
         page.on("console", lambda m: errors.append("console.error: " + m.text) if m.type == "error" else None)
@@ -28,12 +31,12 @@ try:
         page.goto(BASE + "?fast=1"); page.wait_for_selector("#nav a")
         check("시작 화면", "앱이 열리고 하단 탭 4개(게임·도감·기록·설정)가 보인다", lambda: (
             (_ for _ in ()).throw(AssertionError("탭 수 " + str(page.locator('#nav a').count()))) if page.locator('#nav a').count() != 4 else None))
-        check("시작 화면", "게임 목록에 시험용 게임이 있고 '시험용' 표시가 붙는다", lambda: (page.wait_for_selector("text=스톱! (시험용)"), page.wait_for_selector(".tag.test")))
+        check("시작 화면", "게임 목록에 시험용 게임이 있고 '시험용' 표시가 붙는다", lambda: (page.wait_for_selector(".gcard[data-id=stop-test]"), page.wait_for_selector(".gcard[data-id=stop-test] .tag.test")))
         page.screenshot(path=f"{SHOTS}/1-home.png")
 
         # ---------- 게임 한 판 ----------
         def play_game():
-            page.click("text=플레이"); page.wait_for_selector("#setup .seat")
+            page.click(".gcard[data-id=stop-test]"); page.wait_for_selector("#setup .seat")
             page.click("button[data-n='4']")
             assert page.locator("#setup .seat").count() == 4, "4인 좌석이 아님"
             assert page.locator("#setup .seat.me").count() == 1, "사람 자리가 1개가 아님"
@@ -56,7 +59,7 @@ try:
         rec = page.evaluate("window.__ba.storage.all('records').then(a => a[0].value)")
         check("게임 진행", "저장된 기록에 게임·버전·4명의 순위가 들어 있다", lambda: (
             None if (rec["gameId"] == "stop-test" and rec["gameVersion"] == "0.1.0" and len(rec["players"]) == 4 and sorted(p["rank"] for p in rec["players"])[0] == 1 and sum(1 for p in rec["players"] if p["human"]) == 1) else (_ for _ in ()).throw(AssertionError(json.dumps(rec, ensure_ascii=False)[:200]))))
-        page.click("text=홈으로"); page.wait_for_selector("text=스톱! (시험용)")
+        page.click("text=홈으로"); page.wait_for_selector(".gcard[data-id=stop-test]")
         check("게임 진행", "'홈으로'를 누르면 게임 목록으로 돌아온다 (하단 탭 복귀)", lambda: page.wait_for_selector("#nav a", state="visible"))
 
         # ---------- 기록 화면 ----------
@@ -71,8 +74,8 @@ try:
 
         # ---------- 초상화 ----------
         page.click("#nav a[data-tab=dex]"); page.wait_for_selector(".dex")
-        check("도감·초상화", "캐릭터 3명이 도감에 나온다 (이니셜 아바타 기본)", lambda: (_ for _ in ()).throw(AssertionError(str(page.locator('.dex').count()))) if page.locator(".dex").count() != 3 else None)
-        page.click(".dex[data-id=rapi]"); page.wait_for_selector("#portraitFile", state="attached")
+        check("도감·초상화", "캐릭터 3명이 도감 썸네일에 나온다 (이니셜 아바타 기본)", lambda: (_ for _ in ()).throw(AssertionError(str(page.locator('.dex').count()))) if page.locator(".dex").count() != 3 else None)
+        page.click(".dex[data-id=rapi]"); page.wait_for_selector(".dex[data-id=rapi].on"); page.wait_for_selector("#portraitFile", state="attached")
         page.set_input_files("#portraitFile", "/tmp/portrait-test.png")
         page.wait_for_function("window.__ba.portraits.has('rapi')")
         check("도감·초상화", "이미지를 고르면 자동 축소되어 저장된다 (192px JPEG, 100KB 미만)", lambda: (
@@ -97,6 +100,7 @@ try:
 
         # 완전히 새 브라우저 = "모바일 기기"
         ctx2 = br.new_context(viewport={"width": 390, "height": 844}, accept_downloads=True)
+        ctx2.route(re.compile(r"https://fonts\.(googleapis|gstatic)\.com/.*"), FONT_STUB)
         p2 = ctx2.new_page(); p2.on("pageerror", lambda e: errors.append("pageerror(기기2): " + str(e)))
         p2.goto(BASE); p2.wait_for_selector("#nav a")
         check("백업·복원", "새 기기(빈 저장소)에서는 기록 0건, 초상화 없음으로 시작한다", lambda: (None if count_records(p2) == 0 and not p2.evaluate("window.__ba.portraits.has('rapi')") else (_ for _ in ()).throw(AssertionError("비어있지 않음"))))
@@ -132,17 +136,25 @@ try:
         ctx.set_offline(True)
         def offline_ok():
             page.reload(); page.wait_for_selector("#nav a", timeout=10000)
-            page.wait_for_selector("text=스톱! (시험용)")
+            page.wait_for_selector(".gcard[data-id=stop-test]")
             page.click("#nav a[data-tab=records]"); page.wait_for_selector("#overall")
             assert "총 1판" in page.inner_text("#overall"), "기록이 안 보임"
         check("오프라인(PWA)", "인터넷을 끊고 새로고침해도 앱이 열리고 기록이 보인다", offline_ok)
         def offline_game():
-            page.click("#nav a[data-tab=home]"); page.click("text=플레이"); page.wait_for_selector("#setup .seat"); page.click("#btnStart"); page.wait_for_selector(".g-stop", timeout=8000)
+            page.click("#nav a[data-tab=home]"); page.click(".gcard[data-id=stop-test]"); page.wait_for_selector("#setup .seat"); page.click("#btnStart"); page.wait_for_selector(".g-stop", timeout=8000)
         check("오프라인(PWA)", "오프라인에서도 게임 파일을 불러와 게임이 시작된다", offline_game)
         ctx.set_offline(False)
         mf = page.evaluate("fetch('manifest.webmanifest').then(r => r.json())")
         check("오프라인(PWA)", "설치용 매니페스트(이름·standalone·아이콘 3종)가 올바르다", lambda: (None if mf["display"] == "standalone" and len(mf["icons"]) == 3 and mf["start_url"] == "./" else (_ for _ in ()).throw(AssertionError("매니페스트"))))
 
+        page.goto(BASE); page.wait_for_selector("#nav a")
+        css = page.evaluate("[getComputedStyle(document.body).overscrollBehaviorY, document.querySelector('meta[name=color-scheme]').content]")
+        check("디자인", "당겨서 새로고침이 꺼져 있고(overscroll none), 강제 다크모드 제외(only light) 설정이 들어 있다", lambda: (None if css == ["none", "only light"] else (_ for _ in ()).throw(AssertionError(str(css)))))
+        for w, nm in [(360, "폰 360px"), (1280, "PC 1280px")]:
+            page.set_viewport_size({"width": w, "height": 860}); page.wait_for_timeout(200)
+            ov = page.evaluate("document.documentElement.scrollWidth > window.innerWidth + 1")
+            check("디자인", f"{nm} 화면에서 가로로 넘치는 부분이 없다", lambda ov=ov: (None if not ov else (_ for _ in ()).throw(AssertionError("가로 스크롤 생김"))))
+        page.set_viewport_size({"width": 390, "height": 844})
         check("전체", "테스트 내내 화면 오류(콘솔 에러·예외)가 0건이다", lambda: (None if not errors else (_ for _ in ()).throw(AssertionError("; ".join(errors[:3])))))
         br.close()
 finally:

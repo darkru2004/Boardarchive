@@ -1,6 +1,7 @@
 {
  "files": [
   "./",
+  "README.md",
   "core/backup.js",
   "core/characters.js",
   "core/records.js",

@@ -14,6 +14,7 @@ const app = {
   },
   goHome() { location.hash = '#/'; return app.render(); },
   startSetup(entry, count, holder) {
+    if (app.tab !== 'home') return;
     holder = holder || document.getElementById('setupHolder');
     if (!holder) return;
     if (document.body.classList.contains('playing')) return;
@@ -29,13 +30,14 @@ const app = {
     } catch (e) { root.append(h('div', { class: 'banner' }, '화면 오류: ' + e.message)); console.error(e); }
     app.view.replaceChildren(root);
     renderNav();
+    window.scrollTo(0, 0);
   }
 };
 
 function renderNav() {
-  const items = [['home', '게임'], ['dex', '도감'], ['records', '기록'], ['settings', '설정']];
-  document.getElementById('nav').replaceChildren(...items.map(([k, label]) =>
-    h('a', { href: k === 'home' ? '#/' : `#/${k}`, class: app.tab === k ? 'on' : '', 'data-tab': k }, label)));
+  const items = [['home', 'PLAY', '게임'], ['dex', 'ALBUM', '도감'], ['records', 'RECORD', '기록'], ['settings', 'OPTION', '설정']];
+  document.getElementById('nav').replaceChildren(...items.map(([k, en, ko]) =>
+    h('a', { href: k === 'home' ? '#/' : `#/${k}`, class: app.tab === k ? 'on' : '', 'data-tab': k }, en, h('small', {}, ko))));
 }
 
 async function boot() {
