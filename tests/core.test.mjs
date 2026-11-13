@@ -468,6 +468,13 @@ await test('노땡스', '인원수 반영: 같은 고숫자(29)를 3인은 7인�
       for (let k = 0; k < 200; k++) { const q = s.turn; if (nothanks.botChoose(s, pl[q].traits, rng, { seat: q, rivalSeats: [] }).move === 'take') break; nothanks.applyMove(s, 'pass'); } sum += s.pot; } return sum / T; };
   const a = avgPot(3), b = avgPot(7); assert(a + 1.5 < b, `3인 ${a.toFixed(1)} / 7인 ${b.toFixed(1)}`);
 });
+await test('노땡스', '마지막 칩 1개가 남아도 34(판 위 칩 12)처럼 너무 아픈 카드는 넘긴다 (7인, 받을 확률 10% 미만)', () => {
+  const rng = makeRng(34); const act = REAL.filter(c => c.status !== 'retired').map(c => c.id); let k = 0; const N = 500;
+  for (let t = 0; t < N; t++) { const ids = rng.shuffle(act).slice(0, 7); const seats = ids.map((id, i) => ({ seat: i, human: false, characterId: id })); const pl = buildPlayers(seats, REAL, 'nothanks');
+    const s = nothanks.newGame({ players: seats, rng }); s.deck = s.deck.filter(x => x !== 34).slice(0, 14); s.card = 34; s.pot = 12; s.turn = 0; s.chips = s.chips.map((c, i) => i ? 5 : 1);
+    if (nothanks.botChoose(s, pl[0].traits, rng, { seat: 0, rivalSeats: pl[0].rivalSeats, allySeats: pl[0].allySeats }).move === 'take') k++; }
+  assert(k / N < 0.1, `받은 비율 ${(k / N * 100).toFixed(0)}%`);
+});
 await test('노땡스', '게임별 대사(gameTweaks)를 추가해도 공통 대사는 그대로이고, 대사만 늘려도 규격 검사에 영향 없다', () => {
   const c = REAL.find(x => x.id === 'rapi');
   eq(linesFor(c, 'nothanks', 'start'), c.lines.start);                 // 공통 대사 유지

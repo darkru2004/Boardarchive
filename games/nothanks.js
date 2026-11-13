@@ -21,6 +21,7 @@ const clip = (v, a, b) => Math.min(b, Math.max(a, v));
 // ---------- 봇 튜닝 값 ----------
 const BASE = 3, PAT_W = 0.2, SCARCE_AT = 4, SCARCE_W = 2.5, AGG_W = 0.02, NOISE_W = 0.8, RISK_W = 0.08;
 const BLOCK_W = 0.2, BLOCK_CAP = 5, BLOCK_MIN_CHIPS = 3, FREE_DENY = 2;                        // 견제
+const PRESSURE_CUT = 17.5;                                             // 실질 손해가 이 값 이상이면 칩 압박이 사라진다
 const PRESSURE = [0, 15, 8, 3.5, 1.5];                              // 남은 칩 0~4개일 때의 압박(점수 환산)
 const WAIT_RESERVE = 2, WAIT_LOOK = 4;                          // 기다리기: 칩은 최소 2개 남김, 최대 4바퀴 앞까지 내다봄
 const DENY_W = 0.075;                                           // 견제(일반): 남이 공짜로 키우는 카드를 막는 강도
@@ -76,7 +77,7 @@ function allyTargetSeat(s, me, allies) {
 
 export default {
   meta: {
-    id: 'nothanks', name: '노땡스!', version: '1.7.0',
+    id: 'nothanks', name: '노땡스!', version: '1.7.1',
     players: { min: 3, max: 7 }, minutes: 10,
     campaign: null
   },
@@ -132,7 +133,8 @@ export default {
     harm = w ? harm / w : 0;
 
     // 칩 압박: 칩이 바닥나면 다음 카드는 뭐가 와도 강제로 받는다. 남은 칩이 적을수록 "지금 이 정도면 먹자"로 기운다.
-    const pressure = (PRESSURE[s.chips[me]] || 0) * (1 - t.risk * RISK_W * 0.5) * (0.6 + t.skill * 0.04) * Math.min(1, s.deck.length / 8);
+    const pressure = (PRESSURE[s.chips[me]] || 0) * (1 - t.risk * RISK_W * 0.5) * (0.6 + t.skill * 0.04) * Math.min(1, s.deck.length / 8)
+      * Math.min(1, Math.max(0, (PRESSURE_CUT - net) / 4));            // 이 카드가 너무 아프면 마지막 칩이라도 넘기는 게 낫다(돌아올 땐 판 위 칩이 더 쌓여 있다)
     const A = BASE + (5 - t.patience) * PAT_W + pressure - t.aggression * AGG_W * harm
       + pot * swingN(s.n) * (0.7 + t.skill * 0.03);                     // 작은 카드도 칩 0개면 일단 넘겨 본다. 칩이 쌓일수록 받을 만해짐
 
