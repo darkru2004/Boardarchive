@@ -356,6 +356,15 @@ await test('노땡스', '첫 카드로 29가 나오면 봇이 칩 21개까지 �
   }
   assert(sum / N < 16, `평균 ${(sum / N).toFixed(1)}개에서 가져감`);
 });
+await test('노땡스', '작은 카드(5)가 칩 0개로 열려도 바로 먹지 않고 넘겨서 칩을 쌓는다 (바로 먹는 비율 20% 미만)', () => {
+  const rng = makeRng(13); const seats = [0, 1, 2].map(i => ({ seat: i, human: false, characterId: ['rapi', 'edel', 'yuno'][i] })).concat([{ seat: 3, human: true, characterId: null }]);
+  const pl = buildPlayers(seats, REAL, 'nothanks'); let zero = 0; const N = 600;
+  for (let t = 0; t < N; t++) {
+    const s = nothanks.newGame({ players: seats, rng }); s.deck = s.deck.filter(x => x !== 5); s.card = 5; s.turn = t % 3;
+    if (nothanks.botChoose(s, pl[s.turn].traits, rng, { seat: s.turn, rivalSeats: [] }).move === 'take') zero++;
+  }
+  assert(zero / N < 0.2, `바로 먹음 ${(zero / N * 100).toFixed(0)}%`);
+});
 await test('노땡스', '게임별 대사(gameTweaks)를 추가해도 공통 대사는 그대로이고, 대사만 늘려도 규격 검사에 영향 없다', () => {
   const c = REAL.find(x => x.id === 'rapi');
   eq(linesFor(c, 'nothanks', 'start'), c.lines.start);                 // 공통 대사 유지
