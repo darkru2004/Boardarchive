@@ -324,6 +324,28 @@ await test('노땡스', '라피가 31을 들고 32가 나오면(공짜 카드) �
   assert(waited / N >= 0.7, `2바퀴 이상 기다린 비율 ${(waited / N * 100).toFixed(0)}%`);
   assert(rapiTook / N >= 0.9, `라피가 가져간 비율 ${(rapiTook / N * 100).toFixed(0)}%`);
 });
+await test('노땡스', '인내심 낮은 유노도 안전한 공짜 카드(31 보유, 32 등장)는 대부분 한 바퀴는 돌려 본다', () => {
+  const rng = makeRng(8); let tried = 0; const N = 600;
+  const seats = [{ seat: 0, human: true, characterId: null }, { seat: 1, human: false, characterId: 'rapi' }, { seat: 2, human: false, characterId: 'edel' }, { seat: 3, human: false, characterId: 'yuno' }];
+  const pl = buildPlayers(seats, REAL, 'nothanks');
+  for (let t = 0; t < N; t++) {
+    const s = nothanks.newGame({ players: seats, rng });
+    s.cards[3] = [31]; s.deck = s.deck.filter(x => x !== 31 && x !== 32); s.card = 32; s.pot = 1; s.turn = 3; s.chips = [9, 9, 9, 9];
+    if (nothanks.botChoose(s, pl[3].traits, rng, { seat: 3, rivalSeats: pl[3].rivalSeats }).move === 'pass') tried++;
+  }
+  assert(tried / N >= 0.6, `한 바퀴 돌린 비율 ${(tried / N * 100).toFixed(0)}%`);
+});
+await test('노땡스', '누가 공짜 카드를 키우다 판 위 칩이 두둑해지면(15 · 칩 7, 라피가 14 보유) 공격적인 에델이 먼저 가로채 막는다', () => {
+  const rng = makeRng(6); let blocked = 0; const N = 600;
+  const seats = [{ seat: 0, human: true, characterId: null }, { seat: 1, human: false, characterId: 'rapi' }, { seat: 2, human: false, characterId: 'edel' }, { seat: 3, human: false, characterId: 'yuno' }];
+  const pl = buildPlayers(seats, REAL, 'nothanks');
+  for (let t = 0; t < N; t++) {
+    const s = nothanks.newGame({ players: seats, rng });
+    s.cards = [[5], [14], [27], [9]]; s.deck = s.deck.filter(x => ![5, 14, 15, 27, 9].includes(x)); s.card = 15; s.pot = 7; s.turn = 2; s.chips = [8, 8, 8, 8];
+    if (nothanks.botChoose(s, pl[2].traits, rng, { seat: 2, rivalSeats: pl[2].rivalSeats }).move === 'take') blocked++;
+  }
+  assert(blocked / N >= 0.6, `가로챈 비율 ${(blocked / N * 100).toFixed(0)}%`);
+});
 await test('노땡스', '게임별 대사(gameTweaks)를 추가해도 공통 대사는 그대로이고, 대사만 늘려도 규격 검사에 영향 없다', () => {
   const c = REAL.find(x => x.id === 'rapi');
   eq(linesFor(c, 'nothanks', 'start'), c.lines.start);                 // 공통 대사 유지

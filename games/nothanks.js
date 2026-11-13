@@ -21,9 +21,29 @@ const clip = (v, a, b) => Math.min(b, Math.max(a, v));
 // ---------- 봇 튜닝 값 ----------
 const BASE = 8, PAT_W = 0.2, SCARCE_AT = 4, SCARCE_W = 2.5, AGG_W = 0.02, NOISE_W = 1.2, RISK_W = 0.08;
 const BLOCK_W = 0.2, BLOCK_CAP = 5, BLOCK_MIN_CHIPS = 3, FREE_DENY = 2;                        // 견제
-const WAIT_MIN_CHIPS = 5, WAIT_RIVAL_NET = 3;                                                  // 기다리기
-const waitMax = t => Math.max(0, Math.floor(t.patience / 2) - 1);      // 인내심 9→3바퀴 · 7→2 · 5→1 · 3 이하→0
-const waitProb = t => 0.4 + t.patience * 0.06;
+const WAIT_RESERVE = 2, WAIT_LOOK = 4;                          // 기다리기: 칩은 최소 2개 남김, 최대 4바퀴 앞까지 내다봄
+const DENY_W = 0.075;                                            // 견제(일반): 남이 공짜로 키우는 카드를 막는 강도
+
+// 상대 q가 이 카드를 받을지 대략 예측 (봇은 칩 개수를 센다). 막으러 오는 것까지 감안해 문턱을 높게 잡는다.
+function wouldTake(s, q, card, potAt, chipsLeft, ownerMarginal) {
+  if (chipsLeft <= 0) return true;                                     // 칩이 없으면 강제로 받는다
+  const net = marginal(s.cards[q], card) - potAt;
+  const deny = ownerMarginal <= 0 ? Math.min(4, potAt * 0.35) : 0;      // 내가 공짜로 키우는 게 보이면 막으러 올 수 있다
+  return net <= 8 + (chipsLeft <= 2 ? 4 : 0) + deny;
+}
+// 몇 바퀴까지 돌려도 아무도 채 가지 않을지 (0 = 지금 바로 받아야 안전)
+function safeRounds(s, me, card, mine) {
+  const opp = []; for (let k = 1; k < s.n; k++) opp.push((me + k) % s.n);
+  for (let r = 1; r <= WAIT_LOOK; r++) {
+    if (s.chips[me] - r < WAIT_RESERVE) return r - 1;
+    for (let i = 0; i < opp.length; i++) {
+      const q = opp[i];
+      const potAt = s.pot + r + (r - 1) * (s.n - 1) + i;                  // q 차례에 판 위에 쌓여 있을 칩
+      if (wouldTake(s, q, card, potAt, s.chips[q] - (r - 1), mine)) return r - 1;
+    }
+  }
+  return WAIT_LOOK;
+}
 
 // 이 봇이 지금 노리는 상대 자리 (없으면 -1)
 function targetSeat(s, me, t, info) {
@@ -38,7 +58,7 @@ function targetSeat(s, me, t, info) {
 
 export default {
   meta: {
-    id: 'nothanks', name: '노땡스!', version: '1.1.0',
+    id: 'nothanks', name: '노땡스!', version: '1.2.0',
     players: { min: 3, max: 7 }, minutes: 10,
     campaign: null
   },
@@ -101,22 +121,28 @@ export default {
       grudge = Math.min(BLOCK_CAP, dv * t.aggression * BLOCK_W);
     }
 
+    // 견제(일반): 누군가 이 카드를 공짜로 받을 수 있고 판 위 칩이 두둑하면, 손해를 감수하고 먼저 가져간다
+    if (s.chips[me] >= BLOCK_MIN_CHIPS) {
+      let dv = 0;
+      for (let q = 0; q < s.n; q++) { if (q === me) continue; const qm = marginal(s.cards[q], card); if (qm <= 0) dv = Math.max(dv, pot + Math.min(2, -qm)); }   // 막을 가치 ≈ 그 사람이 챙길 칩
+      grudge = Math.max(grudge, Math.min(BLOCK_CAP, dv * t.aggression * DENY_W));
+    }
+
+    // 기다리기: 나에게 공짜인 카드는 "아무도 채 가지 않을 만큼" 돌려 칩을 모은다.
+    //   안전한 바퀴 수를 먼저 계산하고, 인내심이 그중 몇 바퀴를 쓸지 정한다.
+    //   인내심이 높으면 가끔 안전선을 한 바퀴 넘겨 욕심을 내다가 뺏길 수도 있다(발목 잡기).
+    if (mine <= 0) {
+      let safe = safeRounds(s, me, card, mine);
+      if (rng.next() < (10 - t.skill) * 0.05) safe += rng.next() < 0.5 ? -1 : 1;      // 실력 낮으면 오판
+      const gamble = t.patience >= 7 ? 0.3 + t.risk * 0.04 : t.patience >= 4 ? 0.1 + t.risk * 0.02 : 0;   // 안전선을 넘겨 한 바퀴 더 욕심낼 확률
+      const greed = Math.min(t.patience >= 7 ? 4 : t.patience >= 4 ? 2 : 1, safe + (rng.next() < gamble ? 1 : 0));
+      if (s.waits[me] < greed && s.chips[me] > WAIT_RESERVE) return { move: 'pass', reason: 'wait' };
+    }
+
     const noise = (10 - t.skill) * NOISE_W * (rng.next() + rng.next() - 1) * 2;
     if (!(net + noise <= A + grudge)) return { move: 'pass', reason: 'normal' };
     const reason = (net + noise <= A) ? (mine <= 0 ? 'free' : 'normal') : 'block';
 
-    // 기다리기: 공짜 카드는 한 바퀴 돌려 칩을 더 모은다 (인내심만큼, 안전할 때만)
-    if (reason === 'free' && s.chips[me] >= WAIT_MIN_CHIPS) {
-      if (s.waits[me] < waitMax(t)) {
-        let safe = true;
-        for (let q = 0; q < s.n; q++) {
-          if (q === me) continue;
-          if (s.chips[q] <= 1) safe = false;                                         // 칩이 바닥난 사람은 곧 강제로 받아간다
-          if (marginal(s.cards[q], card) - (pot + 1) <= WAIT_RIVAL_NET) safe = false; // 남이 먹고 싶어할 카드
-        }
-        if (safe && rng.next() < waitProb(t)) return { move: 'pass', reason: 'wait' };
-      }
-    }
     return { move: 'take', reason };
   },
 
