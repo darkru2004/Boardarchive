@@ -20,6 +20,24 @@
       }
     },
     {
+      "id": "loveletter",
+      "file": "loveletter.js",
+      "name": "러브레터",
+      "version": "1.0.0",
+      "players": {
+        "min": 2,
+        "max": 6
+      },
+      "minutes": 15,
+      "desc": "손에 카드 1장. 뽑고, 하나를 내고, 추리하고, 속이세요. 마지막까지 살아남거나 가장 높은 카드로 공주의 마음을 얻으면 호감 토큰.",
+      "theme": {
+        "accent": "#d8a657",
+        "table": "#5a1e2c",
+        "table2": "#33101a",
+        "glyph": "♥"
+      }
+    },
+    {
       "id": "stop-test",
       "file": "stop-test.js",
       "name": "스톱! (시험용)",

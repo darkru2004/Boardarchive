@@ -9,7 +9,9 @@ SHOTS = os.environ.get("SHOTS", "/tmp/shots"); os.makedirs(SHOTS, exist_ok=True)
 results = []
 def check(group, name, fn):
     try: fn(); results.append((group, name, True, ""))
-    except Exception as e: results.append((group, name, False, str(e)[:300]))
+    except Exception as e:
+        results.append((group, name, False, str(e)[:300]))
+        if os.environ.get("BT_DEBUG"): print("FAIL", group, name, str(e)[:300], flush=True)
 
 srv = subprocess.Popen([sys.executable, "-m", "http.server", str(PORT), "--bind", "127.0.0.1"], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 time.sleep(1)
@@ -196,6 +198,33 @@ try:
         check("노땡스", "기록에 노땡스·버전 1.5.0·4명이 저장된다", lambda: (None if rec2["gameId"] == "nothanks" and rec2["gameVersion"] == "1.5.0" and len(rec2["players"]) == 4 else (_ for _ in ()).throw(AssertionError(str(rec2)[:200]))))
         p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=nothanks]")
         check("노땡스", "게임에서 나오면 게임 전용 스타일이 남지 않는다 (앨범 화면 보호)", lambda: (None if p2.evaluate("![...document.querySelectorAll('style')].some(s => s.textContent.includes('.g-nt'))") else (_ for _ in ()).throw(AssertionError("스타일이 남음"))))
+        # ---------- 러브레터: 실제 화면에서 2인 한 판 끝까지 ----------
+        p2.goto(BASE + "?fast=1"); p2.wait_for_selector("#nav a")
+        p2.click(".gcard[data-id=loveletter]"); p2.wait_for_selector("#setup .seat"); p2.click("button[data-n='2']"); p2.click("#btnStart"); p2.wait_for_selector(".g-ll")
+        check("러브레터", "게임 화면이 봉인 편지 테마로 뜨고 내 손패가 보인다", lambda: (None if p2.locator(".g-ll .ll-hand .ll-card").count() >= 1 else (_ for _ in ()).throw(AssertionError("손패 없음"))))
+        def play_ll():
+            t0 = time.time()
+            def tap(loc):
+                try: loc.click(timeout=1500)
+                except Exception: pass      # 결과창이 막 떠서 가려진 경우 등: 다음 반복에서 다시 판단
+            while p2.locator(".modal .rank-row").count() == 0:
+                if time.time() - t0 > 150: raise AssertionError("150초 안에 끝나지 않음")
+                if p2.locator(".g-ll .ll-over").is_visible():
+                    tap(p2.locator(".g-ll .ll-over .ll-btn"))
+                else:
+                    cards = p2.locator(".g-ll .ll-hand .ll-card:not(.no)")
+                    if p2.locator(".g-ll .ll-panel .ll-btn").count() == 0:
+                        if cards.count() > 0: tap(cards.first)
+                    else:
+                        pb = p2.locator(".g-ll .ll-panel .ll-btn:not(.off)")
+                        go = p2.locator(".g-ll .ll-panel .ll-btn.go, .g-ll .ll-panel .ll-btn.warn")
+                        if pb.count() > 0: tap(go.first if go.count() > 0 else pb.first)
+                p2.wait_for_timeout(15)
+        check("러브레터", "실제 화면을 눌러 2인 한 판을 끝까지 플레이하면 결과 화면이 나온다", play_ll)
+        rec3 = p2.evaluate("window.__ba.storage.all('records').then(a => a.map(x => x.value).find(v => v.gameId === 'loveletter'))")
+        check("러브레터", "기록에 러브레터·버전 1.0.0·2명이 저장된다", lambda: (None if rec3 and rec3["gameVersion"] == "1.0.0" and len(rec3["players"]) == 2 else (_ for _ in ()).throw(AssertionError(str(rec3)[:200]))))
+        p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=loveletter]")
+        check("러브레터", "게임에서 나오면 러브레터 전용 스타일이 남지 않는다", lambda: (None if p2.evaluate("![...document.querySelectorAll('style')].some(s => s.textContent.includes('.g-ll'))") else (_ for _ in ()).throw(AssertionError("스타일이 남음"))))
         ctx2.close()
         check("전체", "테스트 내내 화면 오류(콘솔 에러·예외)가 0건이다", lambda: (None if not errors else (_ for _ in ()).throw(AssertionError("; ".join(errors[:3])))))
         br.close()
