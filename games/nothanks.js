@@ -21,7 +21,9 @@ const clip = (v, a, b) => Math.min(b, Math.max(a, v));
 // ---------- 봇 튜닝 값 ----------
 const BASE = 8, PAT_W = 0.2, SCARCE_AT = 4, SCARCE_W = 2.5, AGG_W = 0.02, NOISE_W = 1.2, RISK_W = 0.08;
 const BLOCK_W = 0.2, BLOCK_CAP = 5, BLOCK_MIN_CHIPS = 3, FREE_DENY = 2;                        // 견제
-const WAIT_PROB = 0.5, WAIT_P0 = 4, WAIT_PD = 3, WAIT_MIN_CHIPS = 7, WAIT_RIVAL_NET = 0;       // 기다리기
+const WAIT_MIN_CHIPS = 5, WAIT_RIVAL_NET = 3;                                                  // 기다리기
+const waitMax = t => Math.max(0, Math.floor(t.patience / 2) - 1);      // 인내심 9→3바퀴 · 7→2 · 5→1 · 3 이하→0
+const waitProb = t => 0.4 + t.patience * 0.06;
 
 // 이 봇이 지금 노리는 상대 자리 (없으면 -1)
 function targetSeat(s, me, t, info) {
@@ -36,7 +38,7 @@ function targetSeat(s, me, t, info) {
 
 export default {
   meta: {
-    id: 'nothanks', name: '노땡스!', version: '1.0.0',
+    id: 'nothanks', name: '노땡스!', version: '1.1.0',
     players: { min: 3, max: 7 }, minutes: 10,
     campaign: null
   },
@@ -105,15 +107,14 @@ export default {
 
     // 기다리기: 공짜 카드는 한 바퀴 돌려 칩을 더 모은다 (인내심만큼, 안전할 때만)
     if (reason === 'free' && s.chips[me] >= WAIT_MIN_CHIPS) {
-      const maxWaits = Math.max(0, Math.floor((t.patience - WAIT_P0) / WAIT_PD));
-      if (s.waits[me] < maxWaits) {
+      if (s.waits[me] < waitMax(t)) {
         let safe = true;
         for (let q = 0; q < s.n; q++) {
           if (q === me) continue;
-          if (s.chips[q] <= 0) safe = false;                                         // 칩 없는 사람은 강제로 받아간다
+          if (s.chips[q] <= 1) safe = false;                                         // 칩이 바닥난 사람은 곧 강제로 받아간다
           if (marginal(s.cards[q], card) - (pot + 1) <= WAIT_RIVAL_NET) safe = false; // 남이 먹고 싶어할 카드
         }
-        if (safe && rng.next() < WAIT_PROB) return { move: 'pass', reason: 'wait' };
+        if (safe && rng.next() < waitProb(t)) return { move: 'pass', reason: 'wait' };
       }
     }
     return { move: 'take', reason };
@@ -250,13 +251,14 @@ export default {
       const leaderBefore = leaderSeat();
       self.applyMove(s, move);
       if (move === 'pass') {
-        log(`${nameOf(seat)}: 노땡스 (칩 -1)`);
+        log(`${nameOf(seat)}: 노땡스 (칩 -1)${reason === 'wait' ? ' · 공짜 카드라 칩을 더 모으려 기다림' : ''}`);
         if (reason === 'wait' && Math.random() < 0.6) say(seat, 'wait');
       } else {
         let note = '';
         if (reason === 'forced') note = ' · 칩이 없어 강제로 받음';
         else if (mineGain < 0) note = ' · 이어 붙어서 점수가 줄었어요';
         else if (mineGain === 0) note = ' · 연속 카드라 점수 증가 없음';
+        if (reason === 'block') note += ' · 상대에게 넘기지 않으려고 받음(견제)';
         log(`${nameOf(seat)}: ${card} 받음 (칩 +${pot})${note}`);
         if (!ctx.players[seat].human) {
           if (reason === 'forced') say(seat, 'forced');

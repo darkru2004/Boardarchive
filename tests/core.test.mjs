@@ -10,7 +10,7 @@ import { buildRecord, saveRecord, listRecords } from '../core/records.js';
 import { overall, gameStats, characterStats, computeAchievements } from '../core/stats.js';
 import { createMemoryStorage, ensureDataSchema, saveCampaign, loadCampaign } from '../core/storage.js';
 import { exportBackup, importBackup, migrateBackup, parseBackup } from '../core/backup.js';
-import { simulate, contractCheck } from '../core/runner.js';
+import { simulate, contractCheck, buildPlayers } from '../core/runner.js';
 import stopTest from '../games/stop-test.js';
 import nothanks from '../games/nothanks.js';
 
@@ -305,6 +305,24 @@ await test('노땡스', '마지막 카드를 받으면 게임이 끝나고 점�
   s.deck = []; s.cards = [[10], [10], [30]]; s.chips = [5, 5, 0]; s.card = 4; s.turn = 2; s.pot = 0;
   nothanks.applyMove(s, 'take'); assert(nothanks.isOver(s), '끝나야 함');
   const r = nothanks.result(s); eq(r.ranking.map(x => [x.seat, x.rank]), [[0, 1], [1, 1], [2, 3]]);
+});
+await test('노땡스', '라피가 31을 들고 32가 나오면(공짜 카드) 대부분 2바퀴 이상 넘기며 칩을 모은 뒤 가져간다', () => {
+  const rng = makeRng(3); let waited = 0, rapiTook = 0; const N = 600;
+  const seats = [{ seat: 0, human: true, characterId: null }, { seat: 1, human: false, characterId: 'rapi' }, { seat: 2, human: false, characterId: 'edel' }, { seat: 3, human: false, characterId: 'yuno' }];
+  const pl = buildPlayers(seats, REAL, 'nothanks');
+  for (let t = 0; t < N; t++) {
+    const s = nothanks.newGame({ players: seats, rng });
+    s.cards[1] = [31]; s.deck = s.deck.filter(x => x !== 31 && x !== 32); s.card = 32; s.pot = 1; s.turn = 1; s.chips = [9, 9, 9, 9];
+    let rounds = 0, taker = -1;
+    for (let k = 0; k < 40; k++) {
+      const seat = s.turn, ch = nothanks.botChoose(s, pl[seat].traits, rng, { seat, rivalSeats: pl[seat].rivalSeats });
+      if (ch.move === 'take') { taker = seat; break; }
+      nothanks.applyMove(s, 'pass'); if (seat === 1) rounds++;
+    }
+    if (taker === 1) rapiTook++; if (rounds >= 2) waited++;
+  }
+  assert(waited / N >= 0.7, `2바퀴 이상 기다린 비율 ${(waited / N * 100).toFixed(0)}%`);
+  assert(rapiTook / N >= 0.9, `라피가 가져간 비율 ${(rapiTook / N * 100).toFixed(0)}%`);
 });
 await test('노땡스', '게임별 대사(gameTweaks)를 추가해도 공통 대사는 그대로이고, 대사만 늘려도 규격 검사에 영향 없다', () => {
   const c = REAL.find(x => x.id === 'rapi');
