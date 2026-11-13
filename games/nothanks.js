@@ -73,7 +73,7 @@ function allyTargetSeat(s, me, allies) {
 
 export default {
   meta: {
-    id: 'nothanks', name: '노땡스!', version: '1.5.0',
+    id: 'nothanks', name: '노땡스!', version: '1.6.0',
     players: { min: 3, max: 7 }, minutes: 10,
     campaign: null
   },
