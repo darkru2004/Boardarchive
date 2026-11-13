@@ -1,0 +1,160 @@
+# 실제 크롬(헤드리스)으로 앱을 열어 사람이 하는 순서대로 점검한다: 게임 한 판 → 기록 → 초상화 → 백업 → "다른 기기"에서 복원 → 오프라인
+import json, re, subprocess, sys, time, os, tempfile
+from playwright.sync_api import sync_playwright
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PORT = 8123
+BASE = f"http://localhost:{PORT}/"
+SHOTS = os.environ.get("SHOTS", "/tmp/shots"); os.makedirs(SHOTS, exist_ok=True)
+results = []
+def check(group, name, fn):
+    try: fn(); results.append((group, name, True, ""))
+    except Exception as e: results.append((group, name, False, str(e)[:300]))
+
+srv = subprocess.Popen([sys.executable, "-m", "http.server", str(PORT), "--bind", "127.0.0.1"], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+time.sleep(1)
+errors = []
+try:
+    with sync_playwright() as pw:
+        br = pw.chromium.launch(executable_path="/usr/bin/google-chrome", headless=True, args=["--no-sandbox"])
+        ctx = br.new_context(viewport={"width": 390, "height": 844}, accept_downloads=True)
+        page = ctx.new_page()
+        page.on("pageerror", lambda e: errors.append("pageerror: " + str(e)))
+        page.on("console", lambda m: errors.append("console.error: " + m.text) if m.type == "error" else None)
+
+        def count_records(pg): return pg.evaluate("window.__ba.storage.all('records').then(a => a.length)")
+
+        # ---------- 시작 화면 ----------
+        page.goto(BASE + "?fast=1"); page.wait_for_selector("#nav a")
+        check("시작 화면", "앱이 열리고 하단 탭 4개(게임·도감·기록·설정)가 보인다", lambda: (
+            (_ for _ in ()).throw(AssertionError("탭 수 " + str(page.locator('#nav a').count()))) if page.locator('#nav a').count() != 4 else None))
+        check("시작 화면", "게임 목록에 시험용 게임이 있고 '시험용' 표시가 붙는다", lambda: (page.wait_for_selector("text=스톱! (시험용)"), page.wait_for_selector(".tag.test")))
+        page.screenshot(path=f"{SHOTS}/1-home.png")
+
+        # ---------- 게임 한 판 ----------
+        def play_game():
+            page.click("text=플레이"); page.wait_for_selector("#setup .seat")
+            page.click("button[data-n='4']")
+            assert page.locator("#setup .seat").count() == 4, "4인 좌석이 아님"
+            assert page.locator("#setup .seat.me").count() == 1, "사람 자리가 1개가 아님"
+            page.screenshot(path=f"{SHOTS}/2-setup.png")
+            page.click("#btnStart"); page.wait_for_selector(".g-stop")
+            page.screenshot(path=f"{SHOTS}/3-game.png")
+            t0 = time.time()
+            while page.locator(".modal .rank-row").count() == 0:
+                if time.time() - t0 > 90: raise AssertionError("90초 안에 게임이 끝나지 않음")
+                roll, hold = page.locator("[data-a=roll]"), page.locator("[data-a=hold]")
+                if roll.is_enabled():
+                    sub = page.locator(".g-sub").inner_text(); m = re.search(r"이번 차례 합계 (\d+)", sub); tt = int(m.group(1)) if m else 0
+                    if hold.is_enabled() and tt >= 15: hold.click()
+                    else: roll.click()
+                page.wait_for_timeout(15)
+            page.screenshot(path=f"{SHOTS}/4-result.png")
+        check("게임 진행", "실제 화면을 눌러 4인 한 판을 끝까지 플레이하면 결과 화면이 나온다", play_game)
+        check("게임 진행", "결과 화면에 순위 4줄이 나온다", lambda: (_ for _ in ()).throw(AssertionError(str(page.locator('.modal .rank-row').count()))) if page.locator(".modal .rank-row").count() != 4 else None)
+        check("게임 진행", "판이 끝나면 기록이 1건 저장된다", lambda: (_ for _ in ()).throw(AssertionError("기록 수 " + str(count_records(page)))) if count_records(page) != 1 else None)
+        rec = page.evaluate("window.__ba.storage.all('records').then(a => a[0].value)")
+        check("게임 진행", "저장된 기록에 게임·버전·4명의 순위가 들어 있다", lambda: (
+            None if (rec["gameId"] == "stop-test" and rec["gameVersion"] == "0.1.0" and len(rec["players"]) == 4 and sorted(p["rank"] for p in rec["players"])[0] == 1 and sum(1 for p in rec["players"] if p["human"]) == 1) else (_ for _ in ()).throw(AssertionError(json.dumps(rec, ensure_ascii=False)[:200]))))
+        page.click("text=홈으로"); page.wait_for_selector("text=스톱! (시험용)")
+        check("게임 진행", "'홈으로'를 누르면 게임 목록으로 돌아온다 (하단 탭 복귀)", lambda: page.wait_for_selector("#nav a", state="visible"))
+
+        # ---------- 기록 화면 ----------
+        page.click("#nav a[data-tab=records]"); page.wait_for_selector("#overall")
+        check("기록 화면", "총 1판이 표시되고 '첫 판' 업적이 달성 상태다", lambda: (
+            None if "총 1판" in page.inner_text("#overall") and page.locator(".ach.done[data-id='first-game']").count() == 1 else (_ for _ in ()).throw(AssertionError(page.inner_text("#overall")))))
+        page.screenshot(path=f"{SHOTS}/5-records.png", full_page=True)
+
+        # ---------- 새로고침해도 유지 ----------
+        page.reload(); page.wait_for_selector("#nav a")
+        check("저장 유지", "새로고침(앱 재실행) 후에도 기록 1건이 그대로 남아 있다", lambda: (_ for _ in ()).throw(AssertionError(str(count_records(page)))) if count_records(page) != 1 else None)
+
+        # ---------- 초상화 ----------
+        page.click("#nav a[data-tab=dex]"); page.wait_for_selector(".dex")
+        check("도감·초상화", "캐릭터 3명이 도감에 나온다 (이니셜 아바타 기본)", lambda: (_ for _ in ()).throw(AssertionError(str(page.locator('.dex').count()))) if page.locator(".dex").count() != 3 else None)
+        page.click(".dex[data-id=rapi]"); page.wait_for_selector("#portraitFile", state="attached")
+        page.set_input_files("#portraitFile", "/tmp/portrait-test.png")
+        page.wait_for_function("window.__ba.portraits.has('rapi')")
+        check("도감·초상화", "이미지를 고르면 자동 축소되어 저장된다 (192px JPEG, 100KB 미만)", lambda: (
+            None if page.evaluate("window.__ba.portraits.get('rapi')").startswith("data:image/jpeg;base64,") and len(page.evaluate("window.__ba.portraits.get('rapi')")) < 100_000 else (_ for _ in ()).throw(AssertionError("형식/크기"))))
+        page.screenshot(path=f"{SHOTS}/6-dex-detail.png")
+        page.reload(); page.wait_for_selector("#nav a")
+        check("도감·초상화", "새로고침 후에도 초상화가 유지된다", lambda: (None if page.evaluate("window.__ba.portraits.has('rapi')") else (_ for _ in ()).throw(AssertionError("사라짐"))))
+        page.click("#nav a[data-tab=dex]"); page.wait_for_selector(".dex")
+        check("도감·초상화", "도감 화면에서 라피 아바타가 이미지로 보인다 (이니셜 대신)", lambda: (
+            None if "url(" in page.locator(".dex[data-id=rapi] .av").get_attribute("style") else (_ for _ in ()).throw(AssertionError("이미지 없음"))))
+        page.screenshot(path=f"{SHOTS}/7-dex.png")
+
+        # ---------- 백업 → 다른 기기에서 복원 ----------
+        page.evaluate("import('./core/storage.js').then(m => m.saveCampaign(window.__ba.storage, {gameId:'legacy-x', slot:1, gameVersion:'1.0.0', data:{chapter:4}}))")
+        page.click("#nav a[data-tab=settings]"); page.wait_for_selector("#btnExport")
+        with page.expect_download() as dl: page.click("#btnExport")
+        bpath = os.path.join(tempfile.gettempdir(), "ba-backup.json"); dl.value.save_as(bpath)
+        bk = json.load(open(bpath, encoding="utf-8"))
+        check("백업·복원", "백업 파일이 만들어지고 기록·초상화·캠페인 슬롯이 들어 있다", lambda: (
+            None if bk["format"] == "boardarchive-backup" and len(bk["data"]["records"]) == 1 and "rapi" in bk["data"]["portraits"] and "legacy-x:1" in bk["data"]["campaigns"] else (_ for _ in ()).throw(AssertionError("내용 누락"))))
+        check("백업·복원", "파일 이름이 날짜가 들어간 boardarchive-backup-날짜-시각.json 이다", lambda: (None if re.match(r"boardarchive-backup-\d{8}-\d{4}\.json", dl.value.suggested_filename) else (_ for _ in ()).throw(AssertionError(dl.value.suggested_filename))))
+
+        # 완전히 새 브라우저 = "모바일 기기"
+        ctx2 = br.new_context(viewport={"width": 390, "height": 844}, accept_downloads=True)
+        p2 = ctx2.new_page(); p2.on("pageerror", lambda e: errors.append("pageerror(기기2): " + str(e)))
+        p2.goto(BASE); p2.wait_for_selector("#nav a")
+        check("백업·복원", "새 기기(빈 저장소)에서는 기록 0건, 초상화 없음으로 시작한다", lambda: (None if count_records(p2) == 0 and not p2.evaluate("window.__ba.portraits.has('rapi')") else (_ for _ in ()).throw(AssertionError("비어있지 않음"))))
+        p2.click("#nav a[data-tab=settings]"); p2.wait_for_selector("#importFile", state="attached")
+        p2.set_input_files("#importFile", bpath); p2.wait_for_selector("#btnMerge")
+        p2.screenshot(path=f"{SHOTS}/8-import.png", full_page=True)
+        p2.click("#btnMerge"); p2.wait_for_function("window.__ba.portraits.has('rapi')")
+        check("백업·복원", "PC에서 만든 백업을 새 기기에서 '합치기'하면 기록 1건·초상화·캠페인 슬롯이 복원된다", lambda: (
+            None if count_records(p2) == 1 and p2.evaluate("window.__ba.portraits.has('rapi')") and p2.evaluate("window.__ba.storage.get('campaigns','legacy-x:1').then(c=>c.data.chapter)") == 4 else (_ for _ in ()).throw(AssertionError("복원 실패"))))
+        p2.set_input_files("#importFile", bpath); p2.wait_for_selector("#btnMerge"); p2.click("#btnMerge"); p2.wait_for_timeout(400)
+        check("백업·복원", "같은 백업을 한 번 더 가져와도 기록이 중복되지 않는다", lambda: (None if count_records(p2) == 1 else (_ for _ in ()).throw(AssertionError(str(count_records(p2))))))
+        p2.reload(); p2.wait_for_selector("#nav a")
+        check("백업·복원", "복원 후 새로고침해도 유지된다", lambda: (None if count_records(p2) == 1 and p2.evaluate("window.__ba.portraits.has('rapi')") else (_ for _ in ()).throw(AssertionError("사라짐"))))
+        # 잘못된 파일
+        bad = os.path.join(tempfile.gettempdir(), "bad.json"); open(bad, "w").write("{\"hello\": 1}")
+        p2.click("#nav a[data-tab=settings]"); p2.wait_for_selector("#importFile", state="attached"); p2.set_input_files("#importFile", bad)
+        check("백업·복원", "엉뚱한 파일을 가져오면 안내 문구가 뜨고 데이터는 그대로다", lambda: (p2.wait_for_selector("text=이 앱의 백업 파일이 아닙니다"), None if count_records(p2) == 1 else (_ for _ in ()).throw(AssertionError("데이터 변함"))))
+
+        # 전체 삭제 후 교체 복원 (기기 1)
+        page.click("#btnWipe"); page.click("#btnWipe"); page.wait_for_function("window.__ba.portraits.size === 0")
+        check("백업·복원", "'모든 데이터 삭제'는 두 번 눌러야 실행되고, 기록·초상화가 비워진다", lambda: (None if count_records(page) == 0 else (_ for _ in ()).throw(AssertionError("안 지워짐"))))
+        page.set_input_files("#importFile", bpath); page.wait_for_selector("#btnReplace"); page.click("#btnReplace"); page.click("#btnReplace")
+        page.wait_for_function("window.__ba.portraits.has('rapi')")
+        check("백업·복원", "'전체 교체'로 삭제 전 상태가 그대로 복구된다 (기록 1건, 초상화)", lambda: (None if count_records(page) == 1 else (_ for _ in ()).throw(AssertionError(str(count_records(page))))))
+        page.screenshot(path=f"{SHOTS}/9-settings.png", full_page=True)
+
+        # ---------- 오프라인(PWA) ----------
+        page.goto(BASE); page.wait_for_selector("#nav a")
+        page.wait_for_function("navigator.serviceWorker.ready.then(r => !!r.active)", timeout=15000)
+        page.wait_for_timeout(1500)
+        ncache = page.evaluate("caches.open('boardarchive-files').then(c => c.keys()).then(k => k.length)")
+        check("오프라인(PWA)", f"서비스 워커가 켜지고 앱 파일 전체가 오프라인용으로 저장된다 ({ncache}개)", lambda: (None if ncache >= 20 else (_ for _ in ()).throw(AssertionError(f"저장 {ncache}개"))))
+        ctx.set_offline(True)
+        def offline_ok():
+            page.reload(); page.wait_for_selector("#nav a", timeout=10000)
+            page.wait_for_selector("text=스톱! (시험용)")
+            page.click("#nav a[data-tab=records]"); page.wait_for_selector("#overall")
+            assert "총 1판" in page.inner_text("#overall"), "기록이 안 보임"
+        check("오프라인(PWA)", "인터넷을 끊고 새로고침해도 앱이 열리고 기록이 보인다", offline_ok)
+        def offline_game():
+            page.click("#nav a[data-tab=home]"); page.click("text=플레이"); page.wait_for_selector("#setup .seat"); page.click("#btnStart"); page.wait_for_selector(".g-stop", timeout=8000)
+        check("오프라인(PWA)", "오프라인에서도 게임 파일을 불러와 게임이 시작된다", offline_game)
+        ctx.set_offline(False)
+        mf = page.evaluate("fetch('manifest.webmanifest').then(r => r.json())")
+        check("오프라인(PWA)", "설치용 매니페스트(이름·standalone·아이콘 3종)가 올바르다", lambda: (None if mf["display"] == "standalone" and len(mf["icons"]) == 3 and mf["start_url"] == "./" else (_ for _ in ()).throw(AssertionError("매니페스트"))))
+
+        check("전체", "테스트 내내 화면 오류(콘솔 에러·예외)가 0건이다", lambda: (None if not errors else (_ for _ in ()).throw(AssertionError("; ".join(errors[:3])))))
+        br.close()
+finally:
+    srv.terminate()
+
+groups = {}
+for g, n, ok, err in results: groups.setdefault(g, []).append((n, ok, err))
+fail = 0
+print("\n===== 브라우저 실사용 자동 테스트 (실제 크롬) =====")
+for g, rs in groups.items():
+    print(f"\n[{g}] {sum(1 for r in rs if r[1])}/{len(rs)} 통과")
+    for n, ok, err in rs:
+        print(f"  {'✅' if ok else '❌'} {n}" + ("" if ok else f"\n      → {err}")); fail += 0 if ok else 1
+print(f"\n합계: {len(results)-fail}/{len(results)} 통과" + (f", 실패 {fail}" if fail else ""))
+sys.exit(1 if fail else 0)

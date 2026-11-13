@@ -1,0 +1,28 @@
+{
+ "files": [
+  "./",
+  "core/backup.js",
+  "core/characters.js",
+  "core/records.js",
+  "core/rng.js",
+  "core/runner.js",
+  "core/schema.js",
+  "core/seating.js",
+  "core/stats.js",
+  "core/storage.js",
+  "data/achievements.json",
+  "data/characters.json",
+  "games/index.json",
+  "games/stop-test.js",
+  "icons/icon-192.png",
+  "icons/icon-512.png",
+  "icons/icon-maskable-512.png",
+  "index.html",
+  "manifest.webmanifest",
+  "src/app.js",
+  "src/host.js",
+  "src/style.css",
+  "src/ui.js",
+  "src/views.js"
+ ]
+}

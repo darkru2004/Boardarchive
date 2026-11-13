@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "achievements": [
+    { "id": "first-game", "name": "첫 판", "desc": "아무 게임이나 한 판 끝내기", "type": "games_played", "n": 1 },
+    { "id": "first-win", "name": "첫 승리", "desc": "한 판 이기기", "type": "wins", "n": 1 },
+    { "id": "ten-games", "name": "단골 손님", "desc": "열 판 플레이", "type": "games_played", "n": 10 },
+    { "id": "win-streak-3", "name": "3연승", "desc": "3판 연속 1등", "type": "win_streak", "n": 3 },
+    { "id": "try-3-games", "name": "골고루", "desc": "서로 다른 게임 3개 플레이", "type": "games_tried", "n": 3 },
+    { "id": "meet-all", "name": "전원 집합", "desc": "도감의 모든 캐릭터와 한 판씩 붙기", "type": "met_all_characters" },
+    { "id": "beat-rapi", "name": "라피를 꺾다", "desc": "라피보다 높은 순위로 끝내기", "type": "beat_character", "characterId": "rapi", "n": 1 },
+    { "id": "beat-edel", "name": "에델가르트를 꺾다", "desc": "에델가르트보다 높은 순위로 끝내기", "type": "beat_character", "characterId": "edel", "n": 1 },
+    { "id": "beat-yuno", "name": "유노를 꺾다", "desc": "가사이 유노보다 높은 순위로 끝내기", "type": "beat_character", "characterId": "yuno", "n": 1 }
+  ]
+}
