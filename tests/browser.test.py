@@ -224,7 +224,7 @@ try:
                 p2.wait_for_timeout(15)
         check("러브레터", "실제 화면을 눌러 2인 한 판을 끝까지 플레이하면 결과 화면이 나온다", play_ll)
         rec3 = p2.evaluate("window.__ba.storage.all('records').then(a => a.map(x => x.value).find(v => v.gameId === 'loveletter'))")
-        check("러브레터", "기록에 러브레터·버전 1.0.0·2명이 저장된다", lambda: (None if rec3 and rec3["gameVersion"] == "1.0.0" and len(rec3["players"]) == 2 else (_ for _ in ()).throw(AssertionError(str(rec3)[:200]))))
+        check("러브레터", "기록에 러브레터·버전 1.1.0·2명이 저장된다", lambda: (None if rec3 and rec3["gameVersion"] == "1.1.0" and len(rec3["players"]) == 2 else (_ for _ in ()).throw(AssertionError(str(rec3)[:200]))))
         p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=loveletter]")
         check("러브레터", "게임에서 나오면 러브레터 전용 스타일이 남지 않는다", lambda: (None if p2.evaluate("![...document.querySelectorAll('style')].some(s => s.textContent.includes('.g-ll'))") else (_ for _ in ()).throw(AssertionError("스타일이 남음"))))
         ctx2.close()

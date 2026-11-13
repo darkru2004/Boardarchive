@@ -244,7 +244,7 @@ function reasonOf(s, me, m, M) {
 
 // ---------- 모듈 ----------
 export default {
-  meta: { id: 'loveletter', name: '러브레터', version: '1.0.0', players: { min: 2, max: 6 }, minutes: 15, campaign: null },
+  meta: { id: 'loveletter', name: '러브레터', version: '1.1.0', players: { min: 2, max: 6 }, minutes: 15, campaign: null },
 
   newGame({ players, rng }) {
     const n = players.length;
