@@ -417,6 +417,7 @@ function mountLL(self, container, ctx) {
   let sel = null;           // 사람 선택 중: {i, t, g} 또는 대신 단계 {keep, low}
   let peek = null;          // 나만 보는 정보 쪽지
   const pendingLog = [];    // 결과창을 닫은 뒤에 찍을 줄 (다음 라운드 시작)
+  const popQ = [];          // 상대가 낸 카드 알림 대기열
 
   container.innerHTML = `<style>${LL_CSS}</style>
     <div class="g-ll" style="--acc:${th.accent || '#d8a657'};--wine:${th.table || '#5a1e2c'};--wine2:${th.table2 || '#33101a'}">
@@ -428,6 +429,7 @@ function mountLL(self, container, ctx) {
       <div class="ll-hand"></div>
       <div class="ll-panel"></div>
       <div class="ll-over"></div>
+      <div class="ll-pop"></div>
       <details class="ll-count"><summary>카드 세기 (아직 안 보인 카드)</summary><div class="ll-ct"></div></details>
       <div class="ll-log"></div>
       <details class="ll-rules"><summary>규칙 보기</summary><ul>
@@ -441,7 +443,7 @@ function mountLL(self, container, ctx) {
     </div>`;
   const q = x => container.querySelector(x);
   const seatsBox = q('.ll-seats'), pileBox = q('.ll-pile'), banner = q('.ll-banner'), meBox = q('.ll-me'), handBox = q('.ll-hand');
-  const panel = q('.ll-panel'), overBox = q('.ll-over'), logBox = q('.ll-log'), ctBox = q('.ll-ct'), peekBox = q('.ll-peek');
+  const popBox = q('.ll-pop'), panel = q('.ll-panel'), overBox = q('.ll-over'), logBox = q('.ll-log'), ctBox = q('.ll-ct'), peekBox = q('.ll-peek');
 
   const later = (fn, ms) => { const id = setTimeout(() => { timers.delete(id); if (!dead) fn(); }, ms); timers.add(id); return id; };
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -478,6 +480,7 @@ function mountLL(self, container, ctx) {
   function consume() {
     const evs = s.ev.splice(0);
     let roundEnd = null;
+    const iDied = evs.some(x => x.k === 'out' && x.s === H);
     for (const e of evs) {
       if (e.k === 'round') { const line = `— 라운드 ${e.r} · ${nm(e.first)} 먼저 —`; if (roundEnd) pendingLog.push(line); else log(line, 'rd'); }
       else if (e.k === 'play') {
@@ -493,6 +496,7 @@ function mountLL(self, container, ctx) {
         else if (e.v === 9) t += ' · 공주를 내서 탈락!';
         log(t, e.s === H ? 'me' : '');
         banner.textContent = t;
+        if (e.s !== H) popQ.push({ e, mine: e.t === H, died: iDied && e.t === H });
         if (e.v === 2 && e.s === H && e.t >= 0) showPeek(`${nm(e.t)}의 카드: ${cn(e.seen)}`);
         if (e.v === 3 && e.t >= 0 && (e.s === H || e.t === H)) { const other = e.s === H ? e.t : e.s; showPeek(`남작 비교 — 나 ${cn(e.s === H ? e.mine : e.theirs)} vs ${nm(other)} ${cn(e.s === H ? e.theirs : e.mine)}`); }
         if (e.v === 7 && e.t >= 0 && (e.s === H || e.t === H)) showPeek(`교환으로 받은 카드: ${cn(s.hand[H][0] ?? '-')}`);
@@ -626,9 +630,41 @@ function mountLL(self, container, ctx) {
     const re = consume();
     const leadNow = leader();
     if (leadBefore >= 0 && leadNow !== leadBefore && s.tokens[leadNow] > s.tokens[leadBefore]) say(leadBefore, 'overtaken');
-    if (re) return roundOver(re);
-    draw();
-    loop();
+    const after = () => { if (re) return roundOver(re); draw(); loop(); };
+    if (popQ.length) { draw(); showPop(popQ.shift(), after); } else after();
+  }
+
+  // 상대가 낸 카드 알림: 어떤 카드를 누구에게 써서 어떻게 됐는지 크게 보여준다 (나를 노렸으면 더 오래)
+  function popLines(e) {
+    const to = e.t === H ? '나' : e.t >= 0 ? nm(e.t) : '', me = e.t === H;
+    switch (e.v) {
+      case 0: return ['효과 없음 (스파이)'];
+      case 1: return e.t < 0 ? ['대상이 없어 효과 없음'] : [`${to}에게 "${NAME(e.g)}?" 하고 추측`, e.hit ? (me ? '적중! 내 카드가 맞혀졌어요' : '적중! 탈락') : '빗나감'];
+      case 2: return e.t < 0 ? ['대상이 없어 효과 없음'] : [me ? '내 카드를 몰래 봤어요' : `${to}의 카드를 몰래 봄`];
+      case 3: return e.t < 0 ? ['대상이 없어 효과 없음'] : [`${to}와 카드 비교`, e.loser < 0 ? '같은 숫자라 둘 다 무사' : e.loser === H ? `내 카드(${e.s === H ? e.mine : e.theirs})가 더 낮아 탈락` : `${nm(e.loser)} 패배`];
+      case 4: return ['다음 차례까지 보호'];
+      case 5: return [`${to}의 카드를 버리게 함: ${cn(e.dropped)}`, e.dropped === 9 ? '공주를 버려 탈락' : me ? '새 카드를 뽑았어요' : ''];
+      case 6: return ['덱에서 2장을 보고 고름'];
+      case 7: return e.t < 0 ? ['대상이 없어 효과 없음'] : [`${to}와 손패 교환`];
+      case 8: return ['백작부인을 냈어요'];
+      case 9: return ['공주를 내서 스스로 탈락'];
+    }
+    return [];
+  }
+  function showPop(item, done) {
+    const e = item.e;
+    const lines = popLines(e).filter(Boolean);
+    const box = el('div', 'll-popbox' + (item.mine ? ' mine' : '') + (item.died ? ' died' : ''));
+    box.append(el('div', 'll-pop-who', `${nm(e.s)}${e.t >= 0 && e.v !== 4 ? (e.t === H ? ' → 나' : ' → ' + nm(e.t)) : ''}`));
+    const row = el('div', 'll-pop-row'); row.append(bigCard(e.v, 'pc'));
+    const tx = el('div', 'll-pop-tx'); lines.forEach((l, k) => tx.append(el('div', k === 0 ? '' : 'em', l)));
+    if (item.died) tx.append(el('b', 'll-pop-dead', '이번 라운드 탈락'));
+    row.append(tx); box.append(row, el('div', 'll-pop-tap', '화면을 누르면 닫혀요'));
+    popBox.replaceChildren(box); popBox.style.display = 'flex';
+    let closed = false;
+    const close = () => { if (closed) return; closed = true; popBox.style.display = 'none'; popBox.replaceChildren(); done(); };
+    popBox.onclick = close;
+    later(close, ctx.delay(item.died ? 4200 : item.mine ? 3200 : 1900));
   }
 
   function roundOver(e) {
@@ -771,6 +807,17 @@ const LL_CSS = `
 .g-ll .ll-ovr .ll-ht{fill:#0000001a;stroke:#b8862b}.g-ll .ll-ovr .ll-ht.on{fill:#e8536f;stroke:#c2185b}
 .g-ll .ll-ovs{font-size:12.5px;margin:8px 0;color:#5a4030}
 .g-ll .ll-ovbox .ll-btn{width:100%;margin:4px 0 0}
+.g-ll .ll-pop{display:none;position:fixed;inset:0;z-index:60;background:#1a060b99;align-items:center;justify-content:center;padding:16px;cursor:pointer}
+.g-ll .ll-popbox{width:100%;max-width:360px;background:linear-gradient(170deg,#fdf6e3,#ecdcb6);color:#2e1a12;border-radius:14px;padding:12px 14px;box-shadow:0 0 0 3px var(--acc),0 12px 30px #000c;animation:llpop .18s ease-out}
+.g-ll .ll-popbox.mine{box-shadow:0 0 0 3px #e8536f,0 0 26px #e8536faa,0 12px 30px #000c}
+.g-ll .ll-popbox.died{box-shadow:0 0 0 3px #c0392b,0 0 30px #c0392b,0 12px 30px #000c}
+.g-ll .ll-pop-who{font-weight:800;font-size:15px;color:#7a2238;margin-bottom:8px}
+.g-ll .ll-pop-row{display:flex;gap:12px;align-items:center}
+.g-ll .ll-card.pc{flex:none;cursor:default;pointer-events:none}
+.g-ll .ll-pop-tx{font-size:14px;line-height:1.5;font-weight:700}
+.g-ll .ll-pop-tx .em{margin-top:4px;color:#c2185b;font-size:15px}
+.g-ll .ll-pop-dead{display:block;margin-top:8px;color:#fff;background:#c0392b;border-radius:8px;padding:3px 8px;text-align:center}
+.g-ll .ll-pop-tap{margin-top:8px;font-size:11px;color:#7a5a40;text-align:center}
 .g-ll .ll-count,.g-ll .ll-rules{margin-top:10px;background:#00000038;border-radius:10px;padding:8px 10px;font-size:13px;line-height:1.6;color:#ecd7a8}
 .g-ll .ll-count summary,.g-ll .ll-rules summary{cursor:pointer;font-weight:700}
 .g-ll .ll-ct{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin-top:6px}

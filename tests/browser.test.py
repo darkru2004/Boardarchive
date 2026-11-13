@@ -209,7 +209,9 @@ try:
                 except Exception: pass      # 결과창이 막 떠서 가려진 경우 등: 다음 반복에서 다시 판단
             while p2.locator(".modal .rank-row").count() == 0:
                 if time.time() - t0 > 150: raise AssertionError("150초 안에 끝나지 않음")
-                if p2.locator(".g-ll .ll-over").is_visible():
+                if p2.locator(".g-ll .ll-pop").is_visible():
+                    tap(p2.locator(".g-ll .ll-pop"))
+                elif p2.locator(".g-ll .ll-over").is_visible():
                     tap(p2.locator(".g-ll .ll-over .ll-btn"))
                 else:
                     cards = p2.locator(".g-ll .ll-hand .ll-card:not(.no)")
