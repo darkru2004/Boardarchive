@@ -74,7 +74,7 @@ try:
 
         # ---------- 초상화 ----------
         page.click("#nav a[data-tab=dex]"); page.wait_for_selector(".dex")
-        check("도감·초상화", "캐릭터 8명이 도감 썸네일에 나온다 (이니셜 아바타 기본)", lambda: (_ for _ in ()).throw(AssertionError(str(page.locator('.dex').count()))) if page.locator(".dex").count() != 8 else None)
+        check("도감·초상화", "캐릭터 12명이 도감 썸네일에 나온다 (이니셜 아바타 기본)", lambda: (_ for _ in ()).throw(AssertionError(str(page.locator('.dex').count()))) if page.locator(".dex").count() != 12 else None)
         page.click(".dex[data-id=rapi]"); page.wait_for_selector(".dex[data-id=rapi].on"); page.wait_for_selector("#portraitFile", state="attached")
         page.set_input_files("#portraitFile", "/tmp/portrait-test.png")
         page.wait_for_function("window.__ba.portraits.has('rapi')")
