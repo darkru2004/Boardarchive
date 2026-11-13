@@ -74,7 +74,7 @@ try:
 
         # ---------- 초상화 ----------
         page.click("#nav a[data-tab=dex]"); page.wait_for_selector(".dex")
-        check("도감·초상화", "캐릭터 24명이 도감 썸네일에 나온다 (이니셜 아바타 기본)", lambda: (_ for _ in ()).throw(AssertionError(str(page.locator('.dex').count()))) if page.locator(".dex").count() != 24 else None)
+        check("도감·초상화", "캐릭터 8명이 도감 썸네일에 나온다 (이니셜 아바타 기본)", lambda: (_ for _ in ()).throw(AssertionError(str(page.locator('.dex').count()))) if page.locator(".dex").count() != 8 else None)
         page.click(".dex[data-id=rapi]"); page.wait_for_selector(".dex[data-id=rapi].on"); page.wait_for_selector("#portraitFile", state="attached")
         page.set_input_files("#portraitFile", "/tmp/portrait-test.png")
         page.wait_for_function("window.__ba.portraits.has('rapi')")
@@ -193,7 +193,7 @@ try:
         check("노땡스", "실제 화면을 눌러 4인 한 판을 끝까지 플레이하면 결과 화면이 나온다", play_nt)
         check("노땡스", "결과 화면에 순위 4줄이 나온다", lambda: (None if p2.locator(".modal .rank-row").count() == 4 else (_ for _ in ()).throw(AssertionError("순위 줄 수"))))
         rec2 = p2.evaluate("window.__ba.storage.all('records').then(a => a[0].value)")
-        check("노땡스", "기록에 노땡스·버전 1.4.0·4명이 저장된다", lambda: (None if rec2["gameId"] == "nothanks" and rec2["gameVersion"] == "1.4.0" and len(rec2["players"]) == 4 else (_ for _ in ()).throw(AssertionError(str(rec2)[:200]))))
+        check("노땡스", "기록에 노땡스·버전 1.5.0·4명이 저장된다", lambda: (None if rec2["gameId"] == "nothanks" and rec2["gameVersion"] == "1.5.0" and len(rec2["players"]) == 4 else (_ for _ in ()).throw(AssertionError(str(rec2)[:200]))))
         p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=nothanks]")
         check("노땡스", "게임에서 나오면 게임 전용 스타일이 남지 않는다 (앨범 화면 보호)", lambda: (None if p2.evaluate("![...document.querySelectorAll('style')].some(s => s.textContent.includes('.g-nt'))") else (_ for _ in ()).throw(AssertionError("스타일이 남음"))))
         ctx2.close()

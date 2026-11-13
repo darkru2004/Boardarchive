@@ -19,3 +19,9 @@ export function rivalSeatsFor(card, seats) {
   const rivals = new Set((card.relations || []).filter(r => r.type === 'rival').map(r => r.id));
   return seats.filter(s => !s.human && rivals.has(s.characterId)).map(s => s.seat);
 }
+
+// 같은 판에 앉은, 이 캐릭터가 돕는 자리 [{seat, strength}] (relations의 type 'ally')
+export function allySeatsFor(card, seats) {
+  const m = new Map((card.relations || []).filter(r => r.type === 'ally').map(r => [r.id, r.strength || 1]));
+  return seats.filter(s => !s.human && m.has(s.characterId) && s.characterId !== card.id).map(s => ({ seat: s.seat, strength: m.get(s.characterId) }));
+}

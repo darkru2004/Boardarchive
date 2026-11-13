@@ -23,6 +23,8 @@ const BASE = 3, PAT_W = 0.2, SCARCE_AT = 4, SCARCE_W = 2.5, AGG_W = 0.02, NOISE_
 const BLOCK_W = 0.2, BLOCK_CAP = 5, BLOCK_MIN_CHIPS = 3, FREE_DENY = 2;                        // 견제
 const WAIT_RESERVE = 2, WAIT_LOOK = 4;                          // 기다리기: 칩은 최소 2개 남김, 최대 4바퀴 앞까지 내다봄
 const DENY_W = 0.075;                                           // 견제(일반): 남이 공짜로 키우는 카드를 막는 강도
+const ALLY_W = 1.0, ALLY_CAP = 4, ALLY_MIN_CHIPS = 4, ALLY_MAX_COST = 8;   // 도와주기: 동료(relations ally)에게 공짜인 카드는 내가 크게 손해가 아니면 양보, 선두(동료 제외)는 견제
+const SHIELD_CHIPS = 3, SHIELD_HURT = 3;                            // 방패: 동료 칩 3개 이하 & 동료 순손해 3점 초과일 때
 const CHIP_EARLY = 0.7, POT_SWING = 0.45;                       // 초반 칩 가치 가산, 판 위 칩이 쌓일수록 받을 만해짐(남에게 넘기는 부담)
 // 칩 1개의 가치(점): 남은 카드가 많을수록 1보다 크다. 마지막엔 정확히 1.
 const chipValue = (s, skill) => 1 + CHIP_EARLY * (s.deck.length / 23) * (0.4 + 0.06 * skill);
@@ -59,9 +61,18 @@ function targetSeat(s, me, t, info) {
   return best;
 }
 
+// 동료를 돕는 봇의 견제 대상: 동료 중 가장 앞선 사람보다 앞서 있는 '동료 아닌 사람' 중 1등 (없으면 -1)
+function allyTargetSeat(s, me, allies) {
+  const ids = new Set(allies.map(a => a.seat));
+  let ab = Infinity; for (const a of allies) ab = Math.min(ab, finalScore(s, a.seat));
+  let best = -1, bs = Infinity;
+  for (let i = 0; i < s.n; i++) { if (i === me || ids.has(i)) continue; const v = finalScore(s, i); if (v < bs) { bs = v; best = i; } }
+  return best >= 0 && bs < ab ? best : -1;
+}
+
 export default {
   meta: {
-    id: 'nothanks', name: '노땡스!', version: '1.4.0',
+    id: 'nothanks', name: '노땡스!', version: '1.5.0',
     players: { min: 3, max: 7 }, minutes: 10,
     campaign: null
   },
@@ -103,12 +114,14 @@ export default {
     const card = s.card, pot = s.pot;
     const mine = marginal(s.cards[me], card);
     const net = mine - pot * chipValue(s, t.skill);                   // net 낮을수록 이득 (칩은 초반일수록 비쌈)
-    const tg = targetSeat(s, me, t, info);
+    const allies = info.allySeats || [];
+    const tg = allies.length ? allyTargetSeat(s, me, allies) : targetSeat(s, me, t, info);
 
     // 다른 사람들이 이 카드를 받으면 얼마나 아플까 (대상은 가중)
+    const allyIds = new Set(allies.map(a => a.seat));                // 동료에게 생길 손해는 '견제 거리'가 아니다
     let harm = 0, w = 0;
     for (let q = 0; q < s.n; q++) {
-      if (q === me) continue;
+      if (q === me || allyIds.has(q)) continue;
       const wt = q === tg ? 2.5 : 1;
       harm += clip(marginal(s.cards[q], card) - pot, 0, 10) * wt; w += wt;
     }
@@ -129,8 +142,17 @@ export default {
     // 견제(일반): 누군가 이 카드를 공짜로 받을 수 있고 판 위 칩이 두둑하면, 손해를 감수하고 먼저 가져간다
     if (s.chips[me] >= BLOCK_MIN_CHIPS) {
       let dv = 0;
-      for (let q = 0; q < s.n; q++) { if (q === me) continue; const qm = marginal(s.cards[q], card); if (qm <= 0) dv = Math.max(dv, pot + Math.min(2, -qm)); }   // 막을 가치 ≈ 그 사람이 챙길 칩
+      for (let q = 0; q < s.n; q++) { if (q === me || allyIds.has(q)) continue; const qm = marginal(s.cards[q], card); if (qm <= 0) dv = Math.max(dv, pot + Math.min(2, -qm)); }   // 막을 가치 ≈ 그 사람이 챙길 칩
       grudge = Math.max(grudge, Math.min(BLOCK_CAP, dv * t.aggression * DENY_W));
+    }
+
+    // 방패: 동료의 칩이 얼마 안 남았는데 이 카드가 동료에게 크게 아프면, 내가 대신 받는다(한도 있음)
+    if (allies.length && s.chips[me] >= ALLY_MIN_CHIPS) {
+      for (const a of allies) {
+        if (s.chips[a.seat] > SHIELD_CHIPS) continue;
+        const hurt = marginal(s.cards[a.seat], card) - pot;
+        if (hurt > SHIELD_HURT) grudge = Math.max(grudge, Math.min(ALLY_CAP * 1.5, a.strength * ALLY_W * 0.5 * (hurt - SHIELD_HURT)));
+      }
     }
 
     // 기다리기: 나에게 공짜인 카드는 "아무도 채 가지 않을 만큼" 돌려 칩을 모은다.
@@ -144,8 +166,14 @@ export default {
       if (s.waits[me] < greed && s.chips[me] > WAIT_RESERVE) return { move: 'pass', reason: 'wait' };
     }
 
+    // 도와주기: 동료가 이 카드를 공짜로 받을 수 있으면(판 위 칩은 덤) 내가 크게 손해가 아닌 한 양보한다. 칩이 바닥나기 전까지만.
+    let yieldv = 0;
+    if (allies.length && s.chips[me] >= ALLY_MIN_CHIPS && mine <= ALLY_MAX_COST) {
+      for (const a of allies) { const am = marginal(s.cards[a.seat], card); if (am <= 0) yieldv = Math.max(yieldv, Math.min(ALLY_CAP, a.strength * ALLY_W * (1 + Math.min(pot, 6) * 0.35 + Math.min(2, -am) * 0.5))); }
+    }
+
     const noise = (10 - t.skill) * NOISE_W * (rng.next() + rng.next() - 1) * 2;
-    if (!(net + noise <= A + grudge)) return { move: 'pass', reason: 'normal' };
+    if (!(net + noise <= A - yieldv + grudge)) return { move: 'pass', reason: (yieldv > 0 && net + noise <= A + grudge) ? 'assist' : 'normal' };
     const reason = (net + noise <= A) ? (mine <= 0 ? 'free' : 'normal') : 'block';
 
     return { move: 'take', reason };
@@ -282,8 +310,9 @@ export default {
       const leaderBefore = leaderSeat();
       self.applyMove(s, move);
       if (move === 'pass') {
-        log(`${nameOf(seat)}: 노땡스 (칩 -1)${reason === 'wait' ? ' · 공짜 카드라 칩을 더 모으려 기다림' : ''}`);
+        log(`${nameOf(seat)}: 노땡스 (칩 -1)${reason === 'wait' ? ' · 공짜 카드라 칩을 더 모으려 기다림' : reason === 'assist' ? ' · 동료에게 양보' : ''}`);
         if (reason === 'wait' && Math.random() < 0.6) say(seat, 'wait');
+        else if (reason === 'assist') say(seat, 'assist');
       } else {
         let note = '';
         if (reason === 'forced') note = ' · 칩이 없어 강제로 받음';
@@ -325,7 +354,7 @@ export default {
       const p = ctx.players[s.turn];
       if (p.human) return;
       later(() => {
-        const ch = self.botChoose(s, p.traits, rng, { seat: s.turn, rivalSeats: p.rivalSeats });
+        const ch = self.botChoose(s, p.traits, rng, { seat: s.turn, rivalSeats: p.rivalSeats, allySeats: p.allySeats });
         step(s.turn, ch.move, ch.reason);
       }, ctx.delay(first ? 2600 : 800));    // 진행은 빠르게, 첫 수만 시작 대사를 읽을 여유를 둔다
     }

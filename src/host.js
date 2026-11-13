@@ -4,7 +4,7 @@ import { buildPlayers } from '../core/runner.js';
 import { buildRecord, saveRecord, listRecords } from '../core/records.js';
 import { computeAchievements } from '../core/stats.js';
 import { campaignKey, saveCampaign, loadCampaign } from '../core/storage.js';
-import { linesFor, activeOnly } from '../core/characters.js';
+import { linesFor, activeOnly, pairLinesFor } from '../core/characters.js';
 import { h, avatar, modal, toast, dieSvg, ornament, bubbles } from './ui.js';
 
 export async function unlockNew(app) {
@@ -50,7 +50,10 @@ export async function launchGame(app, entry, seats) {
     say: (seat, key) => {
       const p = players[seat];
       if (p.human) return null;
-      const arr = linesFor(app.lookup(p.characterId), entry.id, key);
+      const card = app.lookup(p.characterId);
+      const pair = pairLinesFor(card, players.filter(q => q.seat !== seat && !q.human).map(q => q.characterId), key);   // 같은 판의 특정 캐릭터에게 하는 대사
+      const own = linesFor(card, entry.id, key);
+      const arr = pair.length && (!own.length || Math.random() < 0.5) ? pair : own;
       return arr.length ? arr[Math.floor(Math.random() * arr.length)] : null;
     },
     campaign: {

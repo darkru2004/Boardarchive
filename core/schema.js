@@ -7,7 +7,7 @@ export const TRAIT_LABELS = { skill: '실력', aggression: '공격성', risk: '�
 export const TARGET_MODES = ['none', 'leader', 'human', 'random', 'rival'];
 export const TARGET_LABELS = { none: '없음', leader: '선두 견제', human: '플레이어 견제', random: '판마다 랜덤', rival: '라이벌 견제' };
 export const LINE_KEYS = ['start', 'good', 'bad', 'overtaken', 'block', 'win', 'lose'];
-export const RELATION_TYPES = ['rival', 'friend'];
+export const RELATION_TYPES = ['rival', 'friend', 'ally'];   // ally = 이 캐릭터가 상대를 돕는다(strength 1~3, 기본 1)
 export const ID_RE = /^[a-z][a-z0-9-]{1,31}$/;
 
 export function clampN(v, a, b, d) {
@@ -65,6 +65,14 @@ export function validateCharacter(c) {
     if (!Array.isArray(c.relations)) e.push(`${c.id}: relations는 배열`);
     else for (const r of c.relations) {
       if (!r || !ID_RE.test(r.id || '') || !RELATION_TYPES.includes(r.type)) e.push(`${c.id}: relations 항목 오류`);
+      else if (r.strength != null && !(Number.isInteger(r.strength) && r.strength >= 1 && r.strength <= 3)) e.push(`${c.id}: relations.strength는 1~3 정수`);
+    }
+  }
+  if (c.withLines != null) {   // 특정 캐릭터와 같은 판에 있을 때만 하는 대사 { 상대id: { 키: [대사…] } }
+    if (typeof c.withLines !== 'object' || Array.isArray(c.withLines)) e.push(`${c.id}: withLines는 객체`);
+    else for (const [oid, ks] of Object.entries(c.withLines)) {
+      if (!ID_RE.test(oid) || !ks || typeof ks !== 'object') { e.push(`${c.id}: withLines.${oid} 형식 오류`); continue; }
+      for (const [k, v] of Object.entries(ks)) if (!Array.isArray(v) || !v.every(x => typeof x === 'string' && x)) e.push(`${c.id}: withLines.${oid}.${k}는 문자열 배열`);
     }
   }
   return e;

@@ -19,6 +19,7 @@ export function parseCharacters(json) {
       lines: c.lines || {},
       relations: c.relations || [],
       gameTweaks: c.gameTweaks || {},
+      withLines: c.withLines || {},
       tags: c.tags || [],
       bio: c.bio || ''
     });
@@ -48,5 +49,11 @@ export function linesFor(card, gameId, key) {
   const own = tw && tw.lines && tw.lines[key];
   const arr = (own && own.length ? own : card.lines[key]) || [];
   return arr;
+}
+// 같은 판에 특정 캐릭터가 있을 때만 하는 대사(withLines). 해당하는 상대가 없거나 대사가 없으면 빈 배열.
+export function pairLinesFor(card, otherIds, key) {
+  const out = [];
+  for (const oid of otherIds) { const a = card.withLines && card.withLines[oid] && card.withLines[oid][key]; if (a && a.length) out.push(...a); }
+  return out;
 }
 export { LINE_KEYS };

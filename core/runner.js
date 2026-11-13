@@ -1,5 +1,5 @@
 import { makeRng } from './rng.js';
-import { drawSeats, rivalSeatsFor } from './seating.js';
+import { drawSeats, rivalSeatsFor, allySeatsFor } from './seating.js';
 import { traitsFor, makeLookup } from './characters.js';
 import { normTraits } from './schema.js';
 
@@ -7,12 +7,25 @@ import { normTraits } from './schema.js';
 // 핵심 검사: 봇이 고른 수가 legalMoves 안에 있는가 (규칙은 엔진 전담, 봇은 선택 취향만).
 const BASELINE = normTraits({ skill: 5, aggression: 5, risk: 5, patience: 5, bluff: 5, targetMode: 'none' });
 
+// 동료 지원(ally): 같은 판에 나를 돕는 캐릭터가 앉아 있으면 내 실력이 조금 오른다 (강도 1당 +0.7, 가장 큰 쪽 하나만).
+// 규칙을 바꾸지 않고 '조언·보조'를 수치로 옮긴 것. 도움을 주는 쪽의 양보·방패 행동은 게임 모듈이 따로 처리한다.
+export const ALLY_SKILL_PER_STRENGTH = 0.7;
+function allyBoost(seat, seats, look) {
+  let best = 0;
+  for (const o of seats) {
+    if (o.human || o.seat === seat.seat || o.characterId === seat.characterId) continue;
+    const r = (look(o.characterId).relations || []).find(x => x.type === 'ally' && x.id === seat.characterId);
+    if (r) best = Math.max(best, r.strength || 1);
+  }
+  return best * ALLY_SKILL_PER_STRENGTH;
+}
+
 export function buildPlayers(seats, characters, gameId) {
   const look = makeLookup(characters);
   return seats.map(s => {
-    if (s.human) return { seat: s.seat, human: true, characterId: null, name: '나', traits: BASELINE, rivalSeats: [] };
+    if (s.human) return { seat: s.seat, human: true, characterId: null, name: '나', traits: BASELINE, rivalSeats: [], allySeats: [] };
     const c = look(s.characterId);
-    return { seat: s.seat, human: false, characterId: c.id, name: c.name, traits: traitsFor(c, gameId), rivalSeats: rivalSeatsFor(c, seats) };
+    return { seat: s.seat, human: false, characterId: c.id, name: c.name, traits: (b => { const t = traitsFor(c, gameId); return b ? { ...t, skill: Math.min(10, t.skill + b) } : t; })(allyBoost(s, seats, look)), rivalSeats: rivalSeatsFor(c, seats), allySeats: allySeatsFor(c, seats) };
   });
 }
 
@@ -27,7 +40,7 @@ export function runBotGame(mod, players, rng, { maxSteps = 5000 } = {}) {
     const seat = mod.currentSeat(state);
     const p = players[seat];
     if (!p) throw new Error(`currentSeat가 잘못된 자리를 반환: ${seat}`);
-    let ch = mod.botChoose(state, p.traits, rng, { seat, rivalSeats: p.rivalSeats });
+    let ch = mod.botChoose(state, p.traits, rng, { seat, rivalSeats: p.rivalSeats, allySeats: p.allySeats });
     if (!ch || !moves.some(m => JSON.stringify(m) === JSON.stringify(ch.move))) {
       illegal++;
       ch = { move: rng.pick(moves), reason: 'fallback' };

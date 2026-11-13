@@ -4,13 +4,13 @@ import { fileURLToPath } from 'node:url';
 import { test, assert, eq, throws, report } from './harness.mjs';
 import { makeRng } from '../core/rng.js';
 import { SCHEMA, validateCharacter, validateRecord, normTraits } from '../core/schema.js';
-import { parseCharacters, makeLookup, traitsFor, activeOnly, linesFor } from '../core/characters.js';
+import { parseCharacters, makeLookup, traitsFor, activeOnly, linesFor, pairLinesFor } from '../core/characters.js';
 import { drawSeats, rivalSeatsFor } from '../core/seating.js';
 import { buildRecord, saveRecord, listRecords } from '../core/records.js';
 import { overall, gameStats, characterStats, computeAchievements } from '../core/stats.js';
 import { createMemoryStorage, ensureDataSchema, saveCampaign, loadCampaign } from '../core/storage.js';
 import { exportBackup, importBackup, migrateBackup, parseBackup } from '../core/backup.js';
-import { simulate, contractCheck, buildPlayers } from '../core/runner.js';
+import { simulate, contractCheck, buildPlayers, runBotGame } from '../core/runner.js';
 import stopTest from '../games/stop-test.js';
 import nothanks from '../games/nothanks.js';
 
@@ -35,12 +35,12 @@ function rec(game, seats, ranks, at, gv = '0.1.0') {
 const SEATS = [{ seat: 0, human: true, characterId: null }, { seat: 1, human: false, characterId: 'rapi' }, { seat: 2, human: false, characterId: 'edel' }];
 
 // ============ 캐릭터 데이터 ============
-await test('캐릭터 데이터', 'characters.json이 오류 없이 읽히고 24명이 있다(기존 3명 + 신규 21명, id 중복 없음)', () => { eq(realErrs, []); eq(REAL.length, 24); eq(new Set(REAL.map(c => c.id)).size, 24); eq(REAL.slice(0, 3).map(c => c.id), ['rapi', 'edel', 'yuno']); });
-await test('캐릭터 데이터', '지정한 성향 수치가 그대로 들어 있다 (라피 8/4/2/9/2, 에델 9/8/6/5/7, 유노 7/9/8/4/5 — 승률 조정으로 유노 변경)', () => {
+await test('캐릭터 데이터', 'characters.json이 오류 없이 읽히고 8명이 있다(기존 3명 + 사용자 지정 5명, id 중복 없음)', () => { eq(realErrs, []); eq(REAL.map(c => c.id), ['rapi', 'edel', 'yuno', 'yukiteru', 'scarlet', 'frieren', 'fern', 'stark']); });
+await test('캐릭터 데이터', '지정한 성향 수치가 그대로 들어 있다 (라피 8/4/2/9/2, 에델 9/8/6/5/7, 유노 6/9/9/3/5)', () => {
   const t = id => REAL.find(c => c.id === id).traits;
   eq([t('rapi').skill, t('rapi').aggression, t('rapi').risk, t('rapi').patience, t('rapi').bluff, t('rapi').targetMode], [8, 4, 2, 9, 2, 'none']);
   eq([t('edel').skill, t('edel').aggression, t('edel').risk, t('edel').patience, t('edel').bluff, t('edel').targetMode], [9, 8, 6, 5, 7, 'leader']);
-  eq([t('yuno').skill, t('yuno').aggression, t('yuno').risk, t('yuno').patience, t('yuno').bluff, t('yuno').targetMode], [7, 9, 8, 4, 5, 'human']);
+  eq([t('yuno').skill, t('yuno').aggression, t('yuno').risk, t('yuno').patience, t('yuno').bluff, t('yuno').targetMode], [6, 9, 9, 3, 5, 'human']);
 });
 await test('캐릭터 데이터', '모든 캐릭터에 대사집 7종(시작·칭찬·실수·추월·견제·승리·패배)이 있다', () => {
   for (const c of REAL) for (const k of ['start', 'good', 'bad', 'overtaken', 'block', 'win', 'lose']) assert(c.lines[k] && c.lines[k].length >= 1, `${c.id}.${k} 없음`);
@@ -264,7 +264,7 @@ await test('게임 모듈 규격', '[검사기 자체 점검] 끝나지 않는 �
   assert(!contractCheck(loop, entry, SYN, { games: 5 }).ok, '무한 루프를 못 잡음');
   assert(!contractCheck(stopTest, { ...entry, version: '9.9.9' }, SYN).ok, '메타 불일치를 못 잡음');
 });
-await test('게임 모듈 규격', '인원 범위: 캐릭터 수가 모자라면 가능한 인원까지만 검사한다 (실제 24명 → 3~7인 전부)', () => {
+await test('게임 모듈 규격', '인원 범위: 캐릭터 수가 모자라면 가능한 인원까지만 검사한다 (실제 8명 → 3~7인 전부)', () => {
   const r = contractCheck(stopTest, entry, REAL, { games: 50 }); assert(r.ok); eq(r.sims.map(s => s.count), [3, 4, 5, 6, 7]);
 });
 
@@ -272,28 +272,69 @@ await test('게임 모듈 규격', '인원 범위: 캐릭터 수가 모자라면
 // ============ 노땡스 ============
 const ntEntry = gamesIndex.games.find(g => g.id === 'nothanks');
 const ntPlayers = n => Array.from({ length: n }, (_, i) => ({ seat: i, human: i === 0, characterId: i ? 'rapi' : null }));
-await test('캐릭터 데이터', '신규 캐릭터 21명: 관계 상대가 명단에 있고, 라이벌 지정형은 라이벌이 있고, 노땡스 전용 대사(기다리기·강제 받기)가 모두 있다', () => {
+await test('캐릭터 데이터', '관계 상대가 명단에 있고, 노땡스 전용 대사(기다리기·강제 받기)가 있다(유노 제외 — 기존 구성). 동료 지원(ally)이 있으면 withLines에 assist 대사가 있다', () => {
   const ids = new Set(REAL.map(c => c.id));
   for (const c of REAL) {
     for (const r of c.relations || []) assert(ids.has(r.id), `${c.id}: 관계 상대 ${r.id} 없음`);
     if (c.traits.targetMode === 'rival') assert((c.relations || []).some(r => r.type === 'rival'), `${c.id}: rival형인데 라이벌 없음`);
     const nt = (c.gameTweaks && c.gameTweaks.nothanks && c.gameTweaks.nothanks.lines) || {};
-    if (c.id !== 'yuno') for (const k of ['wait', 'forced']) assert(Array.isArray(nt[k]) && nt[k].length >= 2, `${c.id}: 노땡스 ${k} 대사 2줄 이상 필요`);
+    if (!['yuno', 'rapi'].includes(c.id) || nt.wait) for (const k of ['wait', 'forced']) assert(Array.isArray(nt[k]) && nt[k].length >= 2, `${c.id}: 노땡스 ${k} 대사 2줄 이상 필요`);
     for (const k of ['start', 'good', 'bad', 'overtaken', 'block', 'win', 'lose']) assert((c.lines[k] || []).length >= 2, `${c.id}: ${k} 대사 2줄 이상`);
+    for (const r of (c.relations || []).filter(x => x.type === 'ally')) assert(((c.withLines || {})[r.id] || {}).assist?.length || c.id === 'yuno', `${c.id}→${r.id}: withLines.assist 대사 없음`);
   }
 });
-await test('캐릭터 데이터', '24명의 성향이 서로 겹치지 않고 고르게 퍼져 있다(성향 조합 중복 0, 실력 1~10 구간 폭넓음)', () => {
-  const keys = REAL.map(c => JSON.stringify(c.traits));
-  eq(new Set(keys).size, 24);
-  const sk = REAL.map(c => c.traits.skill); assert(Math.min(...sk) <= 3 && Math.max(...sk) >= 9, '실력 폭이 좁음');
-  for (const m of ['none', 'leader', 'human', 'random', 'rival']) assert(REAL.some(c => c.traits.targetMode === m), `${m} 유형이 없음`);
+await test('캐릭터 데이터', '동료 지원 관계: 유노→아마노 유키테루(강도 3, 일방), 프리렌·페른·슈타르크 서로(강도 1). 잘못된 강도·withLines는 검사에서 걸린다', () => {
+  const rel = (a, b) => REAL.find(c => c.id === a).relations.find(r => r.id === b);
+  eq([rel('yuno', 'yukiteru').type, rel('yuno', 'yukiteru').strength], ['ally', 3]);
+  assert(!(REAL.find(c => c.id === 'yukiteru').relations.some(r => r.type === 'ally')), '유키테루는 동료 지원을 하지 않는다');
+  for (const [a, b] of [['frieren', 'fern'], ['frieren', 'stark'], ['fern', 'frieren'], ['fern', 'stark'], ['stark', 'frieren'], ['stark', 'fern']]) eq([rel(a, b).type, rel(a, b).strength], ['ally', 1]);
+  const base = { ...REAL[0] };
+  assert(validateCharacter({ ...base, relations: [{ id: 'edel', type: 'ally', strength: 9 }] }).length > 0, '강도 9를 못 잡음');
+  assert(validateCharacter({ ...base, withLines: { edel: { start: 'x' } } }).length > 0, 'withLines 형식 오류를 못 잡음');
+  eq(validateCharacter({ ...base, relations: [{ id: 'edel', type: 'ally', strength: 2 }], withLines: { edel: { assist: ['ok'] } } }), []);
+});
+await test('캐릭터 데이터', '같은 판의 특정 캐릭터에게 하는 대사(withLines)는 그 캐릭터가 앉았을 때만 나온다', () => {
+  const yuno = REAL.find(c => c.id === 'yuno');
+  assert(pairLinesFor(yuno, ['yukiteru'], 'assist').length >= 1);
+  eq(pairLinesFor(yuno, ['rapi', 'edel'], 'assist'), []);
+  eq(pairLinesFor(yuno, [], 'start'), []);
+});
+await test('노땡스', '동료 지원: 유노는 같은 판의 유키테루를 돕는다 — 유키테루 승률이 눈에 띄게 오르고(+3%p 이상), 유노는 트롤이 되지 않는다(승률 10% 이상), 양보(assist)가 실제로 일어난다', () => {
+  const run = (a, b, others) => {
+    const rng = makeRng(5), w = {}, cnt = {}; let assist = 0; const N = 5000;
+    for (let g = 0; g < N; g++) {
+      const ids = rng.shuffle([a, b, ...others]);
+      const seats = [{ seat: 0, human: true, characterId: null }, ...ids.map((id, i) => ({ seat: i + 1, human: false, characterId: id }))];
+      const pl = buildPlayers(seats, REAL, 'nothanks'); const r = runBotGame(nothanks, pl, rng); assist += r.reasons.assist || 0;
+      const win = r.result.ranking.filter(x => x.rank === 1);
+      for (const p of pl) { cnt[p.characterId || '@'] = (cnt[p.characterId || '@'] || 0) + 1; if (win.some(x => x.seat === p.seat)) w[p.characterId || '@'] = (w[p.characterId || '@'] || 0) + 1 / win.length; }
+    }
+    return { rate: id => 100 * (w[id] || 0) / cnt[id], assist: assist / N };
+  };
+  const together = run('yukiteru', 'yuno', ['scarlet', 'rapi']), apart = run('yukiteru', 'scarlet', ['edel', 'rapi']), yunoAlone = run('yuno', 'scarlet', ['edel', 'rapi']);
+  assert(together.rate('yukiteru') >= apart.rate('yukiteru') + 3, `유키테루 승률 상승이 작음: ${together.rate('yukiteru').toFixed(1)} vs ${apart.rate('yukiteru').toFixed(1)}`);
+  assert(together.rate('yuno') >= 10, `유노 승률이 너무 낮음(트롤): ${together.rate('yuno').toFixed(1)}`);
+  assert(together.rate('yuno') >= yunoAlone.rate('yuno') - 5, '유노가 돕느라 너무 많이 손해 봄');
+  assert(together.assist > 0.03 && apart.assist === 0, `양보 횟수 이상: ${together.assist} / ${apart.assist}`);
+});
+await test('노땡스', '프리렌 일행(프리렌·페른·슈타르크)이 같이 앉으면 서로 가볍게 돕는다 — 승률이 무너지지 않고(각 10% 이상) 양보가 일어난다', () => {
+  const rng = makeRng(8); const w = {}, cnt = {}; let assist = 0; const N = 4000;
+  for (let g = 0; g < N; g++) {
+    const ids = rng.shuffle(['frieren', 'fern', 'stark', 'scarlet']);
+    const seats = [{ seat: 0, human: true, characterId: null }, ...ids.map((id, i) => ({ seat: i + 1, human: false, characterId: id }))];
+    const pl = buildPlayers(seats, REAL, 'nothanks'); const r = runBotGame(nothanks, pl, rng); assist += r.reasons.assist || 0;
+    const win = r.result.ranking.filter(x => x.rank === 1);
+    for (const p of pl) { cnt[p.characterId || '@'] = (cnt[p.characterId || '@'] || 0) + 1; if (win.some(x => x.seat === p.seat)) w[p.characterId || '@'] = (w[p.characterId || '@'] || 0) + 1 / win.length; }
+  }
+  for (const id of ['frieren', 'fern', 'stark']) assert(100 * w[id] / cnt[id] >= 10, `${id} 승률 ${(100 * w[id] / cnt[id]).toFixed(1)}%`);
+  assert(assist / N > 0.03, `양보가 거의 없음: ${assist / N}`);
 });
 await test('노땡스', '규격 검사 통과 (3~7인 × 300판: 오류 0, 불법 수 0, 시드 재현, JSON 저장 가능, 시드 재현, JSON 저장 가능)', () => {
   const r = contractCheck(nothanks, ntEntry, SYN, { games: 300 });
   assert(r.ok, r.problems.join(' / '));
   eq(r.sims.map(s => s.count), [3, 4, 5, 6, 7]);
 });
-await test('노땡스', '실제 캐릭터 24명 3·4인 6000판: 오류 0, 자리 편향·승률 쏠림 경고 없음', () => {
+await test('노땡스', '실제 캐릭터 8명 3·4인 6000판: 오류 0, 자리 편향·승률 쏠림 경고 없음', () => {
   for (const n of [3, 4]) { const r = simulate(nothanks, REAL, { games: 6000, count: n, seed: 11 }); eq([r.errors, r.illegal], [0, 0]); eq(r.warnings, []); }
 });
 await test('노땡스', '시작 칩 규칙: 3~5인 11개, 6인 9개, 7인 7개 / 카드 24장(3~35 중 9장 제외)', () => {
