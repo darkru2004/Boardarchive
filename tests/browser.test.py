@@ -155,6 +155,48 @@ try:
             ov = page.evaluate("document.documentElement.scrollWidth > window.innerWidth + 1")
             check("디자인", f"{nm} 화면에서 가로로 넘치는 부분이 없다", lambda ov=ov: (None if not ov else (_ for _ in ()).throw(AssertionError("가로 스크롤 생김"))))
         page.set_viewport_size({"width": 390, "height": 844})
+
+        # ---------- 노땡스 (게임별 테마·대사 표시 시간) : 새 저장공간에서 따로 점검 ----------
+        ctx2 = br.new_context(viewport={"width": 390, "height": 844})
+        ctx2.route(re.compile(r"https://fonts\.(googleapis|gstatic)\.com/.*"), FONT_STUB)
+        p2 = ctx2.new_page()
+        p2.on("pageerror", lambda e: errors.append("pageerror(nt): " + str(e)))
+        p2.on("console", lambda m: errors.append("console.error(nt): " + m.text) if m.type == "error" else None)
+        p2.goto(BASE); p2.wait_for_selector("#nav a")
+        check("노땡스", "게임 목록에 노땡스 표지(게임 전용 색)가 나온다", lambda: p2.wait_for_selector(".gcard[data-id=nothanks] .cover"))
+        p2.click(".gcard[data-id=nothanks]"); p2.wait_for_selector("#setup .seat"); p2.click("button[data-n='4']"); p2.click("#btnStart"); p2.wait_for_selector(".g-nt")
+        check("노땡스", "게임 화면이 카드 테이블 테마로 뜨고 4명이 앉는다", lambda: (None if p2.locator(".g-nt .nt-seat").count() == 4 else (_ for _ in ()).throw(AssertionError("좌석 수"))))
+        bg = p2.evaluate("getComputedStyle(document.querySelector('.g-nt')).backgroundColor + '|' + getComputedStyle(document.body).backgroundColor")
+        p2.wait_for_selector(".nt-say", timeout=8000)
+        t0 = time.time(); first = p2.locator(".nt-say").first.inner_text()
+        p2.wait_for_timeout(600); p2.screenshot(path=f"{SHOTS}/10-nothanks.png")
+        p2.wait_for_timeout(3000)
+        still = p2.locator(".nt-say", has_text=first[:6]).count()
+        check("노땡스", "말풍선 대사가 나온 뒤 3초가 지나도 계속 읽을 수 있다 (기존: 2.6초 만에 사라짐)", lambda: (None if still >= 1 else (_ for _ in ()).throw(AssertionError("3초 만에 사라짐: " + first))))
+        check("노땡스", "대사가 로그에도 남는다 (놓쳐도 다시 읽기)", lambda: (None if p2.locator(".nt-log .sp").count() >= 1 else (_ for _ in ()).throw(AssertionError("로그에 대사 없음"))))
+        for w in (360, 390):
+            p2.set_viewport_size({"width": w, "height": 860}); p2.wait_for_timeout(150)
+            ov = p2.evaluate("document.documentElement.scrollWidth > window.innerWidth + 1")
+            check("노땡스", f"게임 화면이 {w}px 폰 폭에서 가로로 넘치지 않는다", lambda ov=ov: (None if not ov else (_ for _ in ()).throw(AssertionError("가로 스크롤"))))
+        # 빠른 모드로 한 판 끝까지
+        p2.goto(BASE + "?fast=1"); p2.wait_for_selector("#nav a")
+        p2.click(".gcard[data-id=nothanks]"); p2.wait_for_selector("#setup .seat"); p2.click("button[data-n='4']"); p2.click("#btnStart"); p2.wait_for_selector(".g-nt")
+        def play_nt():
+            t0 = time.time()
+            while p2.locator(".modal .rank-row").count() == 0:
+                if time.time() - t0 > 90: raise AssertionError("90초 안에 끝나지 않음")
+                tk, ps = p2.locator("[data-a=take]"), p2.locator("[data-a=pass]")
+                if tk.is_enabled():
+                    hint = p2.locator(".nt-hint").inner_text()
+                    (ps if ps.is_enabled() and "손해" in hint else tk).click()
+                p2.wait_for_timeout(15)
+        check("노땡스", "실제 화면을 눌러 4인 한 판을 끝까지 플레이하면 결과 화면이 나온다", play_nt)
+        check("노땡스", "결과 화면에 순위 4줄이 나온다", lambda: (None if p2.locator(".modal .rank-row").count() == 4 else (_ for _ in ()).throw(AssertionError("순위 줄 수"))))
+        rec2 = p2.evaluate("window.__ba.storage.all('records').then(a => a[0].value)")
+        check("노땡스", "기록에 노땡스·버전 1.0.0·4명이 저장된다", lambda: (None if rec2["gameId"] == "nothanks" and rec2["gameVersion"] == "1.0.0" and len(rec2["players"]) == 4 else (_ for _ in ()).throw(AssertionError(str(rec2)[:200]))))
+        p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=nothanks]")
+        check("노땡스", "게임에서 나오면 게임 전용 스타일이 남지 않는다 (앨범 화면 보호)", lambda: (None if p2.evaluate("![...document.querySelectorAll('style')].some(s => s.textContent.includes('.g-nt'))") else (_ for _ in ()).throw(AssertionError("스타일이 남음"))))
+        ctx2.close()
         check("전체", "테스트 내내 화면 오류(콘솔 에러·예외)가 0건이다", lambda: (None if not errors else (_ for _ in ()).throw(AssertionError("; ".join(errors[:3])))))
         br.close()
 finally:

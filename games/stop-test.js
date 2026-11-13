@@ -89,7 +89,7 @@ export default {
       const t = ctx.say(seat, key);
       if (!t) return;
       speech = { seat, t }; drawSay();
-      setTimeout(() => { if (speech && speech.t === t) { speech = null; if (!dead) drawSay(); } }, 2600);
+      setTimeout(() => { if (speech && speech.t === t) { speech = null; if (!dead) drawSay(); } }, ctx.readMs ? ctx.readMs(t) : 2600);
     }
     function drawSay() {
       sayBox.replaceChildren();
@@ -138,7 +138,7 @@ export default {
       const res = self.result(s);
       const top = res.ranking.find(r => !ctx.players[r.seat].human);
       if (top) say(top.seat, top.rank === 1 ? 'win' : 'lose');
-      timer = setTimeout(() => { if (!dead) ctx.finish(res); }, ctx.delay(1200));
+      timer = setTimeout(() => { if (!dead) ctx.finish(res); }, ctx.delay(ctx.readMs ? 3000 : 1200));
     }
     function loop() {
       if (dead || s.over) return;

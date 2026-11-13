@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { test, assert, eq, throws, report } from './harness.mjs';
 import { makeRng } from '../core/rng.js';
 import { SCHEMA, validateCharacter, validateRecord, normTraits } from '../core/schema.js';
-import { parseCharacters, makeLookup, traitsFor, activeOnly } from '../core/characters.js';
+import { parseCharacters, makeLookup, traitsFor, activeOnly, linesFor } from '../core/characters.js';
 import { drawSeats, rivalSeatsFor } from '../core/seating.js';
 import { buildRecord, saveRecord, listRecords } from '../core/records.js';
 import { overall, gameStats, characterStats, computeAchievements } from '../core/stats.js';
@@ -12,6 +12,7 @@ import { createMemoryStorage, ensureDataSchema, saveCampaign, loadCampaign } fro
 import { exportBackup, importBackup, migrateBackup, parseBackup } from '../core/backup.js';
 import { simulate, contractCheck } from '../core/runner.js';
 import stopTest from '../games/stop-test.js';
+import nothanks from '../games/nothanks.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = p => JSON.parse(readFileSync(join(ROOT, p), 'utf8'));
@@ -265,6 +266,53 @@ await test('게임 모듈 규격', '[검사기 자체 점검] 끝나지 않는 �
 });
 await test('게임 모듈 규격', '인원 범위: 캐릭터 수가 모자라면 가능한 인원까지만 검사한다 (실제 3명 → 3·4인)', () => {
   const r = contractCheck(stopTest, entry, REAL, { games: 50 }); assert(r.ok); eq(r.sims.map(s => s.count), [3, 4]);
+});
+
+
+// ============ 노땡스 ============
+const ntEntry = gamesIndex.games.find(g => g.id === 'nothanks');
+const ntPlayers = n => Array.from({ length: n }, (_, i) => ({ seat: i, human: i === 0, characterId: i ? 'rapi' : null }));
+await test('노땡스', '규격 검사 통과 (3~7인 × 300판: 오류 0, 불법 수 0, 시드 재현, JSON 저장 가능, 시드 재현, JSON 저장 가능)', () => {
+  const r = contractCheck(nothanks, ntEntry, SYN, { games: 300 });
+  assert(r.ok, r.problems.join(' / '));
+  eq(r.sims.map(s => s.count), [3, 4, 5, 6, 7]);
+});
+await test('노땡스', '실제 캐릭터 3·4인 2000판: 오류 0, 자리 편향·승률 쏠림 경고 없음', () => {
+  for (const n of [3, 4]) { const r = simulate(nothanks, REAL, { games: 2000, count: n, seed: 9 }); eq([r.errors, r.illegal], [0, 0]); eq(r.warnings, []); }
+});
+await test('노땡스', '시작 칩 규칙: 3~5인 11개, 6인 9개, 7인 7개 / 카드 24장(3~35 중 9장 제외)', () => {
+  for (const [n, chips] of [[3, 11], [4, 11], [5, 11], [6, 9], [7, 7]]) {
+    const s = nothanks.newGame({ players: ntPlayers(n), rng: makeRng(5) });
+    eq(s.chips, Array(n).fill(chips)); eq(s.deck.length + 1, 24);
+    assert([s.card, ...s.deck].every(v => v >= 3 && v <= 35), '카드 범위 오류');
+  }
+});
+await test('노땡스', '연속된 숫자는 가장 낮은 카드만 점수로 센다 (예: 34·35·36→34 / 20·21·25→45)', () => {
+  const s = nothanks.newGame({ players: ntPlayers(3), rng: makeRng(1) });
+  s.cards[0] = [20, 21]; s.chips[0] = 0; s.card = 25; s.deck = [5];
+  nothanks.applyMove(s, 'take'); eq(s.cards[0].slice().sort((a, b) => a - b), [20, 21, 25]);
+  eq(nothanks.result({ ...s, over: true }).ranking.find(r => r.seat === 0).score, 45);
+});
+await test('노땡스', '받으면 판 위 칩을 가져가고, 넘기면 칩 1개가 판에 쌓인다. 칩 0이면 반드시 받아야 한다', () => {
+  const s = nothanks.newGame({ players: ntPlayers(3), rng: makeRng(2) });
+  nothanks.applyMove(s, 'pass'); nothanks.applyMove(s, 'pass');
+  eq([s.pot, s.chips[0], s.chips[1], s.turn], [2, 10, 10, 2]);
+  s.chips[2] = 0; eq(nothanks.legalMoves(s), ['take']); throws(() => nothanks.applyMove(s, 'pass'));
+  nothanks.applyMove(s, 'take'); eq([s.pot, s.chips[2]], [0, 2]);
+});
+await test('노땡스', '마지막 카드를 받으면 게임이 끝나고 점수(카드−칩) 낮은 쪽이 1위, 같으면 공동 순위', () => {
+  const s = nothanks.newGame({ players: ntPlayers(3), rng: makeRng(3) });
+  s.deck = []; s.cards = [[10], [10], [30]]; s.chips = [5, 5, 0]; s.card = 4; s.turn = 2; s.pot = 0;
+  nothanks.applyMove(s, 'take'); assert(nothanks.isOver(s), '끝나야 함');
+  const r = nothanks.result(s); eq(r.ranking.map(x => [x.seat, x.rank]), [[0, 1], [1, 1], [2, 3]]);
+});
+await test('노땡스', '게임별 대사(gameTweaks)를 추가해도 공통 대사는 그대로이고, 대사만 늘려도 규격 검사에 영향 없다', () => {
+  const c = REAL.find(x => x.id === 'rapi');
+  eq(linesFor(c, 'nothanks', 'start'), c.lines.start);                 // 공통 대사 유지
+  assert(linesFor(c, 'nothanks', 'wait').length >= 1, '기다리기 대사 없음');   // 게임 전용 대사
+  eq(linesFor(c, 'stop-test', 'wait'), []);                             // 다른 게임엔 영향 없음
+  const more = { ...c, gameTweaks: { nothanks: { lines: { wait: [...linesFor(c, 'nothanks', 'wait'), '새 대사'] } } } };
+  eq(linesFor(more, 'nothanks', 'wait').length, linesFor(c, 'nothanks', 'wait').length + 1);
 });
 
 // ============ 배포 파일 점검 ============

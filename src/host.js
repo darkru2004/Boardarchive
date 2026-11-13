@@ -40,8 +40,11 @@ export async function launchGame(app, entry, seats) {
   const ctx = {
     gameId: entry.id,
     players,
-    delay: ms => (app.fast ? 5 : ms),
-    kit: { dieSvg, ornament, bubbles },      // 공용 디자인 조각(주사위·장식·물방울)     // 자동 테스트에서만 빠르게
+    delay: ms => (app.fast ? 5 : ms),         // 자동 테스트(?fast=1)에서만 빠르게
+    // 대사를 읽을 시간: 글자 수에 비례(짧은 대사 약 3.5초, 긴 대사 최대 7.5초). 진행 속도와는 별개.
+    readMs: text => (app.fast ? 5 : Math.min(7500, Math.max(3500, 2200 + String(text || '').length * 95))),
+    theme: entry.theme || null,               // games/index.json의 theme (포인트 색 등)
+    kit: { dieSvg, ornament, bubbles },       // 공용 디자인 조각(주사위·장식·물방울)
     rng: makeRng(),
     avatar: (seat, size) => avatar(app, players[seat].characterId, size),
     say: (seat, key) => {
@@ -82,5 +85,6 @@ function showResult(app, entry, seats, rec, fresh, { again, home }) {
       h('button', { class: 'btn grow', onclick: () => { m.close(); home(); } }, '홈으로', h('small', {}, 'HOME')))
   ];
   const m = modal(body);
+  if (entry.theme && entry.theme.accent) m.el.firstChild.style.borderTop = `5px solid ${entry.theme.accent}`;
   toast('기록이 저장되었습니다');
 }

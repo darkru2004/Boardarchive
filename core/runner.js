@@ -85,6 +85,9 @@ export function contractCheck(mod, entry, characters, { games = 200, seed = 7 } 
   }
   if (entry) for (const f of ['id', 'name', 'version']) if (entry[f] !== m[f]) problems.push(`games/index.json의 ${f}(${entry[f]})와 모듈 meta(${m[f]})가 다름`);
   if (entry && entry.players && (entry.players.min !== m.players?.min || entry.players.max !== m.players?.max)) problems.push('games/index.json의 인원 정보가 모듈 meta와 다름');
+  if (entry && entry.theme) {
+    for (const k of ['accent', 'table', 'table2']) if (entry.theme[k] != null && !/^#[0-9a-f]{6}$/i.test(entry.theme[k])) problems.push(`index.json theme.${k}는 #rrggbb 형식`);
+  }
   if (problems.length) return { ok: false, problems, sims };
 
   const maxSeat = Math.min(m.players.max, characters.filter(c => c.status !== 'retired').length + 1);

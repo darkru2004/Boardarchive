@@ -2,9 +2,35 @@
   "schemaVersion": 1,
   "games": [
     {
-      "id": "stop-test", "file": "stop-test.js", "name": "스톱! (시험용)", "version": "0.1.0",
-      "players": { "min": 3, "max": 7 }, "minutes": 5,
-      "desc": "주사위를 굴리다 멈추는 시험용 게임. 규격 점검 전용이며 정식 게임이 아닙니다.", "test": true
+      "id": "nothanks",
+      "file": "nothanks.js",
+      "name": "노땡스!",
+      "version": "1.0.0",
+      "players": {
+        "min": 3,
+        "max": 7
+      },
+      "minutes": 10,
+      "desc": "카드를 받을지, 칩 1개를 내고 넘길지. 연속된 숫자는 가장 낮은 카드만 점수로 세고, 낮은 점수가 승리.",
+      "theme": {
+        "accent": "#d9b25a",
+        "table": "#1f4d3a",
+        "table2": "#153a2b",
+        "glyph": "No!"
+      }
+    },
+    {
+      "id": "stop-test",
+      "file": "stop-test.js",
+      "name": "스톱! (시험용)",
+      "version": "0.1.0",
+      "players": {
+        "min": 3,
+        "max": 7
+      },
+      "minutes": 5,
+      "desc": "주사위를 굴리다 멈추는 시험용 게임. 규격 점검 전용이며 정식 게임이 아닙니다.",
+      "test": true
     }
   ]
 }

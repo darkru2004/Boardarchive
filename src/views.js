@@ -37,12 +37,14 @@ function gameCard(app, g, i, st) {
   const maxN = Math.min(g.players.max, activeOnly(app.characters).length + 1);
   const can = maxN >= g.players.min;
   const status = !can ? 'LOCK' : st ? (st.wins ? 'CLEAR' : 'PLAYED') : 'NEW';
-  const pic = g.id === 'stop-test' ? dieSvg(5, 70) : h('span', { class: 'big' }, plainName(g.name).slice(0, 1));
+  const th = g.theme || null;     // 게임별 표지 (games/index.json의 theme)
+  const pic = th ? h('span', { class: 'big cover', style: `color:${th.accent}` }, th.glyph || plainName(g.name).slice(0, 1))
+    : g.id === 'stop-test' ? dieSvg(5, 70) : h('span', { class: 'big' }, plainName(g.name).slice(0, 1));
   return h('button', { class: 'pol gcard', 'data-id': g.id, 'aria-label': `${g.name} 플레이`, disabled: !can,
     onclick: () => can && app.startSetup(g, g.players.min) },
     h('div', { class: 'no' }, String(i + 1).padStart(2, '0')),
     h('div', { class: 'st' }, status, g.test ? h('span', { class: 'tag test' }, 'TEST') : null),
-    h('div', { class: 'pic' }, pic),
+    h('div', { class: 'pic', style: th && th.table ? `background:radial-gradient(80% 70% at 40% 35%,${th.table},${th.table2 || th.table})` : '' }, pic),
     h('div', { class: 'ttl' }, plainName(g.name)),
     h('div', { class: 'meta' }, can ? `${g.players.min}~${g.players.max}인` : '캐릭터 부족'));
 }
