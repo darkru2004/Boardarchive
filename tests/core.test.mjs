@@ -454,6 +454,13 @@ await test('노땡스', '작은 카드(5)가 칩 0개로 열려도 바로 먹지
   }
   assert(zero / N < 0.2, `바로 먹음 ${(zero / N * 100).toFixed(0)}%`);
 });
+await test('노땡스', '내 칩이 1개뿐이면 17(판 위 칩 3)을 대부분 먹고, 칩이 넉넉하면(6개) 넘긴다 — 칩 잔량이 판단을 바꾼다', () => {
+  const rng = makeRng(21); const seats = [0, 1, 2, 3].map(i => ({ seat: i, human: i === 3, characterId: i === 3 ? null : ['rapi', 'edel', 'yuno'][i] }));
+  const pl = buildPlayers(seats, REAL, 'nothanks'); const N = 500;
+  const rate = (chips, who) => { let k = 0; for (let t = 0; t < N; t++) { const s = nothanks.newGame({ players: seats, rng }); s.deck = s.deck.filter(x => x !== 17).slice(0, 12); s.card = 17; s.pot = 3; s.turn = who; s.chips = s.chips.map((c, i) => i === who ? chips : 6); if (nothanks.botChoose(s, pl[who].traits, rng, { seat: who, rivalSeats: [] }).move === 'take') k++; } return k / N; };
+  assert(rate(1, 0) >= 0.7 && rate(1, 1) >= 0.6, `칩 1개: 라피 ${rate(1, 0)} 에델 ${rate(1, 1)}`);
+  assert(rate(6, 0) <= 0.1 && rate(6, 1) <= 0.1, '칩 6개인데 먹음');
+});
 await test('노땡스', '게임별 대사(gameTweaks)를 추가해도 공통 대사는 그대로이고, 대사만 늘려도 규격 검사에 영향 없다', () => {
   const c = REAL.find(x => x.id === 'rapi');
   eq(linesFor(c, 'nothanks', 'start'), c.lines.start);                 // 공통 대사 유지

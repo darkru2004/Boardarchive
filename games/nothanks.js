@@ -21,6 +21,7 @@ const clip = (v, a, b) => Math.min(b, Math.max(a, v));
 // ---------- 봇 튜닝 값 ----------
 const BASE = 3, PAT_W = 0.2, SCARCE_AT = 4, SCARCE_W = 2.5, AGG_W = 0.02, NOISE_W = 0.8, RISK_W = 0.08;
 const BLOCK_W = 0.2, BLOCK_CAP = 5, BLOCK_MIN_CHIPS = 3, FREE_DENY = 2;                        // 견제
+const PRESSURE = [0, 15, 8, 3.5, 1.5];                              // 남은 칩 0~4개일 때의 압박(점수 환산)
 const WAIT_RESERVE = 2, WAIT_LOOK = 4;                          // 기다리기: 칩은 최소 2개 남김, 최대 4바퀴 앞까지 내다봄
 const DENY_W = 0.075;                                           // 견제(일반): 남이 공짜로 키우는 카드를 막는 강도
 const ALLY_W = 1.0, ALLY_CAP = 4, ALLY_MIN_CHIPS = 4, ALLY_MAX_COST = 8;   // 도와주기: 동료(relations ally)에게 공짜인 카드는 내가 크게 손해가 아니면 양보, 선두(동료 제외)는 견제
@@ -127,8 +128,9 @@ export default {
     }
     harm = w ? harm / w : 0;
 
-    const scarcity = Math.max(0, SCARCE_AT - s.chips[me]) * (1.2 - t.risk * RISK_W);
-    const A = BASE + (5 - t.patience) * PAT_W + scarcity * SCARCE_W - t.aggression * AGG_W * harm
+    // 칩 압박: 칩이 바닥나면 다음 카드는 뭐가 와도 강제로 받는다. 남은 칩이 적을수록 "지금 이 정도면 먹자"로 기운다.
+    const pressure = (PRESSURE[s.chips[me]] || 0) * (1 - t.risk * RISK_W * 0.5) * (0.6 + t.skill * 0.04) * Math.min(1, s.deck.length / 8);
+    const A = BASE + (5 - t.patience) * PAT_W + pressure - t.aggression * AGG_W * harm
       + pot * POT_SWING * (0.7 + t.skill * 0.03);                     // 작은 카드도 칩 0개면 일단 넘겨 본다. 칩이 쌓일수록 받을 만해짐
 
     // 견제: 대상에게 이득인 카드를 내가 손해를 보더라도 먼저 가져간다 (한도 있음)
