@@ -19,17 +19,20 @@ const finalScore = (s, i) => cardScore(s.cards[i]) - s.chips[i];
 const clip = (v, a, b) => Math.min(b, Math.max(a, v));
 
 // ---------- 봇 튜닝 값 ----------
-const BASE = 8, PAT_W = 0.2, SCARCE_AT = 4, SCARCE_W = 2.5, AGG_W = 0.02, NOISE_W = 1.2, RISK_W = 0.08;
+const BASE = 8, PAT_W = 0.2, SCARCE_AT = 4, SCARCE_W = 2.5, AGG_W = 0.02, NOISE_W = 0.8, RISK_W = 0.08;
 const BLOCK_W = 0.2, BLOCK_CAP = 5, BLOCK_MIN_CHIPS = 3, FREE_DENY = 2;                        // 견제
 const WAIT_RESERVE = 2, WAIT_LOOK = 4;                          // 기다리기: 칩은 최소 2개 남김, 최대 4바퀴 앞까지 내다봄
-const DENY_W = 0.075;                                            // 견제(일반): 남이 공짜로 키우는 카드를 막는 강도
+const DENY_W = 0.075;                                           // 견제(일반): 남이 공짜로 키우는 카드를 막는 강도
+const CHIP_EARLY = 0.7, POT_SWING = 0.15;                       // 초반 칩 가치 가산, 큰 판을 남에게 넘기는 부담
+// 칩 1개의 가치(점): 남은 카드가 많을수록 1보다 크다. 마지막엔 정확히 1.
+const chipValue = (s, skill) => 1 + CHIP_EARLY * (s.deck.length / 23) * (0.4 + 0.06 * skill);
 
 // 상대 q가 이 카드를 받을지 대략 예측 (봇은 칩 개수를 센다). 막으러 오는 것까지 감안해 문턱을 높게 잡는다.
 function wouldTake(s, q, card, potAt, chipsLeft, ownerMarginal) {
   if (chipsLeft <= 0) return true;                                     // 칩이 없으면 강제로 받는다
-  const net = marginal(s.cards[q], card) - potAt;
+  const net = marginal(s.cards[q], card) - potAt * chipValue(s, 6);
   const deny = ownerMarginal <= 0 ? Math.min(4, potAt * 0.35) : 0;      // 내가 공짜로 키우는 게 보이면 막으러 올 수 있다
-  return net <= 8 + (chipsLeft <= 2 ? 4 : 0) + deny;
+  return net <= 8 + potAt * POT_SWING * 0.8 + (chipsLeft <= 2 ? 4 : 0) + deny;
 }
 // 몇 바퀴까지 돌려도 아무도 채 가지 않을지 (0 = 지금 바로 받아야 안전)
 function safeRounds(s, me, card, mine) {
@@ -58,7 +61,7 @@ function targetSeat(s, me, t, info) {
 
 export default {
   meta: {
-    id: 'nothanks', name: '노땡스!', version: '1.2.0',
+    id: 'nothanks', name: '노땡스!', version: '1.3.0',
     players: { min: 3, max: 7 }, minutes: 10,
     campaign: null
   },
@@ -98,7 +101,8 @@ export default {
     const me = s.turn;
     if (s.chips[me] <= 0) return { move: 'take', reason: 'forced' };
     const card = s.card, pot = s.pot;
-    const mine = marginal(s.cards[me], card), net = mine - pot;       // net 낮을수록 이득
+    const mine = marginal(s.cards[me], card);
+    const net = mine - pot * chipValue(s, t.skill);                   // net 낮을수록 이득 (칩은 초반일수록 비쌈)
     const tg = targetSeat(s, me, t, info);
 
     // 다른 사람들이 이 카드를 받으면 얼마나 아플까 (대상은 가중)
@@ -111,7 +115,8 @@ export default {
     harm = w ? harm / w : 0;
 
     const scarcity = Math.max(0, SCARCE_AT - s.chips[me]) * (1.2 - t.risk * RISK_W);
-    const A = BASE + (5 - t.patience) * PAT_W + scarcity * SCARCE_W - t.aggression * AGG_W * harm;
+    const A = BASE + (5 - t.patience) * PAT_W + scarcity * SCARCE_W - t.aggression * AGG_W * harm
+      + pot * POT_SWING * (0.5 + t.skill / 20);                       // 큰 판을 넘기면 남이 그 칩을 다 가져간다
 
     // 견제: 대상에게 이득인 카드를 내가 손해를 보더라도 먼저 가져간다 (한도 있음)
     let grudge = 0;

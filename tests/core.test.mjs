@@ -346,6 +346,16 @@ await test('노땡스', '누가 공짜 카드를 키우다 판 위 칩이 두둑
   }
   assert(blocked / N >= 0.6, `가로챈 비율 ${(blocked / N * 100).toFixed(0)}%`);
 });
+await test('노땡스', '첫 카드로 29가 나오면 봇이 칩 21개까지 버티지 않는다 (평균 16개 미만에서 가져감)', () => {
+  const rng = makeRng(12); const seats = [1, 2, 3].map((x, i) => ({ seat: i, human: false, characterId: ['rapi', 'edel', 'yuno'][i] })).concat([{ seat: 3, human: true, characterId: null }]);
+  const pl = buildPlayers(seats, REAL, 'nothanks'); let sum = 0; const N = 500;
+  for (let t = 0; t < N; t++) {
+    const s = nothanks.newGame({ players: seats, rng }); s.deck = s.deck.filter(x => x !== 29); s.card = 29; s.turn = 0;
+    for (let k = 0; k < 80; k++) { const q = s.turn; const mv = q === 3 ? 'pass' : nothanks.botChoose(s, pl[q].traits, rng, { seat: q, rivalSeats: pl[q].rivalSeats }).move; if (mv === 'take') break; nothanks.applyMove(s, 'pass'); }
+    sum += s.pot;
+  }
+  assert(sum / N < 16, `평균 ${(sum / N).toFixed(1)}개에서 가져감`);
+});
 await test('노땡스', '게임별 대사(gameTweaks)를 추가해도 공통 대사는 그대로이고, 대사만 늘려도 규격 검사에 영향 없다', () => {
   const c = REAL.find(x => x.id === 'rapi');
   eq(linesFor(c, 'nothanks', 'start'), c.lines.start);                 // 공통 대사 유지
