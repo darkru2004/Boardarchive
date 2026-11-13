@@ -38,6 +38,24 @@
       }
     },
     {
+      "id": "kingdomino",
+      "file": "kingdomino.js",
+      "name": "킹도미노",
+      "version": "1.0.0",
+      "players": {
+        "min": 2,
+        "max": 4
+      },
+      "minutes": 15,
+      "desc": "지형 타일을 골라 내 왕국에 이어 붙이세요. 같은 지형으로 이어진 땅의 칸 수 × 왕관 수가 점수. 좋은 타일을 고르면 다음 순서가 밀립니다.",
+      "theme": {
+        "accent": "#e3b341",
+        "table": "#2f5d7c",
+        "table2": "#1a3447",
+        "glyph": "♛"
+      }
+    },
+    {
       "id": "stop-test",
       "file": "stop-test.js",
       "name": "스톱! (시험용)",

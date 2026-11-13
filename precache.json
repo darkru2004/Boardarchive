@@ -14,6 +14,7 @@
   "data/achievements.json",
   "data/characters.json",
   "games/index.json",
+  "games/kingdomino.js",
   "games/loveletter.js",
   "games/nothanks.js",
   "games/stop-test.js",

@@ -227,6 +227,42 @@ try:
         check("러브레터", "기록에 러브레터·버전 1.1.0·2명이 저장된다", lambda: (None if rec3 and rec3["gameVersion"] == "1.1.0" and len(rec3["players"]) == 2 else (_ for _ in ()).throw(AssertionError(str(rec3)[:200]))))
         p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=loveletter]")
         check("러브레터", "게임에서 나오면 러브레터 전용 스타일이 남지 않는다", lambda: (None if p2.evaluate("![...document.querySelectorAll('style')].some(s => s.textContent.includes('.g-ll'))") else (_ for _ in ()).throw(AssertionError("스타일이 남음"))))
+        # ---------- 킹도미노: 규칙 선택 → 실제 화면에서 4인 한 판 끝까지 ----------
+        p2.goto(BASE + "?fast=1"); p2.wait_for_selector("#nav a")
+        p2.click(".gcard[data-id=kingdomino]"); p2.wait_for_selector("#setup .seat"); p2.click("button[data-n='4']"); p2.click("#btnStart"); p2.wait_for_selector(".g-kd .kd-start")
+        p2.click(".g-kd [data-o=mk]")
+        check("킹도미노", "시작 전 규칙 선택 화면에서 변형 규칙을 켤 수 있다", lambda: p2.wait_for_selector(".g-kd .kd-opt.on[data-o=mk]", timeout=2000))
+        p2.click(".g-kd .kd-start"); p2.wait_for_selector(".g-kd .kd-dock.mine", timeout=30000)
+        check("킹도미노", "왕국 지도 화면이 뜨고 상대 3명의 왕국과 타일 4장이 그림으로 보인다", lambda: (None if p2.locator(".g-kd .kd-opp").count() == 3 and p2.locator(".g-kd .kd-next .kd-tile svg use").count() == 8 else (_ for _ in ()).throw(AssertionError("상대/타일 수"))))
+        for w in (360, 390):
+            p2.set_viewport_size({"width": w, "height": 844}); p2.wait_for_timeout(150)
+            ov = p2.evaluate("document.documentElement.scrollWidth > window.innerWidth + 1")
+            check("킹도미노", f"게임 화면이 {w}px 폰 폭에서 가로로 넘치지 않는다", lambda ov=ov: (None if not ov else (_ for _ in ()).throw(AssertionError("가로 스크롤"))))
+        seen = {"preview": False, "fits": True}
+        def play_kd():
+            t0 = time.time()
+            while p2.locator(".g-kd .kd-finish").count() == 0:
+                if time.time() - t0 > 240: raise AssertionError("240초 안에 끝나지 않음")
+                if p2.locator(".g-kd .kd-dock.mine").count() == 0: p2.wait_for_timeout(20); continue
+                if p2.locator(".g-kd .kd-next.can").count():
+                    p2.locator(".g-kd .kd-next .kd-tile.free").first.click(force=True); p2.click(".g-kd [data-a=pick]")
+                elif p2.locator(".g-kd [data-a=discard]").count(): p2.click(".g-kd [data-a=discard]")
+                elif p2.locator(".g-kd .kd-board .kd-hl").count():
+                    box = p2.evaluate("(() => { const r = document.querySelector('.g-kd .kd-board .kd-hl').getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()")
+                    p2.mouse.click(box[0], box[1])
+                    if p2.locator(".g-kd .kd-board .kd-ghost").count() == 2 and "합계" in p2.locator(".g-kd .kd-dtxt").inner_text(): seen["preview"] = True
+                    if p2.evaluate("document.querySelector('.g-kd .kd-board').getBoundingClientRect().height") > 420: seen["fits"] = False
+                    p2.click(".g-kd [data-a=place]")
+                p2.wait_for_timeout(15)
+        check("킹도미노", "실제 화면을 눌러 4인 한 판을 끝까지 플레이하면 최종 왕국 화면이 나온다", play_kd)
+        check("킹도미노", "칸을 누르면 타일 미리보기와 점수 변화가 먼저 보이고, 그 뒤에 '놓기'로 확정한다", lambda: (None if seen["preview"] else (_ for _ in ()).throw(AssertionError("미리보기 없음"))))
+        check("킹도미노", "내 왕국 판이 폰 화면 높이 안에 들어온다", lambda: (None if seen["fits"] else (_ for _ in ()).throw(AssertionError("판이 너무 큼"))))
+        p2.screenshot(path=f"{SHOTS}/12-kingdomino-final.png")
+        p2.click(".g-kd .kd-finish"); p2.wait_for_selector(".modal .rank-row")
+        rec4 = p2.evaluate("window.__ba.storage.all('records').then(a => a.map(x => x.value).find(v => v.gameId === 'kingdomino'))")
+        check("킹도미노", "기록에 킹도미노·버전 1.0.0·4명이 저장된다", lambda: (None if rec4 and rec4["gameVersion"] == "1.0.0" and len(rec4["players"]) == 4 else (_ for _ in ()).throw(AssertionError(str(rec4)[:200]))))
+        p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=kingdomino]")
+        check("킹도미노", "게임에서 나오면 킹도미노 전용 스타일이 남지 않는다", lambda: (None if p2.evaluate("![...document.querySelectorAll('style')].some(s => s.textContent.includes('.g-kd'))") else (_ for _ in ()).throw(AssertionError("스타일이 남음"))))
         ctx2.close()
         check("전체", "테스트 내내 화면 오류(콘솔 에러·예외)가 0건이다", lambda: (None if not errors else (_ for _ in ()).throw(AssertionError("; ".join(errors[:3])))))
         br.close()
