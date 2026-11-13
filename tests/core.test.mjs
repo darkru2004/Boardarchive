@@ -35,12 +35,12 @@ function rec(game, seats, ranks, at, gv = '0.1.0') {
 const SEATS = [{ seat: 0, human: true, characterId: null }, { seat: 1, human: false, characterId: 'rapi' }, { seat: 2, human: false, characterId: 'edel' }];
 
 // ============ 캐릭터 데이터 ============
-await test('캐릭터 데이터', 'characters.json이 오류 없이 읽히고 3명이 있다', () => { eq(realErrs, []); eq(REAL.map(c => c.id), ['rapi', 'edel', 'yuno']); });
-await test('캐릭터 데이터', '지정한 성향 수치가 그대로 들어 있다 (라피 8/4/2/9/2, 에델 9/8/6/5/7, 유노 6/9/9/3/5)', () => {
+await test('캐릭터 데이터', 'characters.json이 오류 없이 읽히고 24명이 있다(기존 3명 + 신규 21명, id 중복 없음)', () => { eq(realErrs, []); eq(REAL.length, 24); eq(new Set(REAL.map(c => c.id)).size, 24); eq(REAL.slice(0, 3).map(c => c.id), ['rapi', 'edel', 'yuno']); });
+await test('캐릭터 데이터', '지정한 성향 수치가 그대로 들어 있다 (라피 8/4/2/9/2, 에델 9/8/6/5/7, 유노 7/9/8/4/5 — 승률 조정으로 유노 변경)', () => {
   const t = id => REAL.find(c => c.id === id).traits;
   eq([t('rapi').skill, t('rapi').aggression, t('rapi').risk, t('rapi').patience, t('rapi').bluff, t('rapi').targetMode], [8, 4, 2, 9, 2, 'none']);
   eq([t('edel').skill, t('edel').aggression, t('edel').risk, t('edel').patience, t('edel').bluff, t('edel').targetMode], [9, 8, 6, 5, 7, 'leader']);
-  eq([t('yuno').skill, t('yuno').aggression, t('yuno').risk, t('yuno').patience, t('yuno').bluff, t('yuno').targetMode], [6, 9, 9, 3, 5, 'human']);
+  eq([t('yuno').skill, t('yuno').aggression, t('yuno').risk, t('yuno').patience, t('yuno').bluff, t('yuno').targetMode], [7, 9, 8, 4, 5, 'human']);
 });
 await test('캐릭터 데이터', '모든 캐릭터에 대사집 7종(시작·칭찬·실수·추월·견제·승리·패배)이 있다', () => {
   for (const c of REAL) for (const k of ['start', 'good', 'bad', 'overtaken', 'block', 'win', 'lose']) assert(c.lines[k] && c.lines[k].length >= 1, `${c.id}.${k} 없음`);
@@ -264,21 +264,37 @@ await test('게임 모듈 규격', '[검사기 자체 점검] 끝나지 않는 �
   assert(!contractCheck(loop, entry, SYN, { games: 5 }).ok, '무한 루프를 못 잡음');
   assert(!contractCheck(stopTest, { ...entry, version: '9.9.9' }, SYN).ok, '메타 불일치를 못 잡음');
 });
-await test('게임 모듈 규격', '인원 범위: 캐릭터 수가 모자라면 가능한 인원까지만 검사한다 (실제 3명 → 3·4인)', () => {
-  const r = contractCheck(stopTest, entry, REAL, { games: 50 }); assert(r.ok); eq(r.sims.map(s => s.count), [3, 4]);
+await test('게임 모듈 규격', '인원 범위: 캐릭터 수가 모자라면 가능한 인원까지만 검사한다 (실제 24명 → 3~7인 전부)', () => {
+  const r = contractCheck(stopTest, entry, REAL, { games: 50 }); assert(r.ok); eq(r.sims.map(s => s.count), [3, 4, 5, 6, 7]);
 });
 
 
 // ============ 노땡스 ============
 const ntEntry = gamesIndex.games.find(g => g.id === 'nothanks');
 const ntPlayers = n => Array.from({ length: n }, (_, i) => ({ seat: i, human: i === 0, characterId: i ? 'rapi' : null }));
+await test('캐릭터 데이터', '신규 캐릭터 21명: 관계 상대가 명단에 있고, 라이벌 지정형은 라이벌이 있고, 노땡스 전용 대사(기다리기·강제 받기)가 모두 있다', () => {
+  const ids = new Set(REAL.map(c => c.id));
+  for (const c of REAL) {
+    for (const r of c.relations || []) assert(ids.has(r.id), `${c.id}: 관계 상대 ${r.id} 없음`);
+    if (c.traits.targetMode === 'rival') assert((c.relations || []).some(r => r.type === 'rival'), `${c.id}: rival형인데 라이벌 없음`);
+    const nt = (c.gameTweaks && c.gameTweaks.nothanks && c.gameTweaks.nothanks.lines) || {};
+    if (c.id !== 'yuno') for (const k of ['wait', 'forced']) assert(Array.isArray(nt[k]) && nt[k].length >= 2, `${c.id}: 노땡스 ${k} 대사 2줄 이상 필요`);
+    for (const k of ['start', 'good', 'bad', 'overtaken', 'block', 'win', 'lose']) assert((c.lines[k] || []).length >= 2, `${c.id}: ${k} 대사 2줄 이상`);
+  }
+});
+await test('캐릭터 데이터', '24명의 성향이 서로 겹치지 않고 고르게 퍼져 있다(성향 조합 중복 0, 실력 1~10 구간 폭넓음)', () => {
+  const keys = REAL.map(c => JSON.stringify(c.traits));
+  eq(new Set(keys).size, 24);
+  const sk = REAL.map(c => c.traits.skill); assert(Math.min(...sk) <= 3 && Math.max(...sk) >= 9, '실력 폭이 좁음');
+  for (const m of ['none', 'leader', 'human', 'random', 'rival']) assert(REAL.some(c => c.traits.targetMode === m), `${m} 유형이 없음`);
+});
 await test('노땡스', '규격 검사 통과 (3~7인 × 300판: 오류 0, 불법 수 0, 시드 재현, JSON 저장 가능, 시드 재현, JSON 저장 가능)', () => {
   const r = contractCheck(nothanks, ntEntry, SYN, { games: 300 });
   assert(r.ok, r.problems.join(' / '));
   eq(r.sims.map(s => s.count), [3, 4, 5, 6, 7]);
 });
-await test('노땡스', '실제 캐릭터 3·4인 2000판: 오류 0, 자리 편향·승률 쏠림 경고 없음', () => {
-  for (const n of [3, 4]) { const r = simulate(nothanks, REAL, { games: 2000, count: n, seed: 9 }); eq([r.errors, r.illegal], [0, 0]); eq(r.warnings, []); }
+await test('노땡스', '실제 캐릭터 24명 3·4인 6000판: 오류 0, 자리 편향·승률 쏠림 경고 없음', () => {
+  for (const n of [3, 4]) { const r = simulate(nothanks, REAL, { games: 6000, count: n, seed: 11 }); eq([r.errors, r.illegal], [0, 0]); eq(r.warnings, []); }
 });
 await test('노땡스', '시작 칩 규칙: 3~5인 11개, 6인 9개, 7인 7개 / 카드 24장(3~35 중 9장 제외)', () => {
   for (const [n, chips] of [[3, 11], [4, 11], [5, 11], [6, 9], [7, 7]]) {
