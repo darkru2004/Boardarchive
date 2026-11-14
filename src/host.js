@@ -19,7 +19,7 @@ export async function unlockNew(app) {
   return fresh;
 }
 
-export async function launchGame(app, entry, seats) {
+export async function launchGame(app, entry, seats, difficulty = null) {
   const mod = (await import(`../games/${entry.file}`)).default;
   if (mod.meta.id !== entry.id) throw new Error('게임 파일의 id가 목록과 다릅니다');
   const players = buildPlayers(seats, app.characters, entry.id).map(p => {
@@ -62,7 +62,7 @@ export async function launchGame(app, entry, seats) {
     },
     async finish(result) {
       if (finished) return; finished = true;
-      const rec = buildRecord({ game: mod.meta, seats, result });
+      const rec = buildRecord({ game: mod.meta, seats, result, difficulty });
       await saveRecord(app.storage, rec);
       const fresh = await unlockNew(app);
       showResult(app, entry, seats, rec, fresh, { again: async () => { await leave(); app.startSetup(entry, seats.length); }, home: leave });

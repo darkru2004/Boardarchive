@@ -2,7 +2,7 @@ import { SCHEMA, uuid, validateRecord } from './schema.js';
 
 // 판 하나 = 기록 한 줄. 원본만 저장하고 통계는 stats.js에서 계산한다.
 // game: {id, version}, seats: [{seat, human, characterId}], result: {ranking:[{seat,rank,score}], summary}
-export function buildRecord({ game, seats, result, at = new Date(), slot = null }) {
+export function buildRecord({ game, seats, result, at = new Date(), slot = null, difficulty = null }) {
   const players = seats.map(s => {
     const r = result.ranking.find(x => x.seat === s.seat);
     if (!r) throw new Error(`결과에 ${s.seat}번 자리가 없음`);
@@ -10,6 +10,7 @@ export function buildRecord({ game, seats, result, at = new Date(), slot = null 
   });
   const rec = { v: SCHEMA.record, id: uuid(), at: at.toISOString(), gameId: game.id, gameVersion: game.version,
     mode: 'solo', slot, players, summary: result.summary || '' };
+  if (difficulty) rec.difficulty = difficulty;   // 선택 필드(옛 기록엔 없음)
   const errs = validateRecord(rec);
   if (errs.length) throw new Error('기록 형식 오류: ' + errs.join(', '));
   return rec;

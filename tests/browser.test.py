@@ -33,26 +33,29 @@ try:
         page.goto(BASE + "?fast=1"); page.wait_for_selector("#nav a")
         check("시작 화면", "앱이 열리고 하단 탭 4개(게임·도감·기록·설정)가 보인다", lambda: (
             (_ for _ in ()).throw(AssertionError("탭 수 " + str(page.locator('#nav a').count()))) if page.locator('#nav a').count() != 4 else None))
-        check("시작 화면", "게임 목록에 시험용 게임이 있고 '시험용' 표시가 붙는다", lambda: (page.wait_for_selector(".gcard[data-id=stop-test]"), page.wait_for_selector(".gcard[data-id=stop-test] .tag.test")))
+        check("시작 화면", "게임 목록에 스톱!(시험용)은 없고 정식 게임 3개가 있다", lambda: (page.wait_for_selector(".gcard[data-id=nothanks]"), None if page.locator(".gcard").count() == 3 and page.locator(".gcard[data-id=stop-test]").count() == 0 else (_ for _ in ()).throw(AssertionError("게임 카드 수 " + str(page.locator(".gcard").count())))))
         page.screenshot(path=f"{SHOTS}/1-home.png")
 
         # ---------- 게임 한 판 ----------
         def play_game():
-            page.click(".gcard[data-id=stop-test]"); page.wait_for_selector("#setup .seat")
+            page.click(".gcard[data-id=nothanks]"); page.wait_for_selector("#setup .seat")
             page.click("button[data-n='4']")
+            assert page.locator("#setup [data-d]").count() == 4, "난이도 버튼 4개가 아님"
+            for d in ("easy", "hard", "normal"):
+                page.click(f"#setup [data-d={d}]"); assert page.locator("#setup .seat").count() == 4
+            page.click("#setup [data-d=easy]")
             assert page.locator("#setup .seat").count() == 4, "4인 좌석이 아님"
             assert page.locator("#setup .seat.me").count() == 1, "사람 자리가 1개가 아님"
             page.screenshot(path=f"{SHOTS}/2-setup.png")
-            page.click("#btnStart"); page.wait_for_selector(".g-stop")
+            page.click("#btnStart"); page.wait_for_selector(".g-nt")
             page.screenshot(path=f"{SHOTS}/3-game.png")
             t0 = time.time()
             while page.locator(".modal .rank-row").count() == 0:
                 if time.time() - t0 > 90: raise AssertionError("90초 안에 게임이 끝나지 않음")
-                roll, hold = page.locator("[data-a=roll]"), page.locator("[data-a=hold]")
-                if roll.is_enabled():
-                    sub = page.locator(".g-sub").inner_text(); m = re.search(r"이번 차례 합계 (\d+)", sub); tt = int(m.group(1)) if m else 0
-                    if hold.is_enabled() and tt >= 15: hold.click()
-                    else: roll.click()
+                tk, ps = page.locator("[data-a=take]"), page.locator("[data-a=pass]")
+                if tk.is_enabled():
+                    hint = page.locator(".nt-hint").inner_text()
+                    (ps if ps.is_enabled() and "손해" in hint else tk).click()
                 page.wait_for_timeout(15)
             page.screenshot(path=f"{SHOTS}/4-result.png")
         check("게임 진행", "실제 화면을 눌러 4인 한 판을 끝까지 플레이하면 결과 화면이 나온다", play_game)
@@ -60,8 +63,8 @@ try:
         check("게임 진행", "판이 끝나면 기록이 1건 저장된다", lambda: (_ for _ in ()).throw(AssertionError("기록 수 " + str(count_records(page)))) if count_records(page) != 1 else None)
         rec = page.evaluate("window.__ba.storage.all('records').then(a => a[0].value)")
         check("게임 진행", "저장된 기록에 게임·버전·4명의 순위가 들어 있다", lambda: (
-            None if (rec["gameId"] == "stop-test" and rec["gameVersion"] == "0.1.0" and len(rec["players"]) == 4 and sorted(p["rank"] for p in rec["players"])[0] == 1 and sum(1 for p in rec["players"] if p["human"]) == 1) else (_ for _ in ()).throw(AssertionError(json.dumps(rec, ensure_ascii=False)[:200]))))
-        page.click("text=홈으로"); page.wait_for_selector(".gcard[data-id=stop-test]")
+            None if (rec["gameId"] == "nothanks" and rec["gameVersion"] == "1.8.0" and rec.get("difficulty") == "easy" and len(rec["players"]) == 4 and sorted(p["rank"] for p in rec["players"])[0] == 1 and sum(1 for p in rec["players"] if p["human"]) == 1) else (_ for _ in ()).throw(AssertionError(json.dumps(rec, ensure_ascii=False)[:200]))))
+        page.click("text=홈으로"); page.wait_for_selector(".gcard[data-id=nothanks]")
         check("게임 진행", "'홈으로'를 누르면 게임 목록으로 돌아온다 (하단 탭 복귀)", lambda: page.wait_for_selector("#nav a", state="visible"))
 
         # ---------- 기록 화면 ----------
@@ -138,12 +141,12 @@ try:
         ctx.set_offline(True)
         def offline_ok():
             page.reload(); page.wait_for_selector("#nav a", timeout=10000)
-            page.wait_for_selector(".gcard[data-id=stop-test]")
+            page.wait_for_selector(".gcard[data-id=nothanks]")
             page.click("#nav a[data-tab=records]"); page.wait_for_selector("#overall")
             assert "총 1판" in page.inner_text("#overall"), "기록이 안 보임"
         check("오프라인(PWA)", "인터넷을 끊고 새로고침해도 앱이 열리고 기록이 보인다", offline_ok)
         def offline_game():
-            page.click("#nav a[data-tab=home]"); page.click(".gcard[data-id=stop-test]"); page.wait_for_selector("#setup .seat"); page.click("#btnStart"); page.wait_for_selector(".g-stop", timeout=8000)
+            page.click("#nav a[data-tab=home]"); page.click(".gcard[data-id=nothanks]"); page.wait_for_selector("#setup .seat"); page.click("#btnStart"); page.wait_for_selector(".g-nt", timeout=8000)
         check("오프라인(PWA)", "오프라인에서도 게임 파일을 불러와 게임이 시작된다", offline_game)
         ctx.set_offline(False)
         mf = page.evaluate("fetch('manifest.webmanifest').then(r => r.json())")

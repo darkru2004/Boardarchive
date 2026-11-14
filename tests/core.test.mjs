@@ -11,7 +11,7 @@ import { overall, gameStats, characterStats, computeAchievements } from '../core
 import { createMemoryStorage, ensureDataSchema, saveCampaign, loadCampaign } from '../core/storage.js';
 import { exportBackup, importBackup, migrateBackup, parseBackup } from '../core/backup.js';
 import { simulate, contractCheck, buildPlayers, runBotGame } from '../core/runner.js';
-import stopTest from '../games/stop-test.js';
+import stopTest from './fixtures/stop-test.js';
 import nothanks from '../games/nothanks.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -85,6 +85,18 @@ await test('좌석 랜덤', '고정(pinned) 캐릭터는 반드시 앉는다', (
   const rng = makeRng(2);
   for (let i = 0; i < 100; i++) assert(drawSeats({ characters: REAL, count: 3, rng, pinned: ['yuno'] }).some(s => s.characterId === 'yuno'));
 });
+await test('자리 뽑기', '난이도: 쉬움은 실력 하위, 어려움은 상위, 보통은 중간 구간에서만 앉는다 (봇 수준은 그대로)', () => {
+  const rng = makeRng(31), sk = id => traitsFor(REAL.find(c => c.id === id), 'nothanks').skill;
+  const ranked = REAL.slice().sort((a, b) => traitsFor(a, 'nothanks').skill - traitsFor(b, 'nothanks').skill);
+  const avg = d => { let t = 0, n = 0; for (let i = 0; i < 300; i++) for (const s of drawSeats({ characters: REAL, count: 4, rng, difficulty: d, gameId: 'nothanks' })) if (!s.human) { t += sk(s.characterId); n++; } return t / n; };
+  const e = avg('easy'), m = avg('normal'), h = avg('hard'), r = avg('random');
+  assert(e < m && m < h, `쉬움 ${e.toFixed(1)} < 보통 ${m.toFixed(1)} < 어려움 ${h.toFixed(1)}`);
+  assert(e < r && r < h, '무작위는 그 사이');
+  const cut = traitsFor(ranked[Math.max(6, Math.ceil(REAL.length / 3)) - 1], 'nothanks').skill;   // 동점은 구간 경계를 넘나들 수 있어 실력 값으로 비교
+  for (let i = 0; i < 100; i++) assert(drawSeats({ characters: REAL, count: 7, rng, difficulty: 'easy', gameId: 'nothanks' }).every(s => s.human || sk(s.characterId) <= cut), '쉬움 7인이 하위 구간을 벗어남');
+  for (const d of ['easy', 'normal', 'hard']) assert(drawSeats({ characters: REAL, count: 7, rng, difficulty: d, gameId: 'nothanks' }).length === 7);
+});
+
 await test('좌석 랜덤', '라이벌 상성: 같은 판에 라이벌이 앉았을 때만 라이벌 좌석이 계산된다', () => {
   const edel = REAL.find(c => c.id === 'edel');
   eq(rivalSeatsFor(edel, [{ seat: 0, human: true }, { seat: 1, characterId: 'yuno' }, { seat: 2, characterId: 'rapi' }]), [1]);
@@ -234,7 +246,7 @@ await test('패치 보존', '명단에서 완전히 사라진 캐릭터의 기�
 });
 
 // ============ 게임 모듈 규격 ============
-const entry = gamesIndex.games.find(g => g.id === 'stop-test');
+const entry = readJson('tests/fixtures/stop-test.entry.json');
 const SYN = synth(8);
 await test('게임 모듈 규격', '시험용 게임이 규격 검사를 통과한다 (3~7인 × 200판: 오류 0, 불법 수 0, 시드 재현, JSON 저장 가능)', () => {
   const r = contractCheck(stopTest, entry, SYN, { games: 200 });

@@ -1,0 +1,13 @@
+{
+  "id": "stop-test",
+  "file": "stop-test.js",
+  "name": "스톱! (시험용)",
+  "version": "0.1.0",
+  "players": {
+    "min": 3,
+    "max": 7
+  },
+  "minutes": 5,
+  "desc": "주사위를 굴리다 멈추는 시험용 게임. 규격 점검 전용이며 정식 게임이 아닙니다.",
+  "test": true
+}

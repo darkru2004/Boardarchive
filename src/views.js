@@ -1,6 +1,6 @@
 import { h, avatar, toast, fileToPortrait, downloadJson, fmtDate, pct, ornament, bubbles, dieSvg, lockSvg } from './ui.js';
 import { TRAIT_KEYS, TRAIT_LABELS, TARGET_LABELS, APP_VERSION, SCHEMA } from '../core/schema.js';
-import { drawSeats } from '../core/seating.js';
+import { drawSeats, DIFFICULTIES, DIFF_LABEL } from '../core/seating.js';
 import { makeRng } from '../core/rng.js';
 import { listRecords } from '../core/records.js';
 import { overall, gameStats, characterStats, computeAchievements } from '../core/stats.js';
@@ -39,7 +39,7 @@ function gameCard(app, g, i, st) {
   const status = !can ? 'LOCK' : st ? (st.wins ? 'CLEAR' : 'PLAYED') : 'NEW';
   const th = g.theme || null;     // 게임별 표지 (games/index.json의 theme)
   const pic = th ? h('span', { class: 'big cover', style: `color:${th.accent}` }, th.glyph || plainName(g.name).slice(0, 1))
-    : g.id === 'stop-test' ? dieSvg(5, 70) : h('span', { class: 'big' }, plainName(g.name).slice(0, 1));
+    : h('span', { class: 'big' }, plainName(g.name).slice(0, 1));
   return h('button', { class: 'pol gcard', 'data-id': g.id, 'aria-label': `${g.name} 플레이`, disabled: !can,
     onclick: () => can && app.startSetup(g, g.players.min) },
     h('div', { class: 'no' }, String(i + 1).padStart(2, '0')),
@@ -52,19 +52,23 @@ function gameCard(app, g, i, st) {
 export function setupPanel(app, entry, count, holder) {
   const rng = makeRng();
   const maxN = Math.min(entry.players.max, activeOnly(app.characters).length + 1);
-  let seats = drawSeats({ characters: app.characters, count, rng });
+  let diff = (() => { try { const d = localStorage.getItem('ba_diff'); return DIFFICULTIES.includes(d) ? d : 'random'; } catch { return 'random'; } })();
+  const draw = () => drawSeats({ characters: app.characters, count, rng, difficulty: diff, gameId: entry.id });
+  let seats = draw();
   const box = h('div', { class: 'paper taped', id: 'setup', style: '--r:.5deg' });
   const render = () => {
     box.replaceChildren(
       h('h3', {}, `${plainName(entry.name)} · 자리 뽑기`),
       h('div', { class: 'cnt' }, ...Array.from({ length: maxN - entry.players.min + 1 }, (_, i) => entry.players.min + i).map(n =>
-        h('button', { class: 'btn small' + (n === count ? ' on' : ''), 'data-n': n, onclick: () => { count = n; seats = drawSeats({ characters: app.characters, count, rng }); render(); } }, `${n}인`))),
+        h('button', { class: 'btn small' + (n === count ? ' on' : ''), 'data-n': n, onclick: () => { count = n; seats = draw(); render(); } }, `${n}인`))),
+      h('div', { class: 'cnt diff' }, h('small', { style: 'margin-right:6px' }, '난이도'), ...DIFFICULTIES.map(d =>
+        h('button', { class: 'btn small' + (d === diff ? ' on' : ''), 'data-d': d, onclick: () => { diff = d; try { localStorage.setItem('ba_diff', d); } catch {} seats = draw(); render(); } }, DIFF_LABEL[d]))),
       h('div', { class: 'seats', style: 'background:#00000030;padding:12px 6px 8px' }, ...seats.map(s => h('div', { class: 'th seat' + (s.human ? ' me' : '') },
         avatar(app, s.characterId, 58), s.human ? '나' : app.lookup(s.characterId).name.split(' ').pop(), h('small', {}, `${s.seat + 1}번 자리`)))),
-      h('div', { class: 'muted', style: 'margin-bottom:10px' }, '상대와 자리 순서는 판마다 무작위로 정해져요. 1번 자리부터 시작합니다.'),
+      h('div', { class: 'muted', style: 'margin-bottom:10px' }, diff === 'random' ? '상대와 자리 순서는 판마다 무작위로 정해져요. 1번 자리부터 시작합니다.' : `${DIFF_LABEL[diff]}: 이 게임에서 실력이 ${diff === 'easy' ? '낮은' : diff === 'hard' ? '높은' : '중간인'} 캐릭터들이 앉아요. (봇 수준은 그대로)`),
       h('div', { class: 'row' },
-        h('button', { class: 'btn', onclick: () => { seats = drawSeats({ characters: app.characters, count, rng }); render(); } }, '다시 뽑기', h('small', {}, 'SHUFFLE')),
-        h('button', { class: 'btn go grow', id: 'btnStart', onclick: () => launchGame(app, entry, seats).catch(e => toast('실행 오류: ' + e.message)) }, '시작', h('small', {}, 'START'))));
+        h('button', { class: 'btn', onclick: () => { seats = draw(); render(); } }, '다시 뽑기', h('small', {}, 'SHUFFLE')),
+        h('button', { class: 'btn go grow', id: 'btnStart', onclick: () => launchGame(app, entry, seats, diff).catch(e => toast('실행 오류: ' + e.message)) }, '시작', h('small', {}, 'START'))));
   };
   render();
   holder.replaceChildren(box);
