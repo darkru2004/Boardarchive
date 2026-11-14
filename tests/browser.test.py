@@ -33,7 +33,7 @@ try:
         page.goto(BASE + "?fast=1"); page.wait_for_selector("#nav a")
         check("시작 화면", "앱이 열리고 하단 탭 4개(게임·도감·기록·설정)가 보인다", lambda: (
             (_ for _ in ()).throw(AssertionError("탭 수 " + str(page.locator('#nav a').count()))) if page.locator('#nav a').count() != 4 else None))
-        check("시작 화면", "게임 목록에 스톱!(시험용)은 없고 정식 게임 4개가 있다", lambda: (page.wait_for_selector(".gcard[data-id=nothanks]"), None if page.locator(".gcard").count() == 4 and page.locator(".gcard[data-id=stop-test]").count() == 0 else (_ for _ in ()).throw(AssertionError("게임 카드 수 " + str(page.locator(".gcard").count())))))
+        check("시작 화면", "게임 목록에 스톱!(시험용)은 없고 정식 게임 5개가 있다", lambda: (page.wait_for_selector(".gcard[data-id=nothanks]"), None if page.locator(".gcard").count() == 5 and page.locator(".gcard[data-id=stop-test]").count() == 0 else (_ for _ in ()).throw(AssertionError("게임 카드 수 " + str(page.locator(".gcard").count())))))
         page.screenshot(path=f"{SHOTS}/1-home.png")
 
         # ---------- 게임 한 판 ----------
@@ -344,6 +344,67 @@ try:
         check("스플렌더", "기록에 스플렌더·버전 1.0.0·4명이 저장되고, 이어하기 저장은 지워진다", lambda: (None if rec5 and rec5["gameVersion"] == "1.0.0" and len(rec5["players"]) == 4 and left == 0 else (_ for _ in ()).throw(AssertionError(str(rec5)[:200] + f" 남은 저장 {left}"))))
         p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=splendor]")
         check("스플렌더", "게임에서 나오면 스플렌더 전용 스타일이 남지 않는다", lambda: (None if p2.evaluate("![...document.querySelectorAll('style')].some(s => s.textContent.includes('.g-splendor'))") else (_ for _ in ()).throw(AssertionError("스타일이 남음"))))
+        # ---------- 레지사이드(협력): 폰 한 화면 · 카드 고르기 · 이어하기 · 한 판 끝까지 · 협력 기록 ----------
+        p2.set_viewport_size({"width": 412, "height": 780})
+        p2.goto(BASE + "?fast=1"); p2.wait_for_selector("#nav a")
+        p2.click(".gcard[data-id=regicide]"); p2.wait_for_selector("#setup .seat"); p2.click("button[data-n='4']"); p2.click("#btnStart")
+        p2.wait_for_selector(".g-regicide .rg-dock.mine", timeout=30000)
+        check("레지사이드", "성의 테이블 화면: 동료 3명·왕족 카드·체력 막대·12칸 진행 표시·손패 5장이 그림으로 보인다", lambda: (None if p2.locator(".g-regicide .rg-mate").count() == 3 and p2.locator(".g-regicide .rg-boss .rg-face").count() == 1 and p2.locator(".g-regicide .rg-hp").count() == 1 and p2.locator(".g-regicide .rg-pp").count() == 12 and p2.locator(".g-regicide .rg-hand .rg-card").count() >= 4 and p2.locator(".g-regicide .rg-hand .rg-card svg use").count() > 8 else (_ for _ in ()).throw(AssertionError("화면 구성 " + str(p2.locator(".g-regicide .rg-hand .rg-card").count())))))
+        for (w, hgt) in ((412, 780), (390, 844), (360, 740)):
+            p2.set_viewport_size({"width": w, "height": hgt}); p2.wait_for_timeout(150)
+            m = p2.evaluate("({v: document.documentElement.scrollHeight > innerHeight + 1, h: document.documentElement.scrollWidth > innerWidth + 1, b: document.querySelector('.rg-hand').getBoundingClientRect().bottom <= innerHeight})")
+            check("레지사이드", f"4인 {w}×{hgt} 폰 화면에서 스크롤 없이 손패까지 한 화면에 보인다", lambda m=m: (None if not m["v"] and not m["h"] and m["b"] else (_ for _ in ()).throw(AssertionError(str(m)))))
+        p2.set_viewport_size({"width": 412, "height": 780})
+        def rg_select():
+            hand = p2.locator(".g-regicide .rg-hand .rg-card"); hand.first.click()
+            assert p2.locator(".g-regicide .rg-hand .rg-card.sel").count() == 1, "고른 카드가 올라오지 않음"
+            assert p2.locator(".g-regicide [data-a=play]:not([disabled])").count() == 1, "한 장은 낼 수 있어야 함"
+            p2.click(".g-regicide [data-a=clear]"); assert p2.locator(".g-regicide .rg-hand .rg-card.sel").count() == 0, "취소가 안 됨"
+        check("레지사이드", "카드를 누르면 올라오고(고름) 취소하면 내려가며, 한 장은 바로 낼 수 있다", rg_select)
+        def rg_resume():
+            before = p2.evaluate("[...document.querySelectorAll('.g-regicide .rg-hand [data-c]')].map(e => e.dataset.c).join(',') + '|' + document.querySelector('.rg-en').textContent + '|' + document.querySelector('.rg-hp b').textContent")
+            p2.click(".gamebar button"); p2.click(".gamebar button"); p2.wait_for_selector(".gcard[data-id=regicide]")
+            p2.click(".gcard[data-id=regicide]"); p2.wait_for_selector("#resume #btnResume", timeout=5000)
+            p2.click("#btnResume"); p2.wait_for_selector(".g-regicide .rg-dock.mine", timeout=30000)
+            after = p2.evaluate("[...document.querySelectorAll('.g-regicide .rg-hand [data-c]')].map(e => e.dataset.c).join(',') + '|' + document.querySelector('.rg-en').textContent + '|' + document.querySelector('.rg-hp b').textContent")
+            assert before == after, before + " != " + after
+        check("레지사이드", "중간에 나가도 '이어하기'로 같은 손패·같은 왕족 체력의 판에 돌아온다", rg_resume)
+        def play_rg():
+            t0 = time.time(); k = 0
+            while p2.locator(".g-regicide [data-a=finish]").count() == 0:
+                if time.time() - t0 > 200: raise AssertionError("200초 안에 끝나지 않음")
+                if p2.locator(".g-regicide .rg-dock.mine").count() == 0: p2.wait_for_timeout(20); continue
+                k += 1
+                if p2.locator(".g-regicide [data-nx]").count(): p2.locator(".g-regicide [data-nx]").first.click(); continue
+                if p2.locator(".g-regicide [data-a=suffer]").count(): p2.click(".g-regicide [data-a=auto]"); p2.click(".g-regicide [data-a=suffer]"); continue
+                cards = p2.locator(".g-regicide .rg-hand .rg-card"); n = cards.count()
+                if n == 0:
+                    if p2.locator(".g-regicide [data-a=yield]:not([disabled])").count(): p2.click(".g-regicide [data-a=yield]")
+                    else: p2.wait_for_timeout(30)
+                    continue
+                cards.nth(k % n).click()
+                if p2.locator(".g-regicide [data-a=play]:not([disabled])").count(): p2.click(".g-regicide [data-a=play]")
+                else:
+                    if p2.locator(".g-regicide [data-a=clear]").count(): p2.click(".g-regicide [data-a=clear]")
+                    if p2.locator(".g-regicide [data-a=yield]:not([disabled])").count(): p2.click(".g-regicide [data-a=yield]")
+        check("레지사이드", "실제 화면을 눌러(카드 내기·양보·반격 막기·다음 사람 지목) 한 판을 끝까지 플레이하면 결과 화면이 나온다", play_rg)
+        p2.screenshot(path=f"{SHOTS}/14-regicide-final.png")
+        p2.click(".g-regicide [data-a=finish]"); p2.wait_for_selector(".modal")
+        rec6 = p2.evaluate("window.__ba.storage.all('records').then(a => a.map(x => x.value).find(v => v.gameId === 'regicide'))")
+        left2 = p2.evaluate("window.__ba.storage.all('campaigns').then(a => a.filter(x => x.key.startsWith('regicide:')).length)")
+        check("레지사이드", "기록에 레지사이드·버전 1.0.0·4명이 협력 기록(승/패, 모두 같은 순위)으로 저장되고, 이어하기 저장은 지워진다", lambda: (None if rec6 and rec6["gameVersion"] == "1.0.0" and rec6.get("mode") == "coop" and rec6.get("outcome") in ("win", "lose") and len(rec6["players"]) == 4 and len({p["rank"] for p in rec6["players"]}) == 1 and left2 == 0 else (_ for _ in ()).throw(AssertionError(str(rec6)[:240] + f" 남은 저장 {left2}"))))
+        p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=regicide]")
+        check("레지사이드", "게임에서 나오면 레지사이드 전용 스타일이 남지 않는다", lambda: (None if p2.evaluate("![...document.querySelectorAll('style')].some(s => s.textContent.includes('.g-regicide'))") else (_ for _ in ()).throw(AssertionError("스타일이 남음"))))
+        def rg_two():
+            p2.set_viewport_size({"width": 360, "height": 740})
+            p2.click(".gcard[data-id=regicide]"); p2.wait_for_selector("#setup .seat"); p2.click("button[data-n='2']"); p2.click("#btnStart")
+            p2.wait_for_selector(".g-regicide .rg-dock.mine", timeout=30000)
+            assert p2.locator(".g-regicide .rg-mate").count() == 1 and p2.locator(".g-regicide .rg-hand .rg-card").count() >= 6, "2인 화면 구성"
+            m = p2.evaluate("({v: document.documentElement.scrollHeight > innerHeight + 1, h: document.documentElement.scrollWidth > innerWidth + 1, w: [...document.querySelectorAll('.rg-hand .rg-card')].every(e => e.getBoundingClientRect().right <= innerWidth && e.getBoundingClientRect().left >= 0)})")
+            assert not m["v"] and not m["h"] and m["w"], "2인 손패 7장이 화면 안에 안 들어옴 " + str(m)
+            p2.screenshot(path=f"{SHOTS}/15-regicide-2p.png")
+        check("레지사이드", "2인(손패 7장)도 360×740 폰 화면 안에 다 들어온다", rg_two)
+        p2.click(".gamebar button"); p2.click(".gamebar button"); p2.wait_for_selector(".gcard[data-id=regicide]")
         # ---------- 협력 게임 기록: 경쟁 기록과 따로 보이는지 (새 저장공간) ----------
         ctx3 = br.new_context(viewport={"width": 390, "height": 844}); p3 = ctx3.new_page(); p3.on("pageerror", lambda e: errors.append("pageerror(coop): " + str(e)))
         p3.goto(BASE + "?fast=1"); p3.wait_for_selector("#nav a")

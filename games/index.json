@@ -72,6 +72,25 @@
         "table2": "#0b1026",
         "glyph": "◆"
       }
+    },
+    {
+      "id": "regicide",
+      "file": "regicide.js",
+      "name": "레지사이드",
+      "version": "1.0.0",
+      "mode": "coop",
+      "players": {
+        "min": 2,
+        "max": 4
+      },
+      "minutes": 25,
+      "desc": "모두 한 편! 카드 무늬의 힘으로 성의 왕족 12명(J·Q·K)을 쓰러뜨리세요. 반격을 막지 못하면 모두 패배, 하나라도 남기면 성은 되찾지 못해요.",
+      "theme": {
+        "accent": "#e7c15d",
+        "table": "#3a1830",
+        "table2": "#180a16",
+        "glyph": "♛"
+      }
     }
   ]
 }

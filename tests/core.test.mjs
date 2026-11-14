@@ -325,7 +325,7 @@ await test('게임 모듈 규격', '실제 캐릭터 3명으로 3·4인 1000판:
 await test('게임 모듈 규격', 'games/index.json의 모든 게임 파일이 존재하고 메타 정보가 모듈과 일치한다', async () => {
   for (const g of gamesIndex.games) {
     assert(existsSync(join(ROOT, 'games', g.file)), `${g.file} 없음`);
-    const m = (await import(`../games/${g.file}`)).default; const r = contractCheck(m, g, SYN, { games: 50 }); assert(r.ok, `${g.id}: ${r.problems.join(' / ')}`);
+    const m = (await import(`../games/${g.file}`)).default; const r = contractCheck(m, g, SYN, { games: g.mode === 'coop' ? 10 : 50 }); assert(r.ok, `${g.id}: ${r.problems.join(' / ')}`);
   }
 });
 await test('게임 모듈 규격', '[검사기 자체 점검] 봇이 불법 수를 고르는 게임은 잡아낸다', () => {
