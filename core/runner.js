@@ -57,7 +57,7 @@ export function simulate(mod, characters, { games = 500, count = 4, seed = 1 } =
   const stat = {};
   const seatWins = Array(count).fill(0);
   const reasons = {};
-  let errors = 0, illegal = 0, steps = 0, ok = 0, firstError = null;
+  let errors = 0, illegal = 0, steps = 0, ok = 0, firstError = null, coopWins = 0, coopGames = 0;
   for (let g = 0; g < games; g++) {
     try {
       const seats = drawSeats({ characters, count, rng });
@@ -65,6 +65,9 @@ export function simulate(mod, characters, { games = 500, count = 4, seed = 1 } =
       const r = runBotGame(mod, players, rng);
       ok++; steps += r.steps; illegal += r.illegal;
       for (const [k, v] of Object.entries(r.reasons)) reasons[k] = (reasons[k] || 0) + v;
+      if (r.result.coop) {   // 협력 게임: 순위·승률 쏠림 대신 클리어율을 본다 (경쟁 통계와 무관)
+        coopGames++; if (r.result.coop.won) coopWins++; continue;
+      }
       const winners = r.result.ranking.filter(x => x.rank === 1);
       for (const p of players) {
         const id = p.human ? '@기준봇' : p.characterId;
@@ -77,12 +80,14 @@ export function simulate(mod, characters, { games = 500, count = 4, seed = 1 } =
   }
   for (const s of Object.values(stat)) s.winRate = s.played ? s.wins / s.played : 0;
   const fair = 1 / count;
+  const coop = coopGames ? { games: coopGames, clearRate: coopWins / coopGames } : null;
   const warnings = [];
+  if (coop && (coop.clearRate === 0 || coop.clearRate === 1) && coop.games >= 50) warnings.push(`클리어율이 ${coop.clearRate * 100}%라 난이도 조정이 필요해 보임`);
   for (const [id, s] of Object.entries(stat)) {
     if (s.played >= 100 && (s.winRate > fair * 1.6 || s.winRate < fair * 0.4)) warnings.push(`승률 쏠림: ${id} ${(s.winRate * 100).toFixed(1)}% (공정 ${(fair * 100).toFixed(1)}%)`);
   }
-  seatWins.forEach((w, i) => { const wr = ok ? w / ok : 0; if (ok >= 100 && (wr > fair * 1.5 || wr < fair * 0.5)) warnings.push(`자리 편향: ${i}번 자리 승률 ${(wr * 100).toFixed(1)}%`); });
-  return { games, count, ok, errors, illegal, firstError, avgSteps: ok ? steps / ok : 0, perCharacter: stat, seatWinRate: seatWins.map(w => (ok ? w / ok : 0)), reasons, warnings };
+  if (!coopGames) seatWins.forEach((w, i) => { const wr = ok ? w / ok : 0; if (ok >= 100 && (wr > fair * 1.5 || wr < fair * 0.5)) warnings.push(`자리 편향: ${i}번 자리 승률 ${(wr * 100).toFixed(1)}%`); });
+  return { games, count, ok, errors, illegal, firstError, avgSteps: ok ? steps / ok : 0, coop, perCharacter: stat, seatWinRate: seatWins.map(w => (ok ? w / ok : 0)), reasons, warnings };
 }
 
 // 게임 모듈 규격 검사. 새 게임 파일을 아카이브에 넣기 전에 이것만 통과하면 된다.

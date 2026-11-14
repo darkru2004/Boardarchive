@@ -11,7 +11,7 @@ import { linesFor, activeOnly, pairLinesFor } from '../core/characters.js';
 import { h, avatar, modal, toast, dieSvg, ornament, bubbles } from './ui.js';
 import { makeFx } from './fx.js';
 
-export const achCtx = app => ({ activeIds: activeOnly(app.characters).map(c => c.id), gameIds: app.games.filter(g => !g.test).map(g => g.id) });
+export const achCtx = app => ({ activeIds: activeOnly(app.characters).map(c => c.id), gameIds: app.games.filter(g => !g.test && g.mode !== 'coop').map(g => g.id) });
 
 export async function unlockNew(app) {
   const recs = await listRecords(app.storage);
@@ -89,12 +89,15 @@ export async function launchGame(app, entry, seats, difficulty = null, resume = 
 function showResult(app, entry, seats, rec, fresh, { again, home }) {
   const sorted = rec.players.slice().sort((a, b) => a.rank - b.rank || a.seat - b.seat);
   const me = rec.players.find(p => p.human);
+  const coop = rec.mode === 'coop', won = rec.outcome === 'win';
   const body = [
-    h('div', { class: 'brand', style: 'font-size:34px' }, me.rank === 1 ? 'Victory' : `Rank ${me.rank}`, h('small', {}, me.rank === 1 ? '승리했습니다' : `${me.rank}위로 마무리 · ${rec.summary}`)),
-    ...sorted.map(p => h('div', { class: 'rank-row' + (p.rank === 1 ? ' first' : '') },
-      h('div', { class: 'r' }, p.rank), avatar(app, p.characterId, 38),
+    coop
+      ? h('div', { class: 'brand', style: 'font-size:34px' }, won ? 'Cleared' : 'Defeat', h('small', {}, `${won ? '함께 클리어했습니다' : '이번엔 쓰러졌어요'}${rec.score != null ? ` · ${rec.score}점` : ''}${rec.summary ? ` · ${rec.summary}` : ''}`))
+      : h('div', { class: 'brand', style: 'font-size:34px' }, me.rank === 1 ? 'Victory' : `Rank ${me.rank}`, h('small', {}, me.rank === 1 ? '승리했습니다' : `${me.rank}위로 마무리 · ${rec.summary}`)),
+    ...sorted.map(p => h('div', { class: 'rank-row' + (coop ? (won ? ' first' : '') : p.rank === 1 ? ' first' : '') },
+      h('div', { class: 'r' }, coop ? '·' : p.rank), avatar(app, p.characterId, 38),
       h('div', { class: 'grow' }, p.human ? '나' : app.lookup(p.characterId).name),
-      h('div', { style: 'font-family:var(--fd);font-size:18px' }, p.score != null ? `${p.score}` : ''))),
+      h('div', { style: 'font-family:var(--fd);font-size:18px' }, !coop && p.score != null ? `${p.score}` : ''))),
     fresh.length ? h('div', { class: 'paper taped', style: 'margin-top:16px;--r:-1deg;background:#efece4' }, '업적 달성 · ' + fresh.map(a => app.achievementDefs.find(d => d.id === a.id).name).join(', ')) : null,
     h('div', { class: 'row', style: 'margin-top:16px' },
       h('button', { class: 'btn go grow', onclick: () => { m.close(); again(); } }, '한 판 더', h('small', {}, 'AGAIN')),

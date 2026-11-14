@@ -86,6 +86,8 @@ export function validateRecord(r) {
   if (typeof r.at !== 'string' || Number.isNaN(Date.parse(r.at))) e.push('at(날짜) 오류');
   if (typeof r.gameId !== 'string' || !ID_RE.test(r.gameId)) e.push('gameId 오류');
   if (typeof r.gameVersion !== 'string') e.push('gameVersion 오류');
+  if (r.mode != null && !['solo', 'coop'].includes(r.mode)) e.push('mode 오류');
+  if (r.mode === 'coop' && !['win', 'lose'].includes(r.outcome)) e.push('협력 기록은 outcome(win/lose)이 필요함');
   if (r.difficulty != null && !['easy', 'normal', 'hard', 'random'].includes(r.difficulty)) e.push('difficulty 오류');
   if (!Array.isArray(r.players) || r.players.length < 2) e.push('players는 2명 이상');
   else {

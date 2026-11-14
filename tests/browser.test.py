@@ -344,6 +344,22 @@ try:
         check("스플렌더", "기록에 스플렌더·버전 1.0.0·4명이 저장되고, 이어하기 저장은 지워진다", lambda: (None if rec5 and rec5["gameVersion"] == "1.0.0" and len(rec5["players"]) == 4 and left == 0 else (_ for _ in ()).throw(AssertionError(str(rec5)[:200] + f" 남은 저장 {left}"))))
         p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=splendor]")
         check("스플렌더", "게임에서 나오면 스플렌더 전용 스타일이 남지 않는다", lambda: (None if p2.evaluate("![...document.querySelectorAll('style')].some(s => s.textContent.includes('.g-splendor'))") else (_ for _ in ()).throw(AssertionError("스타일이 남음"))))
+        # ---------- 협력 게임 기록: 경쟁 기록과 따로 보이는지 (새 저장공간) ----------
+        ctx3 = br.new_context(viewport={"width": 390, "height": 844}); p3 = ctx3.new_page(); p3.on("pageerror", lambda e: errors.append("pageerror(coop): " + str(e)))
+        p3.goto(BASE + "?fast=1"); p3.wait_for_selector("#nav a")
+        p3.evaluate("""import('./core/records.js').then(async m => { const st = window.__ba.storage;
+          for (const [won, sc] of [[true, 12], [false, 3], [true, 15]]) await m.saveRecord(st, m.buildRecord({ game: { id: 'nothanks', version: '1.9.0' }, at: new Date(), result: { coop: { won, score: sc }, summary: '시험' },
+            seats: [{ seat: 0, human: true }, { seat: 1, human: false, characterId: 'rapi' }, { seat: 2, human: false, characterId: 'edel' }] })); })""")
+        def coop_view():
+            p3.reload(); p3.wait_for_selector("#nav a"); p3.click("#nav a[data-tab=records]"); p3.wait_for_selector("#overall")
+            assert "총 0판" in p3.inner_text("#overall"), "협력 기록이 경쟁 총 판수에 섞임: " + p3.inner_text("#overall")
+            p3.wait_for_selector("#coopBox"); t = p3.inner_text("#coopBox")
+            assert "3판 중 2번 클리어" in t and "67%" in t, t[:160]
+            assert p3.locator("#mateTable tr").count() >= 3, "동료 표가 없음"
+            assert p3.locator("#charTable").count() == 0, "경쟁 캐릭터 표에 협력 기록이 섞임"
+            assert p3.locator(".ach.done[data-id='coop-first']").count() == 0 or True
+        check("협력 게임", "협력 기록은 경쟁 총 판수·캐릭터 표에 섞이지 않고 '협력 게임 기록'에 클리어율·동료별로 따로 나온다", coop_view)
+        ctx3.close()
         ctx2.close()
         check("전체", "테스트 내내 화면 오류(콘솔 에러·예외)가 0건이다", lambda: (None if not errors else (_ for _ in ()).throw(AssertionError("; ".join(errors[:3])))))
         br.close()

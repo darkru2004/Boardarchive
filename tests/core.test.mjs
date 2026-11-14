@@ -7,7 +7,7 @@ import { SCHEMA, validateCharacter, validateRecord, normTraits } from '../core/s
 import { parseCharacters, makeLookup, traitsFor, activeOnly, linesFor, pairLinesFor } from '../core/characters.js';
 import { drawSeats, rivalSeatsFor } from '../core/seating.js';
 import { buildRecord, saveRecord, listRecords } from '../core/records.js';
-import { overall, gameStats, characterStats, botStats, computeAchievements } from '../core/stats.js';
+import { overall, gameStats, characterStats, botStats, coopStats, computeAchievements } from '../core/stats.js';
 import { createMemoryStorage, ensureDataSchema, saveCampaign, loadCampaign } from '../core/storage.js';
 import { exportBackup, importBackup, migrateBackup, parseBackup } from '../core/backup.js';
 import { simulate, contractCheck, buildPlayers, runBotGame } from '../core/runner.js';
@@ -168,7 +168,7 @@ await test('기록·통계', '업적(확장): 게임별 연승·어려움 승리
   eq(a.a.group, '기타');
 });
 await test('기록·통계', '업적 정의(data/achievements.json): id 중복 없음, 종류·필수 값이 올바르고 게임/캐릭터 id가 실제로 있다', () => {
-  const ids = new Set(), types = new Set(['games_played', 'wins', 'win_streak', 'last_streak', 'wins_with_players', 'wins_difficulty', 'wins_distinct_games', 'beat_character', 'beat_distinct', 'games_tried', 'met_all_characters', 'play_days', 'day_games']);
+  const ids = new Set(), types = new Set(['games_played', 'wins', 'win_streak', 'last_streak', 'wins_with_players', 'wins_difficulty', 'wins_distinct_games', 'beat_character', 'beat_distinct', 'games_tried', 'met_all_characters', 'play_days', 'day_games', 'coop_played', 'coop_wins', 'coop_streak', 'coop_wins_difficulty', 'coop_with_character', 'coop_distinct_mates']);
   const gids = gamesIndex.games.map(g => g.id), cids = REAL.map(c => c.id);
   for (const d of achDefs) {
     assert(!ids.has(d.id), `id 중복 ${d.id}`); ids.add(d.id); assert(types.has(d.type), `${d.id}: 모르는 종류 ${d.type}`);
@@ -179,6 +179,27 @@ await test('기록·통계', '업적 정의(data/achievements.json): id 중복 �
   }
   assert(achDefs.length >= 30, '업적 30개 이상');
   const none = computeAchievements([], achDefs, { activeIds: cids, gameIds: gids }); assert(none.every(x => !x.unlocked && x.target > 0), '기록이 없으면 전부 미달성이고 목표치가 있다');
+});
+await test('협력 게임', '협력 기록은 경쟁 통계(승률·평균 순위·캐릭터 전적·업적)에 절대 섞이지 않고, 협력 통계만 따로 계산된다', () => {
+  const coopRec = (won, at, game = 'regi', score = null, ids = ['rapi', 'edel']) => buildRecord({ game: { id: game, version: '1.0.0' }, at: new Date(at),
+    seats: [{ seat: 0, human: true }, ...ids.map((c, i) => ({ seat: i + 1, human: false, characterId: c }))], result: { coop: { won, score }, summary: won ? '클리어' : '전멸' } });
+  const C = [coopRec(true, '2026-02-01T00:00:00Z', 'regi', 12), coopRec(false, '2026-02-02T00:00:00Z', 'regi', 3), coopRec(true, '2026-02-03T00:00:00Z', 'regi', 15, ['rapi', 'yuno']), coopRec(true, '2026-02-04T00:00:00Z', 'regi', 9, ['rapi', 'yuno'])];
+  for (const r of C) { eq(r.mode, 'coop'); eq(validateRecord(r), []); }
+  eq([C[0].outcome, C[1].outcome], ['win', 'lose']);
+  const mixed = [rec('stop-test', SEATS, [1, 2, 3], '2026-01-01T00:00:00Z'), ...C];
+  eq(overall(mixed).played, 1); eq(gameStats(mixed).regi, undefined); eq(Object.keys(characterStats(mixed)).sort(), ['edel', 'rapi']); eq(characterStats(mixed).rapi.met, 1); eq(botStats(mixed).rapi.played, 1);
+  const cp = coopStats(mixed);
+  eq([cp.total.played, cp.total.wins, cp.bestStreak], [4, 3, 2]); eq(cp.byGame.regi.best, 15); eq(+cp.byChar.rapi.clearRate.toFixed(2), 0.75); eq(cp.byChar.yuno.played, 2); eq(cp.byChar.edel.wins, 1);
+  eq(cp.byPlayers[3].played, 4);
+  const defs = [{ id: 'a', name: 'a', desc: 'a', type: 'coop_wins', n: 3 }, { id: 'b', name: 'b', desc: 'b', type: 'coop_streak', n: 2 }, { id: 'c', name: 'c', desc: 'c', type: 'coop_distinct_mates', n: 3 }, { id: 'd', name: 'd', desc: 'd', type: 'first-win-x' }, { id: 'e', name: 'e', desc: 'e', type: 'wins', n: 1 }, { id: 'f', name: 'f', desc: 'f', type: 'games_played', n: 2 }];
+  const a = Object.fromEntries(computeAchievements(mixed, defs, { activeIds: [], gameIds: [] }).map(x => [x.id, x]));
+  assert(a.a.unlocked && a.b.unlocked && a.c.unlocked, '협력 업적'); assert(a.e.unlocked && !a.f.unlocked, '경쟁 업적은 협력 판을 세지 않는다'); eq(a.f.progress, 1);
+  const bad = { ...C[0], outcome: undefined }; assert(validateRecord(bad).length > 0, 'outcome 없는 협력 기록은 거부');
+});
+await test('협력 게임', '자동 대전: 협력 결과(result.coop)는 클리어율로 보고되고 승률 쏠림·자리 편향 경고를 만들지 않는다', () => {
+  const coopMod = { ...stopTest, meta: { ...stopTest.meta, id: 'coop-x' }, result(st) { const r = stopTest.result(st); return { ...r, coop: { won: r.ranking.some(x => x.rank === 1 && x.score >= 60), score: 1 } }; } };
+  const r = simulate(coopMod, REAL, { games: 300, count: 4, seed: 5 });
+  eq([r.errors, r.ok], [0, 300]); assert(r.coop && r.coop.games === 300 && r.coop.clearRate >= 0 && r.coop.clearRate <= 1, '클리어율'); eq(r.warnings.filter(w => /쏠림|편향/.test(w)), []);
 });
 await test('기록·통계', '업적 정의에 모르는 종류가 있어도 앱이 죽지 않는다', () => {
   const r = computeAchievements([], [{ id: 'x', name: 'x', desc: 'x', type: '미래의업적' }]); assert(r[0].unknownType && !r[0].unlocked);

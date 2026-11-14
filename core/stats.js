@@ -1,13 +1,18 @@
 // 통계는 기록(원본)에서 매번 계산한다. 업적 정의·계산식이 바뀌어도 과거 기록은 그대로.
 const humanOf = r => r.players.find(p => p.human);
+// 협력 게임 기록(mode:'coop')은 순위 경쟁이 아니므로 경쟁 통계·업적과 절대 섞지 않는다.
+export const isCoop = r => r.mode === 'coop';
+const compete = records => records.filter(r => !isCoop(r));
 export const humanWon = r => { const h = humanOf(r); return !!h && h.rank === 1; };
 
 export function overall(records) {
+  records = compete(records);
   const played = records.length, wins = records.filter(humanWon).length;
   return { played, wins, winRate: played ? wins / played : 0 };
 }
 
 export function gameStats(records) {
+  records = compete(records);
   const out = {};
   for (const r of records) {
     const g = (out[r.gameId] ||= { played: 0, wins: 0, rankSum: 0, lastAt: null });
@@ -20,6 +25,7 @@ export function gameStats(records) {
 
 // 캐릭터별: 같은 판에 앉은 횟수, 나와의 순위 비교(내가 앞/뒤/동순위), 그 캐릭터가 1등 한 횟수
 export function characterStats(records, { gameId } = {}) {
+  records = compete(records);
   const out = {};
   for (const r of records) {
     if (gameId && r.gameId !== gameId) continue;
@@ -39,6 +45,7 @@ export function characterStats(records, { gameId } = {}) {
 // 캐릭터 본인의 전적: 그 캐릭터가 앉은 모든 판(내가 이겼든 아니든) 기준 승률·평균 순위, 게임별 세부.
 // gameId 지정 시 그 게임만. 동순위 1등도 승으로 센다.
 export function botStats(records, { gameId } = {}) {
+  records = compete(records);
   const out = {};
   for (const r of records) {
     if (gameId && r.gameId !== gameId) continue;
@@ -57,10 +64,48 @@ export function botStats(records, { gameId } = {}) {
   return out;
 }
 
+// ---- 협력 게임 통계 (경쟁 통계와 완전히 따로) ----
+// 승패(클리어 여부)가 기준. 캐릭터는 '같이 한 동료'로서 함께한 판의 클리어율을 본다.
+export function coopStats(records, { gameId } = {}) {
+  const list = records.filter(r => isCoop(r) && (!gameId || r.gameId === gameId));
+  const mk = () => ({ played: 0, wins: 0, best: null });
+  const add = (o, r) => { o.played++; if (r.outcome === 'win') o.wins++; if (r.score != null) o.best = o.best == null ? r.score : Math.max(o.best, r.score); };
+  const total = mk(), byGame = {}, byChar = {}, byPlayers = {}, byDiff = {};
+  let cur = 0, bestStreak = 0;
+  for (const r of list) {
+    add(total, r); add(byGame[r.gameId] ||= mk(), r); add(byPlayers[r.players.length] ||= mk(), r);
+    if (r.difficulty) add(byDiff[r.difficulty] ||= mk(), r);
+    for (const p of r.players) if (!p.human) add(byChar[p.characterId] ||= mk(), r);
+    cur = r.outcome === 'win' ? cur + 1 : 0; bestStreak = Math.max(bestStreak, cur);
+  }
+  const rate = o => { for (const v of Object.values(o)) v.clearRate = v.played ? v.wins / v.played : 0; };
+  total.clearRate = total.played ? total.wins / total.played : 0; rate(byGame); rate(byChar); rate(byPlayers); rate(byDiff);
+  return { total, byGame, byChar, byPlayers, byDiff, bestStreak, lastAt: list.length ? list[list.length - 1].at : null };
+}
+
 // ---- 업적: 선언형 정의(data/achievements.json) + 아래 계산기 ----
 const byGame = (d, r) => !d.gameId || d.gameId === r.gameId;
 const dayOf = at => { const t = new Date(at); return `${t.getFullYear()}-${t.getMonth() + 1}-${t.getDate()}`; };   // 기기 시간대 기준 날짜
 const TYPES = {
+  // ---- 협력 게임 전용 (coop:true 인 종류는 협력 기록만 본다) ----
+  coop_played: { coop: true, init: () => 0, step: (a, r, d) => (byGame(d, r) ? a + 1 : a), value: a => a, target: d => d.n },
+  coop_wins: { coop: true, init: () => 0, step: (a, r, d) => (byGame(d, r) && r.outcome === 'win' ? a + 1 : a), value: a => a, target: d => d.n },
+  coop_streak: {
+    coop: true, init: () => ({ cur: 0, best: 0 }),
+    step: (a, r, d) => { if (!byGame(d, r)) return a; const c = r.outcome === 'win' ? a.cur + 1 : 0; return { cur: c, best: Math.max(a.best, c) }; },
+    value: a => a.best, target: d => d.n
+  },
+  coop_wins_difficulty: { coop: true, init: () => 0, step: (a, r, d) => (byGame(d, r) && r.outcome === 'win' && r.difficulty === d.difficulty ? a + 1 : a), value: a => a, target: d => d.n },
+  coop_with_character: {   // 이 캐릭터와 같이 클리어
+    coop: true, init: () => 0,
+    step: (a, r, d) => (byGame(d, r) && r.outcome === 'win' && r.players.some(p => p.characterId === d.characterId) ? a + 1 : a),
+    value: a => a, target: d => d.n
+  },
+  coop_distinct_mates: {   // 서로 다른 동료 n명과 클리어
+    coop: true, init: () => new Set(),
+    step: (a, r, d) => { if (byGame(d, r) && r.outcome === 'win') r.players.forEach(p => p.characterId && a.add(p.characterId)); return a; },
+    value: a => a.size, target: d => d.n
+  },
   games_played: { init: () => 0, step: (a, r, d) => (byGame(d, r) ? a + 1 : a), value: a => a, target: d => d.n },
   wins: { init: () => 0, step: (a, r, d) => (byGame(d, r) && humanWon(r) ? a + 1 : a), value: a => a, target: d => d.n },
   win_streak: {   // gameId를 주면 그 게임 기록만 이어서 센다
@@ -136,7 +181,7 @@ export function computeAchievements(records, defs, ctx = { activeIds: [] }) {
     if (!T) return { ...base, id: def.id, name: def.name, desc: def.desc, unknownType: true, unlocked: false, progress: 0, target: 0, at: null };
     let acc = T.init(), at = null;
     const target = T.target(def, ctx);
-    for (const r of records) {
+    for (const r of (T.coop ? records.filter(isCoop) : compete(records))) {
       acc = T.step(acc, r, def);
       if (at === null && target > 0 && T.value(acc, ctx) >= target) at = r.at;
     }

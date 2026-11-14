@@ -3,7 +3,7 @@ import { TRAIT_KEYS, TRAIT_LABELS, TARGET_LABELS, APP_VERSION, SCHEMA } from '..
 import { drawSeats, DIFFICULTIES, DIFF_LABEL } from '../core/seating.js';
 import { makeRng } from '../core/rng.js';
 import { listRecords } from '../core/records.js';
-import { overall, gameStats, characterStats, botStats, computeAchievements } from '../core/stats.js';
+import { overall, gameStats, characterStats, botStats, coopStats, isCoop, computeAchievements } from '../core/stats.js';
 import { exportBackup, parseBackup, importBackup, migrateBackup } from '../core/backup.js';
 import { activeOnly } from '../core/characters.js';
 import { launchGame, achCtx, AUTO_SLOT } from './host.js';
@@ -20,14 +20,14 @@ const plainName = n => n.replace(/\s*\(.*\)\s*$/, '');
 // ================= 홈: 스테이지(게임) 선택 =================
 export async function homeView(app, root) {
   const recs = await listRecords(app.storage);
-  const ov = overall(recs), gs = gameStats(recs);
+  const ov = overall(recs), gs = gameStats(recs), cs = coopStats(recs).byGame;
   root.append(top('Archive', '보드게임 기록관', `<b>${ov.wins}</b> / ${ov.played}<br>WIN`));
   const meta = (await app.storage.get('settings', 'backupMeta')) || { recordsAt: 0, lastAt: null };
   if (recs.length - meta.recordsAt >= BACKUP_NUDGE_EVERY) {
     root.append(h('div', { class: 'paper taped banner', style: '--r:-1deg' }, `마지막 백업 이후 ${recs.length - meta.recordsAt}판이 쌓였어요. 설정에서 백업 파일을 만들어 두세요.`));
   }
   const grid = h('div', { class: 'ggrid' },
-    ...app.games.map((g, i) => gameCard(app, g, i, gs[g.id])),
+    ...app.games.map((g, i) => gameCard(app, g, i, g.mode === 'coop' ? (cs[g.id] && { wins: cs[g.id].wins }) : gs[g.id])),
     h('div', { class: 'lockcard' }, h('b', {}, 'LOCKED'), lockSvg(), h('span', {}, '다음 게임 자리')));
   const wrap = h('div', { style: 'position:relative' }, grid);
   wrap.append(ornament(92, 'left:-12px;top:205px;transform:rotate(-8deg)'), ornament(84, 'right:-6px;top:250px;transform:scaleX(-1) rotate(-6deg)'),
@@ -45,7 +45,7 @@ function gameCard(app, g, i, st) {
   return h('button', { class: 'pol gcard', 'data-id': g.id, 'aria-label': `${g.name} 플레이`, disabled: !can,
     onclick: () => can && app.startSetup(g, g.players.min) },
     h('div', { class: 'no' }, String(i + 1).padStart(2, '0')),
-    h('div', { class: 'st' }, status, g.test ? h('span', { class: 'tag test' }, 'TEST') : null),
+    h('div', { class: 'st' }, status, g.test ? h('span', { class: 'tag test' }, 'TEST') : null, g.mode === 'coop' ? h('span', { class: 'tag test' }, '협력') : null),
     h('div', { class: 'pic', style: th && th.table ? `background:radial-gradient(80% 70% at 40% 35%,${th.table},${th.table2 || th.table})` : '' }, pic),
     h('div', { class: 'ttl' }, plainName(g.name)),
     h('div', { class: 'meta' }, can ? `${g.players.min}~${g.players.max}인` : '캐릭터 부족'));
@@ -63,14 +63,14 @@ export function setupPanel(app, entry, count, holder) {
       h('h3', {}, `${plainName(entry.name)} · 자리 뽑기`),
       h('div', { class: 'cnt' }, ...Array.from({ length: maxN - entry.players.min + 1 }, (_, i) => entry.players.min + i).map(n =>
         h('button', { class: 'btn small' + (n === count ? ' on' : ''), 'data-n': n, onclick: () => { count = n; seats = draw(); render(); } }, `${n}인`))),
-      h('div', { class: 'cnt diff' }, h('small', { style: 'margin-right:6px' }, '난이도'), ...DIFFICULTIES.map(d =>
+      entry.mode === 'coop' ? h('div', { class: 'muted', style: 'margin:6px 0' }, '협력 게임: 캐릭터들이 한 팀이에요. 난이도는 게임 안에서 고릅니다.') : h('div', { class: 'cnt diff' }, h('small', { style: 'margin-right:6px' }, '난이도'), ...DIFFICULTIES.map(d =>
         h('button', { class: 'btn small' + (d === diff ? ' on' : ''), 'data-d': d, onclick: () => { diff = d; try { localStorage.setItem('ba_diff', d); } catch {} seats = draw(); render(); } }, DIFF_LABEL[d]))),
       h('div', { class: 'seats', style: 'background:#00000030;padding:12px 6px 8px' }, ...seats.map(s => h('div', { class: 'th seat' + (s.human ? ' me' : '') },
         avatar(app, s.characterId, 58), s.human ? '나' : app.lookup(s.characterId).name.split(' ').pop(), h('small', {}, `${s.seat + 1}번 자리`)))),
-      h('div', { class: 'muted', style: 'margin-bottom:10px' }, diff === 'random' ? '상대와 자리 순서는 판마다 무작위로 정해져요. 1번 자리부터 시작합니다.' : `${DIFF_LABEL[diff]}: 이 게임에서 실력이 ${diff === 'easy' ? '낮은' : diff === 'hard' ? '높은' : '중간인'} 캐릭터들이 앉아요. (봇 수준은 그대로)`),
+      h('div', { class: 'muted', style: 'margin-bottom:10px' }, entry.mode === 'coop' || diff === 'random' ? '함께할 캐릭터와 자리 순서는 판마다 무작위로 정해져요. 1번 자리부터 시작합니다.' : `${DIFF_LABEL[diff]}: 이 게임에서 실력이 ${diff === 'easy' ? '낮은' : diff === 'hard' ? '높은' : '중간인'} 캐릭터들이 앉아요. (봇 수준은 그대로)`),
       h('div', { class: 'row' },
         h('button', { class: 'btn', onclick: () => { seats = draw(); render(); } }, '다시 뽑기', h('small', {}, 'SHUFFLE')),
-        h('button', { class: 'btn go grow', id: 'btnStart', onclick: () => launchGame(app, entry, seats, diff).catch(e => toast('실행 오류: ' + e.message)) }, '시작', h('small', {}, 'START'))));
+        h('button', { class: 'btn go grow', id: 'btnStart', onclick: () => launchGame(app, entry, seats, entry.mode === 'coop' ? null : diff).catch(e => toast('실행 오류: ' + e.message)) }, '시작', h('small', {}, 'START'))));
   };
   render();
   holder.replaceChildren(box);
@@ -156,8 +156,8 @@ export async function recordsView(app, root) {
   root.append(top('Record', '전적 기록', `승률<br><b>${pct(ov.winRate)}</b>`));
   root.append(h('div', { class: 'paper taped', id: 'overall', style: '--r:-1deg' },
     h('div', { class: 'row' }, h('div', { class: 'big-num' }, ov.played), h('div', { class: 'grow' }, `총 ${ov.played}판 · ${ov.wins}승 · 승률 ${pct(ov.winRate)}`)),
-    recs.length ? null : h('div', { class: 'muted', style: 'margin-top:6px' }, '아직 기록이 없어요. 한 판 끝내면 여기에 쌓입니다.')));
-  if (recs.length) {
+    ov.played ? null : h('div', { class: 'muted', style: 'margin-top:6px' }, '아직 경쟁 게임 기록이 없어요. 한 판 끝내면 여기에 쌓입니다.')));
+  if (ov.played) {
     root.append(h('h2', {}, 'By Game', h('small', {}, '게임별')), h('div', { class: 'paper', style: '--r:.6deg' }, h('table', {},
       h('tr', {}, h('th', {}, '게임'), h('th', { class: 'n' }, '판'), h('th', { class: 'n' }, '승'), h('th', { class: 'n' }, '승률'), h('th', { class: 'n' }, '평균 순위')),
       ...Object.entries(gs).map(([id, g]) => h('tr', {}, h('td', {}, gname(id)), h('td', { class: 'n' }, g.played), h('td', { class: 'n' }, g.wins), h('td', { class: 'n' }, pct(g.winRate)), h('td', { class: 'n' }, g.avgRank.toFixed(1)))))));
@@ -169,10 +169,24 @@ export async function recordsView(app, root) {
           h('td', {}, app.lookup(id).name), h('td', { class: 'n' }, bs[id].played), h('td', { class: 'n' }, pct(bs[id].winRate)), h('td', { class: 'n' }, bs[id].avgRank.toFixed(1))))),
       h('div', { class: 'muted', style: 'margin-top:6px' }, '내가 함께 앉은 모든 판 기준이에요. 판 수가 적을 땐 숫자가 크게 흔들려요.')));
   }
+  const cp = coopStats(recs);
+  if (cp.total.played) {
+    const mates = Object.entries(cp.byChar).sort((a, b) => b[1].clearRate - a[1].clearRate || b[1].played - a[1].played);
+    root.append(h('h2', {}, 'Co-op', h('small', {}, '협력 게임 기록 · 경쟁 기록과 따로 집계')), h('div', { class: 'paper taped', id: 'coopBox', style: '--r:.5deg' },
+      h('div', { class: 'row' }, h('div', { class: 'big-num' }, cp.total.wins), h('div', { class: 'grow' }, `${cp.total.played}판 중 ${cp.total.wins}번 클리어 · 클리어율 ${pct(cp.total.clearRate)}${cp.bestStreak > 1 ? ` · 최고 ${cp.bestStreak}연속 클리어` : ''}`)),
+      h('table', { style: 'margin-top:10px' }, h('tr', {}, h('th', {}, '게임'), h('th', { class: 'n' }, '판'), h('th', { class: 'n' }, '클리어'), h('th', { class: 'n' }, '클리어율'), h('th', { class: 'n' }, '최고점')),
+        ...Object.entries(cp.byGame).map(([id, g]) => h('tr', {}, h('td', {}, gname(id)), h('td', { class: 'n' }, g.played), h('td', { class: 'n' }, g.wins), h('td', { class: 'n' }, pct(g.clearRate)), h('td', { class: 'n' }, g.best ?? '-')))),
+      Object.keys(cp.byPlayers).length > 1 ? h('div', { class: 'muted', style: 'margin-top:6px' }, '인원별 클리어율: ' + Object.entries(cp.byPlayers).map(([n, v]) => `${n}인 ${pct(v.clearRate)}(${v.played}판)`).join(' · ')) : null));
+    root.append(h('div', { class: 'paper', id: 'mateTable', style: '--r:-.4deg;margin-top:10px' }, h('b', {}, '같이 한 동료'),
+      h('table', {}, h('tr', {}, h('th', {}, '동료'), h('th', { class: 'n' }, '함께한 판'), h('th', { class: 'n' }, '클리어율')),
+        ...mates.map(([id, v]) => h('tr', {}, h('td', {}, app.lookup(id).name), h('td', { class: 'n' }, v.played), h('td', { class: 'n' }, pct(v.clearRate))))),
+      h('div', { class: 'muted', style: 'margin-top:6px' }, '판 수가 적을 땐 숫자가 크게 흔들려요.')));
+  }
   const comp = computeAchievements(recs, app.achievementDefs, achCtx(app));
   const sticky = (await app.storage.get('settings', 'unlocked')) || {};
+  const hasCoopGame = app.games.some(g => g.mode === 'coop');
   const isDone = a => a.unlocked || a.id in sticky;
-  const groups = [...new Set(comp.map(a => a.group))];
+  const groups = [...new Set(comp.map(a => a.group))].filter(g => g !== '협력' || hasCoopGame || comp.some(a => a.group === '협력' && isDone(a)));
   root.append(h('h2', {}, 'Stamps', h('small', {}, `업적 ${comp.filter(isDone).length}/${comp.length}`)), ...groups.map(gr => {
     const list = comp.filter(a => a.group === gr);
     return h('div', { class: 'paper', id: 'achs', 'data-group': gr, style: '--r:.4deg;margin-bottom:12px' },
@@ -185,7 +199,7 @@ export async function recordsView(app, root) {
       }));
   }));
   if (recs.length) {
-    root.append(h('h2', {}, 'Recent', h('small', {}, '최근 판')), h('div', { class: 'paper', style: '--r:-.4deg' }, ...recs.slice(-20).reverse().map(r => {
+    if (recs.some(r => !isCoop(r))) root.append(h('h2', {}, 'Recent', h('small', {}, '최근 판')), h('div', { class: 'paper', style: '--r:-.4deg' }, ...recs.filter(r => !isCoop(r)).slice(-20).reverse().map(r => {
       const me = r.players.find(p => p.human);
       return h('div', { class: 'row', style: 'padding:6px 0;border-bottom:1px dashed #00000020;font-size:13px' },
         h('div', { class: 'grow' }, `${gname(r.gameId)} · ${r.players.length}인`), h('div', { class: 'muted' }, fmtDate(r.at)),

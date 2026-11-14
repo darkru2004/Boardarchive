@@ -365,6 +365,62 @@
    "group": "캐릭터",
    "characterId": "frieren",
    "n": 1
+  },
+  {
+   "id": "coop-first",
+   "name": "첫 협력 클리어",
+   "desc": "협력 게임을 처음으로 함께 클리어",
+   "type": "coop_wins",
+   "group": "협력",
+   "n": 1
+  },
+  {
+   "id": "coop-5",
+   "name": "손발이 맞는 팀",
+   "desc": "협력 게임 5번 클리어",
+   "type": "coop_wins",
+   "group": "협력",
+   "n": 5
+  },
+  {
+   "id": "coop-20",
+   "name": "전설의 파티",
+   "desc": "협력 게임 20번 클리어",
+   "type": "coop_wins",
+   "group": "협력",
+   "n": 20
+  },
+  {
+   "id": "coop-played-10",
+   "name": "협력 단골",
+   "desc": "협력 게임 열 판 플레이",
+   "type": "coop_played",
+   "group": "협력",
+   "n": 10
+  },
+  {
+   "id": "coop-streak-3",
+   "name": "3연속 클리어",
+   "desc": "협력 게임 3연속 클리어",
+   "type": "coop_streak",
+   "group": "협력",
+   "n": 3
+  },
+  {
+   "id": "coop-mates-5",
+   "name": "다섯 동료",
+   "desc": "서로 다른 동료 5명과 클리어",
+   "type": "coop_distinct_mates",
+   "group": "협력",
+   "n": 5
+  },
+  {
+   "id": "coop-mates-10",
+   "name": "도감 총출동",
+   "desc": "서로 다른 동료 10명과 클리어",
+   "type": "coop_distinct_mates",
+   "group": "협력",
+   "n": 10
   }
  ]
 }
