@@ -1,14 +1,370 @@
 {
-  "schemaVersion": 1,
-  "achievements": [
-    { "id": "first-game", "name": "첫 판", "desc": "아무 게임이나 한 판 끝내기", "type": "games_played", "n": 1 },
-    { "id": "first-win", "name": "첫 승리", "desc": "한 판 이기기", "type": "wins", "n": 1 },
-    { "id": "ten-games", "name": "단골 손님", "desc": "열 판 플레이", "type": "games_played", "n": 10 },
-    { "id": "win-streak-3", "name": "3연승", "desc": "3판 연속 1등", "type": "win_streak", "n": 3 },
-    { "id": "try-3-games", "name": "골고루", "desc": "서로 다른 게임 3개 플레이", "type": "games_tried", "n": 3 },
-    { "id": "meet-all", "name": "전원 집합", "desc": "도감의 모든 캐릭터와 한 판씩 붙기", "type": "met_all_characters" },
-    { "id": "beat-rapi", "name": "라피를 꺾다", "desc": "라피보다 높은 순위로 끝내기", "type": "beat_character", "characterId": "rapi", "n": 1 },
-    { "id": "beat-edel", "name": "에델가르트를 꺾다", "desc": "에델가르트보다 높은 순위로 끝내기", "type": "beat_character", "characterId": "edel", "n": 1 },
-    { "id": "beat-yuno", "name": "유노를 꺾다", "desc": "가사이 유노보다 높은 순위로 끝내기", "type": "beat_character", "characterId": "yuno", "n": 1 }
-  ]
+ "schemaVersion": 1,
+ "achievements": [
+  {
+   "id": "first-game",
+   "name": "첫 판",
+   "desc": "아무 게임이나 한 판 끝내기",
+   "type": "games_played",
+   "group": "입문·누적",
+   "n": 1
+  },
+  {
+   "id": "first-win",
+   "name": "첫 승리",
+   "desc": "한 판 이기기",
+   "type": "wins",
+   "group": "입문·누적",
+   "n": 1
+  },
+  {
+   "id": "ten-games",
+   "name": "단골 손님",
+   "desc": "열 판 플레이",
+   "type": "games_played",
+   "group": "입문·누적",
+   "n": 10
+  },
+  {
+   "id": "games-30",
+   "name": "자리 잡은 손님",
+   "desc": "서른 판 플레이",
+   "type": "games_played",
+   "group": "입문·누적",
+   "n": 30
+  },
+  {
+   "id": "games-100",
+   "name": "붙박이",
+   "desc": "백 판 플레이",
+   "type": "games_played",
+   "group": "입문·누적",
+   "n": 100
+  },
+  {
+   "id": "wins-10",
+   "name": "열 번째 승리",
+   "desc": "열 판 이기기",
+   "type": "wins",
+   "group": "입문·누적",
+   "n": 10
+  },
+  {
+   "id": "wins-30",
+   "name": "승리 수집가",
+   "desc": "서른 판 이기기",
+   "type": "wins",
+   "group": "입문·누적",
+   "n": 30
+  },
+  {
+   "id": "wins-100",
+   "name": "백전 백승(은 아니지만)",
+   "desc": "백 판 이기기",
+   "type": "wins",
+   "group": "입문·누적",
+   "n": 100
+  },
+  {
+   "id": "days-3",
+   "name": "사흘째 방문",
+   "desc": "서로 다른 사흘에 플레이",
+   "type": "play_days",
+   "group": "입문·누적",
+   "n": 3
+  },
+  {
+   "id": "days-10",
+   "name": "개근상",
+   "desc": "서로 다른 열흘에 플레이",
+   "type": "play_days",
+   "group": "입문·누적",
+   "n": 10
+  },
+  {
+   "id": "day-5",
+   "name": "하루가 모자라",
+   "desc": "하루에 다섯 판 플레이",
+   "type": "day_games",
+   "group": "입문·누적",
+   "n": 5
+  },
+  {
+   "id": "win-streak-3",
+   "name": "3연승",
+   "desc": "3판 연속 1등",
+   "type": "win_streak",
+   "group": "연승·도전",
+   "n": 3
+  },
+  {
+   "id": "win-streak-5",
+   "name": "5연승",
+   "desc": "5판 연속 1등",
+   "type": "win_streak",
+   "group": "연승·도전",
+   "n": 5
+  },
+  {
+   "id": "win-streak-8",
+   "name": "무적의 8연승",
+   "desc": "8판 연속 1등",
+   "type": "win_streak",
+   "group": "연승·도전",
+   "n": 8
+  },
+  {
+   "id": "last-streak-3",
+   "name": "칠전팔기의 시작",
+   "desc": "3판 연속 꼴찌 (괜찮아요, 다음 판이 있어요)",
+   "type": "last_streak",
+   "group": "연승·도전",
+   "n": 3
+  },
+  {
+   "id": "hard-win-1",
+   "name": "어려운 상대도 문제없다",
+   "desc": "난이도 어려움에서 1승",
+   "type": "wins_difficulty",
+   "group": "연승·도전",
+   "n": 1,
+   "difficulty": "hard"
+  },
+  {
+   "id": "hard-win-10",
+   "name": "강자 사냥꾼",
+   "desc": "난이도 어려움에서 10승",
+   "type": "wins_difficulty",
+   "group": "연승·도전",
+   "n": 10,
+   "difficulty": "hard"
+  },
+  {
+   "id": "normal-win-5",
+   "name": "정석대로",
+   "desc": "난이도 보통에서 5승",
+   "type": "wins_difficulty",
+   "group": "연승·도전",
+   "n": 5,
+   "difficulty": "normal"
+  },
+  {
+   "id": "full-house-win",
+   "name": "만석 승리",
+   "desc": "최대 인원(6인 이상)으로 앉은 판에서 승리",
+   "type": "wins_with_players",
+   "group": "연승·도전",
+   "n": 1,
+   "minPlayers": 6
+  },
+  {
+   "id": "try-3-games",
+   "name": "골고루",
+   "desc": "서로 다른 게임 3개 플레이",
+   "type": "games_tried",
+   "group": "게임별",
+   "n": 3
+  },
+  {
+   "id": "win-all-games",
+   "name": "올라운더",
+   "desc": "모든 게임에서 한 번씩 1등",
+   "type": "wins_distinct_games",
+   "group": "게임별",
+   "all": true
+  },
+  {
+   "id": "nothanks-first",
+   "name": "노땡스 입문",
+   "desc": "노땡스 한 판 끝내기",
+   "type": "games_played",
+   "group": "게임별",
+   "n": 1,
+   "gameId": "nothanks"
+  },
+  {
+   "id": "nothanks-win",
+   "name": "노땡스 첫 승리",
+   "desc": "노땡스에서 1등",
+   "type": "wins",
+   "group": "게임별",
+   "n": 1,
+   "gameId": "nothanks"
+  },
+  {
+   "id": "nothanks-win-5",
+   "name": "노땡스의 칩 장수",
+   "desc": "노땡스에서 5승",
+   "type": "wins",
+   "group": "게임별",
+   "n": 5,
+   "gameId": "nothanks"
+  },
+  {
+   "id": "nothanks-streak-3",
+   "name": "노땡스 3연승",
+   "desc": "노땡스에서 3연속 1등",
+   "type": "win_streak",
+   "group": "게임별",
+   "n": 3,
+   "gameId": "nothanks"
+  },
+  {
+   "id": "loveletter-first",
+   "name": "러브레터 입문",
+   "desc": "러브레터 한 판 끝내기",
+   "type": "games_played",
+   "group": "게임별",
+   "n": 1,
+   "gameId": "loveletter"
+  },
+  {
+   "id": "loveletter-win",
+   "name": "러브레터 첫 승리",
+   "desc": "러브레터에서 1등",
+   "type": "wins",
+   "group": "게임별",
+   "n": 1,
+   "gameId": "loveletter"
+  },
+  {
+   "id": "loveletter-win-5",
+   "name": "러브레터의 편지 배달부",
+   "desc": "러브레터에서 5승",
+   "type": "wins",
+   "group": "게임별",
+   "n": 5,
+   "gameId": "loveletter"
+  },
+  {
+   "id": "loveletter-streak-3",
+   "name": "러브레터 3연승",
+   "desc": "러브레터에서 3연속 1등",
+   "type": "win_streak",
+   "group": "게임별",
+   "n": 3,
+   "gameId": "loveletter"
+  },
+  {
+   "id": "kingdomino-first",
+   "name": "킹도미노 입문",
+   "desc": "킹도미노 한 판 끝내기",
+   "type": "games_played",
+   "group": "게임별",
+   "n": 1,
+   "gameId": "kingdomino"
+  },
+  {
+   "id": "kingdomino-win",
+   "name": "킹도미노 첫 승리",
+   "desc": "킹도미노에서 1등",
+   "type": "wins",
+   "group": "게임별",
+   "n": 1,
+   "gameId": "kingdomino"
+  },
+  {
+   "id": "kingdomino-win-5",
+   "name": "킹도미노의 왕국의 주인",
+   "desc": "킹도미노에서 5승",
+   "type": "wins",
+   "group": "게임별",
+   "n": 5,
+   "gameId": "kingdomino"
+  },
+  {
+   "id": "kingdomino-streak-3",
+   "name": "킹도미노 3연승",
+   "desc": "킹도미노에서 3연속 1등",
+   "type": "win_streak",
+   "group": "게임별",
+   "n": 3,
+   "gameId": "kingdomino"
+  },
+  {
+   "id": "meet-all",
+   "name": "전원 집합",
+   "desc": "도감의 모든 캐릭터와 한 판씩 붙기",
+   "type": "met_all_characters",
+   "group": "캐릭터"
+  },
+  {
+   "id": "beat-3",
+   "name": "세 명 격파",
+   "desc": "서로 다른 캐릭터 3명보다 높은 순위로 끝내기",
+   "type": "beat_distinct",
+   "group": "캐릭터",
+   "n": 3
+  },
+  {
+   "id": "beat-8",
+   "name": "여덟 명 격파",
+   "desc": "서로 다른 캐릭터 8명보다 높은 순위로 끝내기",
+   "type": "beat_distinct",
+   "group": "캐릭터",
+   "n": 8
+  },
+  {
+   "id": "beat-all",
+   "name": "도감 정복",
+   "desc": "도감의 모든 캐릭터를 한 번씩 앞서기",
+   "type": "beat_distinct",
+   "group": "캐릭터",
+   "all": true
+  },
+  {
+   "id": "beat-rapi",
+   "name": "라피를 꺾다",
+   "desc": "라피보다 높은 순위로 끝내기",
+   "type": "beat_character",
+   "group": "캐릭터",
+   "characterId": "rapi",
+   "n": 1
+  },
+  {
+   "id": "beat-edel",
+   "name": "에델가르트를 꺾다",
+   "desc": "에델가르트보다 높은 순위로 끝내기",
+   "type": "beat_character",
+   "group": "캐릭터",
+   "characterId": "edel",
+   "n": 1
+  },
+  {
+   "id": "beat-yuno",
+   "name": "유노를 꺾다",
+   "desc": "유노보다 높은 순위로 끝내기",
+   "type": "beat_character",
+   "group": "캐릭터",
+   "characterId": "yuno",
+   "n": 1
+  },
+  {
+   "id": "beat-erwin",
+   "name": "엘빈을 꺾다",
+   "desc": "엘빈보다 높은 순위로 끝내기",
+   "type": "beat_character",
+   "group": "캐릭터",
+   "characterId": "erwin",
+   "n": 1
+  },
+  {
+   "id": "beat-levi",
+   "name": "리바이를 꺾다",
+   "desc": "리바이보다 높은 순위로 끝내기",
+   "type": "beat_character",
+   "group": "캐릭터",
+   "characterId": "levi",
+   "n": 1
+  },
+  {
+   "id": "beat-frieren",
+   "name": "프리렌을 꺾다",
+   "desc": "프리렌보다 높은 순위로 끝내기",
+   "type": "beat_character",
+   "group": "캐릭터",
+   "characterId": "frieren",
+   "n": 1
+  }
+ ]
 }

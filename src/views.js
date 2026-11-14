@@ -1,12 +1,12 @@
-import { h, avatar, toast, fileToPortrait, downloadJson, fmtDate, pct, ornament, bubbles, dieSvg, lockSvg } from './ui.js';
+import { h, avatar, modal, toast, fileToPortrait, downloadJson, fmtDate, pct, ornament, bubbles, dieSvg, lockSvg } from './ui.js';
 import { TRAIT_KEYS, TRAIT_LABELS, TARGET_LABELS, APP_VERSION, SCHEMA } from '../core/schema.js';
 import { drawSeats, DIFFICULTIES, DIFF_LABEL } from '../core/seating.js';
 import { makeRng } from '../core/rng.js';
 import { listRecords } from '../core/records.js';
-import { overall, gameStats, characterStats, computeAchievements } from '../core/stats.js';
+import { overall, gameStats, characterStats, botStats, computeAchievements } from '../core/stats.js';
 import { exportBackup, parseBackup, importBackup, migrateBackup } from '../core/backup.js';
 import { activeOnly } from '../core/characters.js';
-import { launchGame } from './host.js';
+import { launchGame, achCtx } from './host.js';
 
 export const BACKUP_NUDGE_EVERY = 10;
 const top = (title, sub, recHtml) => {
@@ -116,6 +116,20 @@ export async function dexView(app, root) {
 }
 
 // ================= 기록 =================
+
+// 캐릭터 상세: 그 캐릭터의 전체·게임별 전적 + 나와의 전적
+function charDetail(app, id, bs, cs, gname) {
+  const c = app.lookup(id), b = bs[id], vs = cs[id];
+  const rows = Object.entries(b.byGame).sort((x, y) => y[1].played - x[1].played);
+  const m = modal(h('div', { class: 'charDetail', 'data-id': id },
+    h('div', { class: 'row', style: 'gap:12px;align-items:center' }, avatar(app, id, 64),
+      h('div', { class: 'grow' }, h('h3', { style: 'margin:0' }, c.name), h('div', { class: 'muted' }, `${b.played}판 · ${b.wins}승 · 승률 ${pct(b.winRate)} · 평균 ${b.avgRank.toFixed(1)}위`))),
+    h('h4', { style: 'margin:14px 0 4px' }, '게임별'),
+    h('table', {}, h('tr', {}, h('th', {}, '게임'), h('th', { class: 'n' }, '판'), h('th', { class: 'n' }, '승'), h('th', { class: 'n' }, '승률'), h('th', { class: 'n' }, '평균 순위')),
+      ...rows.map(([gid, g]) => h('tr', {}, h('td', {}, gname(gid)), h('td', { class: 'n' }, g.played), h('td', { class: 'n' }, g.wins), h('td', { class: 'n' }, pct(g.winRate)), h('td', { class: 'n' }, g.avgRank.toFixed(1))))),
+    vs ? h('div', { class: 'muted', style: 'margin-top:10px' }, `나와의 전적: 내가 ${vs.myWins}승 ${vs.myLosses}패${vs.ties ? ` ${vs.ties}무` : ''}`) : null,
+    h('div', { class: 'row', style: 'margin-top:12px' }, h('button', { class: 'btn go grow', onclick: () => m.close() }, '닫기'))));
+}
 export async function recordsView(app, root) {
   const recs = await listRecords(app.storage);
   const ov = overall(recs), gs = gameStats(recs), cs = characterStats(recs);
@@ -128,18 +142,29 @@ export async function recordsView(app, root) {
     root.append(h('h2', {}, 'By Game', h('small', {}, '게임별')), h('div', { class: 'paper', style: '--r:.6deg' }, h('table', {},
       h('tr', {}, h('th', {}, '게임'), h('th', { class: 'n' }, '판'), h('th', { class: 'n' }, '승'), h('th', { class: 'n' }, '승률'), h('th', { class: 'n' }, '평균 순위')),
       ...Object.entries(gs).map(([id, g]) => h('tr', {}, h('td', {}, gname(id)), h('td', { class: 'n' }, g.played), h('td', { class: 'n' }, g.wins), h('td', { class: 'n' }, pct(g.winRate)), h('td', { class: 'n' }, g.avgRank.toFixed(1)))))));
-    root.append(h('h2', {}, 'Rivals', h('small', {}, '캐릭터별 · 나와의 순위 비교')), h('div', { class: 'paper', style: '--r:-.5deg' }, h('table', {},
-      h('tr', {}, h('th', {}, '캐릭터'), h('th', { class: 'n' }, '만남'), h('th', { class: 'n' }, '내가 앞'), h('th', { class: 'n' }, '내가 뒤'), h('th', { class: 'n' }, '무')),
-      ...Object.entries(cs).map(([id, c]) => h('tr', {}, h('td', {}, app.lookup(id).name), h('td', { class: 'n' }, c.met), h('td', { class: 'n' }, c.myWins), h('td', { class: 'n' }, c.myLosses), h('td', { class: 'n' }, c.ties))))));
+    const bs = botStats(recs);
+    const ids = Object.keys(bs).sort((a, b) => bs[b].winRate - bs[a].winRate || bs[b].played - bs[a].played);
+    root.append(h('h2', {}, 'Characters', h('small', {}, '캐릭터별 전적 · 눌러서 게임별 보기')), h('div', { class: 'paper', id: 'charTable', style: '--r:-.5deg' },
+      h('table', {}, h('tr', {}, h('th', {}, '캐릭터'), h('th', { class: 'n' }, '판'), h('th', { class: 'n' }, '승률'), h('th', { class: 'n' }, '평균 순위')),
+        ...ids.map(id => h('tr', { class: 'crow', 'data-id': id, style: 'cursor:pointer', onclick: () => charDetail(app, id, bs, cs, gname) },
+          h('td', {}, app.lookup(id).name), h('td', { class: 'n' }, bs[id].played), h('td', { class: 'n' }, pct(bs[id].winRate)), h('td', { class: 'n' }, bs[id].avgRank.toFixed(1))))),
+      h('div', { class: 'muted', style: 'margin-top:6px' }, '내가 함께 앉은 모든 판 기준이에요. 판 수가 적을 땐 숫자가 크게 흔들려요.')));
   }
-  const comp = computeAchievements(recs, app.achievementDefs, { activeIds: activeOnly(app.characters).map(c => c.id) });
+  const comp = computeAchievements(recs, app.achievementDefs, achCtx(app));
   const sticky = (await app.storage.get('settings', 'unlocked')) || {};
-  root.append(h('h2', {}, 'Stamps', h('small', {}, '업적')), h('div', { class: 'paper', id: 'achs', style: '--r:.4deg' }, ...comp.map(a => {
-    const done = a.unlocked || a.id in sticky;
-    return h('div', { class: 'ach ' + (done ? 'done' : 'lock'), 'data-id': a.id }, h('div', { class: 'ic' }, done ? '✓' : ''),
-      h('div', { class: 'grow' }, h('b', {}, a.name), h('div', { class: 'muted' }, a.desc + (done ? '' : `  (${a.progress}/${a.target})`))),
-      done ? h('div', { class: 'muted' }, fmtDate(sticky[a.id] || a.at)) : null);
-  })));
+  const isDone = a => a.unlocked || a.id in sticky;
+  const groups = [...new Set(comp.map(a => a.group))];
+  root.append(h('h2', {}, 'Stamps', h('small', {}, `업적 ${comp.filter(isDone).length}/${comp.length}`)), ...groups.map(gr => {
+    const list = comp.filter(a => a.group === gr);
+    return h('div', { class: 'paper', id: 'achs', 'data-group': gr, style: '--r:.4deg;margin-bottom:12px' },
+      h('h4', { style: 'margin:0 0 4px' }, `${gr}  ${list.filter(isDone).length}/${list.length}`),
+      ...list.map(a => {
+        const done = isDone(a);
+        return h('div', { class: 'ach ' + (done ? 'done' : 'lock'), 'data-id': a.id }, h('div', { class: 'ic' }, done ? '✓' : ''),
+          h('div', { class: 'grow' }, h('b', {}, a.name), h('div', { class: 'muted' }, a.desc + (done ? '' : `  (${a.progress}/${a.target})`))),
+          done ? h('div', { class: 'muted' }, fmtDate(sticky[a.id] || a.at)) : null);
+      }));
+  }));
   if (recs.length) {
     root.append(h('h2', {}, 'Recent', h('small', {}, '최근 판')), h('div', { class: 'paper', style: '--r:-.4deg' }, ...recs.slice(-20).reverse().map(r => {
       const me = r.players.find(p => p.human);

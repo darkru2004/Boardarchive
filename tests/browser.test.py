@@ -71,6 +71,14 @@ try:
         page.click("#nav a[data-tab=records]"); page.wait_for_selector("#overall")
         check("기록 화면", "총 1판이 표시되고 '첫 판' 업적이 달성 상태다", lambda: (
             None if "총 1판" in page.inner_text("#overall") and page.locator(".ach.done[data-id='first-game']").count() == 1 else (_ for _ in ()).throw(AssertionError(page.inner_text("#overall")))))
+        def char_detail():
+            assert page.locator("#charTable .crow").count() == 3, "캐릭터 전적 줄 수 " + str(page.locator("#charTable .crow").count())
+            page.click("#charTable .crow >> nth=0"); page.wait_for_selector(".modal .charDetail")
+            txt = page.inner_text(".modal .charDetail")
+            assert "게임별" in txt and "노땡스" in txt and "승률" in txt, txt[:200]
+            page.click(".modal .charDetail >> text=닫기"); page.wait_for_selector(".modal", state="detached")
+        check("기록 화면", "캐릭터별 전적(승률·평균 순위)이 나오고, 누르면 게임별 전적 창이 열린다", char_detail)
+        check("기록 화면", "업적이 묶음별로 나뉘어 있고 30개 이상이다", lambda: (None if page.locator("#achs").count() >= 4 and page.locator(".ach").count() >= 30 else (_ for _ in ()).throw(AssertionError(f"묶음 {page.locator('#achs').count()} 업적 {page.locator('.ach').count()}"))))
         page.screenshot(path=f"{SHOTS}/5-records.png", full_page=True)
 
         # ---------- 새로고침해도 유지 ----------

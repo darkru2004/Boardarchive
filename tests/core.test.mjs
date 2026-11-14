@@ -7,7 +7,7 @@ import { SCHEMA, validateCharacter, validateRecord, normTraits } from '../core/s
 import { parseCharacters, makeLookup, traitsFor, activeOnly, linesFor, pairLinesFor } from '../core/characters.js';
 import { drawSeats, rivalSeatsFor } from '../core/seating.js';
 import { buildRecord, saveRecord, listRecords } from '../core/records.js';
-import { overall, gameStats, characterStats, computeAchievements } from '../core/stats.js';
+import { overall, gameStats, characterStats, botStats, computeAchievements } from '../core/stats.js';
 import { createMemoryStorage, ensureDataSchema, saveCampaign, loadCampaign } from '../core/storage.js';
 import { exportBackup, importBackup, migrateBackup, parseBackup } from '../core/backup.js';
 import { simulate, contractCheck, buildPlayers, runBotGame } from '../core/runner.js';
@@ -135,6 +135,50 @@ await test('기록·통계', '업적: 첫 승리·3연승·캐릭터 격파·전
   eq(a['win-streak-3'].at, '2026-01-04T00:00:00.000Z'); eq(a['beat-rapi'].at, '2026-01-02T00:00:00.000Z');
   assert(a['meet-all'].unlocked, '전원 집합(2명 기준) 달성'); assert(!a['beat-yuno'].unlocked && !a['ten-games'].unlocked);
   eq(a['ten-games'].progress, 4);
+});
+await test('기록·통계', '캐릭터 전적: 앉은 모든 판 기준 승률·평균 순위와 게임별 세부 (내가 이겨도 캐릭터 전적은 따로)', () => {
+  const R = [
+    rec('stop-test', SEATS, [1, 2, 3], '2026-01-01T00:00:00Z'),    // 나 1, 라피 2, 에델 3
+    rec('stop-test', SEATS, [3, 1, 2], '2026-01-02T00:00:00Z'),    // 라피 1
+    rec('other-game', SEATS, [2, 1, 3], '2026-01-03T00:00:00Z')    // 라피 1
+  ];
+  const b = botStats(R);
+  eq([b.rapi.played, b.rapi.wins, +b.rapi.avgRank.toFixed(2)], [3, 2, 1.33]); eq(b.rapi.byGame['stop-test'].wins, 1); eq(b.rapi.byGame['other-game'].winRate, 1);
+  eq(b.edel.wins, 0); eq(botStats(R, { gameId: 'other-game' }).rapi.played, 1);
+});
+await test('기록·통계', '업적(확장): 게임별 연승·어려움 승리·꼴찌 연속·서로 다른 캐릭터 격파·플레이 날짜가 계산된다', () => {
+  const R = [
+    { ...rec('g1', SEATS, [1, 2, 3], '2026-01-01T03:00:00Z'), difficulty: 'hard' },
+    { ...rec('g1', SEATS, [1, 3, 2], '2026-01-01T04:00:00Z'), difficulty: 'easy' },
+    rec('g2', SEATS, [3, 1, 2], '2026-01-05T04:00:00Z'),
+    rec('g2', SEATS, [3, 1, 2], '2026-01-06T04:00:00Z'),
+    rec('g2', SEATS, [3, 2, 1], '2026-01-07T04:00:00Z')
+  ];
+  const defs = [
+    { id: 'a', name: 'a', desc: 'a', type: 'win_streak', gameId: 'g1', n: 2 }, { id: 'b', name: 'b', desc: 'b', type: 'wins_difficulty', difficulty: 'hard', n: 1 },
+    { id: 'c', name: 'c', desc: 'c', type: 'wins_difficulty', difficulty: 'easy', n: 2 }, { id: 'd', name: 'd', desc: 'd', type: 'last_streak', n: 3 },
+    { id: 'e', name: 'e', desc: 'e', type: 'beat_distinct', all: true }, { id: 'f', name: 'f', desc: 'f', type: 'play_days', n: 3 },
+    { id: 'g', name: 'g', desc: 'g', type: 'wins_distinct_games', all: true }, { id: 'h', name: 'h', desc: 'h', type: 'day_games', n: 2 }
+  ];
+  const a = Object.fromEntries(computeAchievements(R, defs, { activeIds: ['rapi', 'edel'], gameIds: ['g1', 'g2'] }).map(x => [x.id, x]));
+  assert(a.a.unlocked && a.b.unlocked && !a.c.unlocked, '연승/난이도'); eq(a.c.progress, 1);
+  assert(a.d.unlocked, '꼴찌 3연속'); eq(a.d.at, '2026-01-07T04:00:00.000Z');
+  assert(a.e.unlocked && a.e.at === '2026-01-01T03:00:00.000Z', '라피·에델 모두 앞섬'); assert(a.f.unlocked, '날짜 3일');
+  assert(!a.g.unlocked && a.g.progress === 1, '모든 게임 1등 (g2 미달성)'); assert(a.h.unlocked, '하루 2판');
+  eq(a.a.group, '기타');
+});
+await test('기록·통계', '업적 정의(data/achievements.json): id 중복 없음, 종류·필수 값이 올바르고 게임/캐릭터 id가 실제로 있다', () => {
+  const ids = new Set(), types = new Set(['games_played', 'wins', 'win_streak', 'last_streak', 'wins_with_players', 'wins_difficulty', 'wins_distinct_games', 'beat_character', 'beat_distinct', 'games_tried', 'met_all_characters', 'play_days', 'day_games']);
+  const gids = gamesIndex.games.map(g => g.id), cids = REAL.map(c => c.id);
+  for (const d of achDefs) {
+    assert(!ids.has(d.id), `id 중복 ${d.id}`); ids.add(d.id); assert(types.has(d.type), `${d.id}: 모르는 종류 ${d.type}`);
+    assert(d.name && d.desc && d.group, `${d.id}: 이름/설명/묶음 누락`);
+    if (d.gameId) assert(gids.includes(d.gameId), `${d.id}: 없는 게임 ${d.gameId}`);
+    if (d.characterId) assert(cids.includes(d.characterId), `${d.id}: 없는 캐릭터 ${d.characterId}`);
+    if (!['met_all_characters'].includes(d.type) && !d.all) assert(d.n > 0, `${d.id}: n 누락`);
+  }
+  assert(achDefs.length >= 30, '업적 30개 이상');
+  const none = computeAchievements([], achDefs, { activeIds: cids, gameIds: gids }); assert(none.every(x => !x.unlocked && x.target > 0), '기록이 없으면 전부 미달성이고 목표치가 있다');
 });
 await test('기록·통계', '업적 정의에 모르는 종류가 있어도 앱이 죽지 않는다', () => {
   const r = computeAchievements([], [{ id: 'x', name: 'x', desc: 'x', type: '미래의업적' }]); assert(r[0].unknownType && !r[0].unlocked);

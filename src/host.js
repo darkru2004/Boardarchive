@@ -7,9 +7,11 @@ import { campaignKey, saveCampaign, loadCampaign } from '../core/storage.js';
 import { linesFor, activeOnly, pairLinesFor } from '../core/characters.js';
 import { h, avatar, modal, toast, dieSvg, ornament, bubbles } from './ui.js';
 
+export const achCtx = app => ({ activeIds: activeOnly(app.characters).map(c => c.id), gameIds: app.games.filter(g => !g.test).map(g => g.id) });
+
 export async function unlockNew(app) {
   const recs = await listRecords(app.storage);
-  const comp = computeAchievements(recs, app.achievementDefs, { activeIds: activeOnly(app.characters).map(c => c.id) });
+  const comp = computeAchievements(recs, app.achievementDefs, achCtx(app));
   const unlocked = (await app.storage.get('settings', 'unlocked')) || {};
   const fresh = comp.filter(a => a.unlocked && !(a.id in unlocked));
   if (fresh.length) {
