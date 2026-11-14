@@ -54,6 +54,24 @@
         "table2": "#1a3447",
         "glyph": "♛"
       }
+    },
+    {
+      "id": "splendor",
+      "file": "splendor.js",
+      "name": "스플렌더",
+      "version": "1.0.0",
+      "players": {
+        "min": 2,
+        "max": 4
+      },
+      "minutes": 25,
+      "desc": "보석을 모아 카드를 사고, 카드 보너스로 더 비싼 카드를 사세요. 귀족이 방문하면 +3점. 먼저 15점에 닿은 라운드가 끝나면 점수가 가장 높은 사람이 승리.",
+      "theme": {
+        "accent": "#e7c15d",
+        "table": "#1b2547",
+        "table2": "#0b1026",
+        "glyph": "◆"
+      }
     }
   ]
 }

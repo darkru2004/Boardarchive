@@ -6,8 +6,9 @@ import { listRecords } from '../core/records.js';
 import { overall, gameStats, characterStats, botStats, computeAchievements } from '../core/stats.js';
 import { exportBackup, parseBackup, importBackup, migrateBackup } from '../core/backup.js';
 import { activeOnly } from '../core/characters.js';
-import { launchGame, achCtx } from './host.js';
+import { launchGame, achCtx, AUTO_SLOT } from './host.js';
 import { makeFx, fxPrefs } from './fx.js';
+import { loadCampaign, deleteCampaign } from '../core/storage.js';
 
 export const BACKUP_NUDGE_EVERY = 10;
 const top = (title, sub, recHtml) => {
@@ -74,6 +75,23 @@ export function setupPanel(app, entry, count, holder) {
   render();
   holder.replaceChildren(box);
   box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  resumeNote(app, entry, holder);
+}
+
+// 이어하기: 끝나지 않은 판이 저장되어 있으면 자리 뽑기 위에 쪽지로 보여 준다(새로 시작하면 덮어씀)
+async function resumeNote(app, entry, holder) {
+  let rec = null;
+  try { rec = await loadCampaign(app.storage, entry.id, AUTO_SLOT); } catch { rec = null; }
+  if (!rec || !rec.data || !Array.isArray(rec.data.seats) || !holder.isConnected) return;
+  const d = rec.data, names = d.seats.filter(x => !x.human).map(x => app.lookup(x.characterId).name.split(' ').pop()).join(' · ');
+  const box = h('div', { class: 'paper taped', id: 'resume', style: '--r:-.6deg;margin-bottom:14px' },
+    h('h3', {}, '이어서 하기'),
+    h('div', { class: 'muted', style: 'margin-bottom:10px' }, `${d.seats.length}인 · ${names}${d.state && d.state.round ? ` · ${d.state.round}라운드` : ''} · ${fmtDate(rec.updatedAt)} 저장`),
+    h('div', { class: 'row' },
+      h('button', { class: 'btn', onclick: async () => { await deleteCampaign(app.storage, entry.id, AUTO_SLOT); box.remove(); toast('저장된 판을 지웠어요'); } }, '지우기', h('small', {}, 'DELETE')),
+      h('button', { class: 'btn go grow', id: 'btnResume', onclick: () => launchGame(app, entry, d.seats, d.difficulty || null, rec).catch(e => toast('실행 오류: ' + e.message)) }, '이어하기', h('small', {}, 'CONTINUE'))),
+    h('div', { class: 'muted', style: 'margin-top:8px;font-size:12px' }, '아래에서 새로 시작하면 저장된 판은 지워져요.'));
+  holder.prepend(box);
 }
 
 // ================= 도감: 캐릭터 셀렉트 =================

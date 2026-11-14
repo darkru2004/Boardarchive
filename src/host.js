@@ -3,7 +3,10 @@ import { makeRng } from '../core/rng.js';
 import { buildPlayers } from '../core/runner.js';
 import { buildRecord, saveRecord, listRecords } from '../core/records.js';
 import { computeAchievements } from '../core/stats.js';
-import { campaignKey, saveCampaign, loadCampaign } from '../core/storage.js';
+import { campaignKey, saveCampaign, loadCampaign, deleteCampaign } from '../core/storage.js';
+
+// 이어하기(자동 저장) 슬롯 이름. meta.autosave가 있는 게임만 쓴다. 판이 끝나면 지운다.
+export const AUTO_SLOT = 'auto';
 import { linesFor, activeOnly, pairLinesFor } from '../core/characters.js';
 import { h, avatar, modal, toast, dieSvg, ornament, bubbles } from './ui.js';
 import { makeFx } from './fx.js';
@@ -22,7 +25,7 @@ export async function unlockNew(app) {
   return fresh;
 }
 
-export async function launchGame(app, entry, seats, difficulty = null) {
+export async function launchGame(app, entry, seats, difficulty = null, resume = null) {
   const mod = (await import(`../games/${entry.file}`)).default;
   if (mod.meta.id !== entry.id) throw new Error('게임 파일의 id가 목록과 다릅니다');
   const players = buildPlayers(seats, app.characters, entry.id).map(p => {
@@ -32,8 +35,9 @@ export async function launchGame(app, entry, seats, difficulty = null) {
   const root = h('div', {});
   const gameRoot = h('div', {});
   let instance = null, finished = false, confirmExit = false;
+  const auto = !!mod.meta.autosave;
   const exitBtn = h('button', { class: 'btn small', onclick: () => {
-    if (!confirmExit) { confirmExit = true; exitBtn.textContent = '정말 나갈까요? (기록 안 남음)'; setTimeout(() => { confirmExit = false; exitBtn.textContent = '나가기'; }, 3000); return; }
+    if (!confirmExit) { confirmExit = true; exitBtn.textContent = auto ? '정말 나갈까요? (이어하기 가능)' : '정말 나갈까요? (기록 안 남음)'; setTimeout(() => { confirmExit = false; exitBtn.textContent = '나가기'; }, 3000); return; }
     leave();
   } }, '나가기');
   root.append(h('div', { class: 'gamebar' }, h('div', { class: 'brand', style: 'font-size:28px' }, entry.name.replace(/\s*\(.*\)\s*$/, ''), h('small', {}, `${players.length}인 · v${entry.version}`)), exitBtn), gameRoot);
@@ -60,12 +64,17 @@ export async function launchGame(app, entry, seats, difficulty = null) {
       const arr = pair.length && (!own.length || Math.random() < 0.5) ? pair : own;
       return arr.length ? arr[Math.floor(Math.random() * arr.length)] : null;
     },
+    // 이어하기: 게임이 수를 둘 때마다 상태를 저장하고(autosave), 다음에 '이어하기'로 열면 resumeState로 돌려준다
+    resumeState: resume && resume.data ? resume.data.state : null,
+    autosave: auto ? (state => { if (!finished) saveCampaign(app.storage, { gameId: entry.id, slot: AUTO_SLOT, gameVersion: mod.meta.version, saveSchema: mod.meta.autosave.schema || 1, data: { state, seats, difficulty } }).catch(() => {}); }) : null,
+    clearAutosave: auto ? (() => deleteCampaign(app.storage, entry.id, AUTO_SLOT).catch(() => {})) : null,
     campaign: {
       load: slot => loadCampaign(app.storage, entry.id, slot),
       save: (slot, data, saveSchema = 1) => saveCampaign(app.storage, { gameId: entry.id, slot, gameVersion: mod.meta.version, saveSchema, data })
     },
     async finish(result) {
       if (finished) return; finished = true;
+      if (auto) await deleteCampaign(app.storage, entry.id, AUTO_SLOT).catch(() => {});
       const rec = buildRecord({ game: mod.meta, seats, result, difficulty });
       await saveRecord(app.storage, rec);
       const fresh = await unlockNew(app);

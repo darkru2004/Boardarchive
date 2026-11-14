@@ -81,6 +81,7 @@ h2 small{font-family:var(--fk);font-size:11px;font-weight:400;color:var(--ink2);
 #nav a.on{color:var(--ink);font-weight:700}
 #nav a.on:before{content:'';display:block;width:6px;height:6px;border-radius:50%;background:var(--blue);box-shadow:0 0 8px var(--glow);margin:-7px auto 6px}
 body.playing #nav{display:none}
+body.playing #app{padding-bottom:calc(10px + env(safe-area-inset-bottom))}
 
 /* 장식 */
 .orn{position:absolute;pointer-events:none;z-index:1}

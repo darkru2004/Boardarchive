@@ -33,7 +33,7 @@ try:
         page.goto(BASE + "?fast=1"); page.wait_for_selector("#nav a")
         check("시작 화면", "앱이 열리고 하단 탭 4개(게임·도감·기록·설정)가 보인다", lambda: (
             (_ for _ in ()).throw(AssertionError("탭 수 " + str(page.locator('#nav a').count()))) if page.locator('#nav a').count() != 4 else None))
-        check("시작 화면", "게임 목록에 스톱!(시험용)은 없고 정식 게임 3개가 있다", lambda: (page.wait_for_selector(".gcard[data-id=nothanks]"), None if page.locator(".gcard").count() == 3 and page.locator(".gcard[data-id=stop-test]").count() == 0 else (_ for _ in ()).throw(AssertionError("게임 카드 수 " + str(page.locator(".gcard").count())))))
+        check("시작 화면", "게임 목록에 스톱!(시험용)은 없고 정식 게임 4개가 있다", lambda: (page.wait_for_selector(".gcard[data-id=nothanks]"), None if page.locator(".gcard").count() == 4 and page.locator(".gcard[data-id=stop-test]").count() == 0 else (_ for _ in ()).throw(AssertionError("게임 카드 수 " + str(page.locator(".gcard").count())))))
         page.screenshot(path=f"{SHOTS}/1-home.png")
 
         # ---------- 게임 한 판 ----------
@@ -302,6 +302,48 @@ try:
         check("킹도미노", "기록에 킹도미노·버전 1.1.0·4명이 저장된다", lambda: (None if rec4 and rec4["gameVersion"] == "1.1.0" and len(rec4["players"]) == 4 else (_ for _ in ()).throw(AssertionError(str(rec4)[:200]))))
         p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=kingdomino]")
         check("킹도미노", "게임에서 나오면 킹도미노 전용 스타일이 남지 않는다", lambda: (None if p2.evaluate("![...document.querySelectorAll('style')].some(s => s.textContent.includes('.g-kd'))") else (_ for _ in ()).throw(AssertionError("스타일이 남음"))))
+        # ---------- 스플렌더: 폰 한 화면 · 이어하기 · 4인 한 판 끝까지 ----------
+        p2.set_viewport_size({"width": 412, "height": 780})
+        p2.goto(BASE + "?fast=1"); p2.wait_for_selector("#nav a")
+        p2.click(".gcard[data-id=splendor]"); p2.wait_for_selector("#setup .seat"); p2.click("button[data-n='4']"); p2.click("#btnStart")
+        p2.wait_for_selector(".g-splendor .sp-dock.mine", timeout=30000)
+        check("스플렌더", "보석상 테이블 화면: 상대 3명·귀족 5명·카드 12장·보석 6종이 그림으로 보인다", lambda: (None if p2.locator(".g-splendor .sp-opp").count() == 3 and p2.locator(".g-splendor .sp-nb").count() == 5 and p2.locator(".g-splendor .sp-row .sp-card .sp-art use").count() == 12 and p2.locator(".g-splendor .sp-tok").count() == 6 else (_ for _ in ()).throw(AssertionError("화면 구성"))))
+        for (w, hgt) in ((412, 780), (390, 844), (360, 740)):
+            p2.set_viewport_size({"width": w, "height": hgt}); p2.wait_for_timeout(150)
+            m = p2.evaluate("({v: document.documentElement.scrollHeight > innerHeight + 1, h: document.documentElement.scrollWidth > innerWidth + 1})")
+            check("스플렌더", f"{w}×{hgt} 폰 화면에서 스크롤 없이 한 화면에 다 보인다", lambda m=m: (None if not m["v"] and not m["h"] else (_ for _ in ()).throw(AssertionError(str(m)))))
+        p2.set_viewport_size({"width": 412, "height": 780})
+        def sp_reserve_then_exit():
+            p2.locator(".g-splendor .sp-row .sp-card").first.click(); p2.click(".g-splendor [data-a=res]")
+            p2.wait_for_selector(".g-splendor .sp-mres .sp-card")
+            p2.wait_for_selector(".g-splendor .sp-dock.mine", timeout=30000)
+            p2.click(".gamebar button"); p2.click(".gamebar button"); p2.wait_for_selector(".gcard[data-id=splendor]")
+            p2.click(".gcard[data-id=splendor]"); p2.wait_for_selector("#resume #btnResume", timeout=5000)
+            p2.click("#btnResume"); p2.wait_for_selector(".g-splendor .sp-mres .sp-card", timeout=5000)
+        check("스플렌더", "중간에 나가도 '이어하기'로 같은 판(예약 카드 포함)에 돌아온다", sp_reserve_then_exit)
+        def play_sp():
+            t0 = time.time()
+            while p2.locator(".g-splendor [data-a=finish]").count() == 0:
+                if time.time() - t0 > 240: raise AssertionError("240초 안에 끝나지 않음")
+                if p2.locator(".g-splendor .sp-dock.mine").count() == 0: p2.wait_for_timeout(20); continue
+                if p2.locator(".g-splendor [data-nk]").count(): p2.locator(".g-splendor [data-nk]").first.click(); continue
+                if p2.locator(".g-splendor .sp-dc").count(): p2.locator(".g-splendor .sp-dc").first.click(); continue
+                if p2.locator(".g-splendor [data-a=pass]").count(): p2.click(".g-splendor [data-a=pass]"); continue
+                if p2.locator(".g-splendor .sp-card.can").count():
+                    p2.locator(".g-splendor .sp-card.can").last.click(); p2.click(".g-splendor [data-a=buy]"); continue
+                k = min(3, p2.locator(".g-splendor .sp-tok:not(.none):not(.sp-k5)").count())
+                for _ in range(k): p2.locator(".g-splendor .sp-tok:not(.none):not(.sp-k5):not(.on)").first.click()
+                if k and p2.locator(".g-splendor [data-a=take]:not([disabled])").count(): p2.click(".g-splendor [data-a=take]"); continue
+                if p2.locator(".g-splendor [data-a=cancel]").count(): p2.click(".g-splendor [data-a=cancel]")
+                p2.locator(".g-splendor .sp-row .sp-card").first.click(); p2.click(".g-splendor [data-a=res]")
+        check("스플렌더", "실제 화면을 눌러(보석·구매·예약·반납) 4인 한 판을 끝까지 플레이하면 순위 화면이 나온다", play_sp)
+        p2.screenshot(path=f"{SHOTS}/13-splendor-final.png")
+        p2.click(".g-splendor [data-a=finish]"); p2.wait_for_selector(".modal .rank-row")
+        rec5 = p2.evaluate("window.__ba.storage.all('records').then(a => a.map(x => x.value).find(v => v.gameId === 'splendor'))")
+        left = p2.evaluate("window.__ba.storage.all('campaigns').then(a => a.filter(x => x.key.startsWith('splendor:')).length)")
+        check("스플렌더", "기록에 스플렌더·버전 1.0.0·4명이 저장되고, 이어하기 저장은 지워진다", lambda: (None if rec5 and rec5["gameVersion"] == "1.0.0" and len(rec5["players"]) == 4 and left == 0 else (_ for _ in ()).throw(AssertionError(str(rec5)[:200] + f" 남은 저장 {left}"))))
+        p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=splendor]")
+        check("스플렌더", "게임에서 나오면 스플렌더 전용 스타일이 남지 않는다", lambda: (None if p2.evaluate("![...document.querySelectorAll('style')].some(s => s.textContent.includes('.g-splendor'))") else (_ for _ in ()).throw(AssertionError("스타일이 남음"))))
         ctx2.close()
         check("전체", "테스트 내내 화면 오류(콘솔 에러·예외)가 0건이다", lambda: (None if not errors else (_ for _ in ()).throw(AssertionError("; ".join(errors[:3])))))
         br.close()
