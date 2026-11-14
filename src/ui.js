@@ -49,6 +49,15 @@ export async function fileToPortrait(file, size = 192) {
   return cv.toDataURL('image/jpeg', 0.86);
 }
 
+// 이미지 파일 -> 가로 480×384 중앙 크롭 JPEG data URL (게임 타이틀 이미지용)
+export async function fileToCover(file, w = 480, hh = 384) {
+  const bmp = await createImageBitmap(file);
+  const k = Math.max(w / bmp.width, hh / bmp.height), sw = w / k, sh = hh / k;
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = hh;
+  cv.getContext('2d').drawImage(bmp, (bmp.width - sw) / 2, (bmp.height - sh) / 2, sw, sh, 0, 0, w, hh);
+  return cv.toDataURL('image/jpeg', 0.84);
+}
+
 export function downloadJson(obj, filename) {
   const blob = new Blob([JSON.stringify(obj)], { type: 'application/json' });
   const a = h('a', { href: URL.createObjectURL(blob), download: filename });

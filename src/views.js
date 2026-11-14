@@ -1,9 +1,9 @@
-import { h, avatar, modal, toast, fileToPortrait, downloadJson, fmtDate, pct, ornament, bubbles, dieSvg, lockSvg } from './ui.js';
+import { h, avatar, modal, toast, fileToPortrait, fileToCover, downloadJson, fmtDate, pct, ornament, bubbles, dieSvg, lockSvg } from './ui.js';
 import { TRAIT_KEYS, TRAIT_LABELS, TARGET_LABELS, APP_VERSION, SCHEMA } from '../core/schema.js';
 import { drawSeats, DIFFICULTIES, DIFF_LABEL } from '../core/seating.js';
 import { makeRng } from '../core/rng.js';
 import { listRecords } from '../core/records.js';
-import { overall, gameStats, characterStats, botStats, coopStats, isCoop, computeAchievements } from '../core/stats.js';
+import { filterByDifficulty, overall, gameStats, characterStats, botStats, coopStats, isCoop, computeAchievements } from '../core/stats.js';
 import { exportBackup, parseBackup, importBackup, migrateBackup } from '../core/backup.js';
 import { activeOnly } from '../core/characters.js';
 import { launchGame, achCtx, AUTO_SLOT } from './host.js';
@@ -26,27 +26,50 @@ export async function homeView(app, root) {
   if (recs.length - meta.recordsAt >= BACKUP_NUDGE_EVERY) {
     root.append(h('div', { class: 'paper taped banner', style: '--r:-1deg' }, `마지막 백업 이후 ${recs.length - meta.recordsAt}판이 쌓였어요. 설정에서 백업 파일을 만들어 두세요.`));
   }
-  const grid = h('div', { class: 'ggrid' },
-    ...app.games.map((g, i) => gameCard(app, g, i, g.mode === 'coop' ? (cs[g.id] && { wins: cs[g.id].wins }) : gs[g.id])),
-    h('div', { class: 'lockcard' }, h('b', {}, 'LOCKED'), lockSvg(), h('span', {}, '다음 게임 자리')));
-  const wrap = h('div', { style: 'position:relative' }, grid);
+  const st = (g) => (g.mode === 'coop' ? (cs[g.id] && { wins: cs[g.id].wins }) : gs[g.id]);
+  const prefs = await homePrefs(app);
+  const count = (id) => recs.filter(r => r.gameId === id).length;
+  const order = app.games.map((g, i) => ({ g, i }));
+  let favs;
+  if (prefs.mode === 'pin') {
+    const pinned = prefs.pins.map(id => order.find(o => o.g.id === id)).filter(Boolean);
+    favs = pinned.slice(0, prefs.count);
+  } else {
+    favs = order.filter(o => count(o.g.id) > 0).sort((a, b) => count(b.g.id) - count(a.g.id) || a.i - b.i).slice(0, prefs.count);
+  }
+  if (favs.length < Math.min(prefs.count, order.length) && prefs.mode !== 'pin') favs = favs.concat(order.filter(o => !favs.includes(o)).slice(0, prefs.count - favs.length));
+  const rest = order.filter(o => !favs.includes(o));
+  const lock = h('div', { class: 'lockcard' }, h('b', {}, 'LOCKED'), lockSvg(), h('span', {}, '다음 게임 자리'));
+  const wrap = h('div', { style: 'position:relative' });
+  if (favs.length) wrap.append(h('h2', { class: 'secH' }, 'Favorites', h('small', {}, prefs.mode === 'pin' ? '고정한 게임' : '자주 하는 게임')),
+    h('div', { class: 'ggrid compact', id: 'favGrid' }, ...favs.map(o => gameCard(app, o.g, o.i, st(o.g), true))));
+  wrap.append(rest.length ? h('h2', { class: 'secH' }, 'All Games', h('small', {}, '전체 게임')) : null,
+    h('div', { class: 'ggrid' + (rest.length ? '' : ' compact'), id: 'allGrid' }, ...rest.map(o => gameCard(app, o.g, o.i, st(o.g))), lock));
   wrap.append(ornament(92, 'left:-12px;top:205px;transform:rotate(-8deg)'), ornament(84, 'right:-6px;top:250px;transform:scaleX(-1) rotate(-6deg)'),
     ...bubbles([['46%', '20px', 14], ['49%', '6px', 8], ['8%', '62%', 10], ['88%', '4px', 11]]));
   root.append(wrap, h('div', { id: 'setupHolder', style: 'margin-top:22px' }));
 }
 
-function gameCard(app, g, i, st) {
+// 홈 표시 설정: mode 'auto'(플레이 횟수 순) | 'pin'(직접 고정), count 6|8, pins [gameId]
+export async function homePrefs(app) {
+  const p = (await app.storage.get('settings', 'homePrefs')) || {};
+  return { mode: p.mode === 'pin' ? 'pin' : 'auto', count: p.count === 8 ? 8 : 6, pins: Array.isArray(p.pins) ? p.pins : [] };
+}
+const coverKey = id => 'game:' + id;
+
+function gameCard(app, g, i, st, compact = false) {
   const maxN = Math.min(g.players.max, activeOnly(app.characters).length + 1);
   const can = maxN >= g.players.min;
   const status = !can ? 'LOCK' : st ? (st.wins ? 'CLEAR' : 'PLAYED') : 'NEW';
   const th = g.theme || null;     // 게임별 표지 (games/index.json의 theme)
   const pic = th ? h('span', { class: 'big cover', style: `color:${th.accent}` }, th.glyph || plainName(g.name).slice(0, 1))
     : h('span', { class: 'big' }, plainName(g.name).slice(0, 1));
-  return h('button', { class: 'pol gcard', 'data-id': g.id, 'aria-label': `${g.name} 플레이`, disabled: !can,
+  const cover = app.portraits.get(coverKey(g.id));
+  return h('button', { class: 'pol gcard' + (compact ? ' compact' : '') + (cover ? ' hasimg' : ''), 'data-id': g.id, 'aria-label': `${g.name} 플레이`, disabled: !can,
     onclick: () => can && app.startSetup(g, g.players.min) },
     h('div', { class: 'no' }, String(i + 1).padStart(2, '0')),
     h('div', { class: 'st' }, status, g.test ? h('span', { class: 'tag test' }, 'TEST') : null, g.mode === 'coop' ? h('span', { class: 'tag test' }, '협력') : null),
-    h('div', { class: 'pic', style: th && th.table ? `background:radial-gradient(80% 70% at 40% 35%,${th.table},${th.table2 || th.table})` : '' }, pic),
+    h('div', { class: 'pic', style: cover ? `background:#111 url(${cover}) center/cover no-repeat` : th && th.table ? `background:radial-gradient(80% 70% at 40% 35%,${th.table},${th.table2 || th.table})` : '' }, cover ? null : pic),
     h('div', { class: 'ttl' }, plainName(g.name)),
     h('div', { class: 'meta' }, can ? `${g.players.min}~${g.players.max}인` : '캐릭터 부족'));
 }
@@ -142,32 +165,38 @@ function charDetail(app, id, bs, cs, gname) {
   const rows = Object.entries(b.byGame).sort((x, y) => y[1].played - x[1].played);
   const m = modal(h('div', { class: 'charDetail', 'data-id': id },
     h('div', { class: 'row', style: 'gap:12px;align-items:center' }, avatar(app, id, 64),
-      h('div', { class: 'grow' }, h('h3', { style: 'margin:0' }, c.name), h('div', { class: 'muted' }, `${b.played}판 · ${b.wins}승 · 승률 ${pct(b.winRate)} · 평균 ${b.avgRank.toFixed(1)}위`))),
+      h('div', { class: 'grow' }, h('h3', { style: 'margin:0' }, c.name), h('div', { class: 'muted' }, `${b.played}판 · ${b.wins}승 · 승률 ${pct(b.winRate)}(기대 ${pct(b.expected)}) · 평균 ${b.avgRank.toFixed(1)}위`))),
     h('h4', { style: 'margin:14px 0 4px' }, '게임별'),
-    h('table', {}, h('tr', {}, h('th', {}, '게임'), h('th', { class: 'n' }, '판'), h('th', { class: 'n' }, '승'), h('th', { class: 'n' }, '승률'), h('th', { class: 'n' }, '평균 순위')),
-      ...rows.map(([gid, g]) => h('tr', {}, h('td', {}, gname(gid)), h('td', { class: 'n' }, g.played), h('td', { class: 'n' }, g.wins), h('td', { class: 'n' }, pct(g.winRate)), h('td', { class: 'n' }, g.avgRank.toFixed(1))))),
+    h('table', {}, h('tr', {}, h('th', {}, '게임'), h('th', { class: 'n' }, '판'), h('th', { class: 'n' }, '승'), h('th', { class: 'n' }, '승률'), h('th', { class: 'n' }, '기대'), h('th', { class: 'n' }, '평균 순위')),
+      ...rows.map(([gid, g]) => h('tr', {}, h('td', {}, gname(gid)), h('td', { class: 'n' }, g.played), h('td', { class: 'n' }, g.wins), h('td', { class: 'n' }, pct(g.winRate)), h('td', { class: 'n muted' }, pct(g.expected)), h('td', { class: 'n' }, g.avgRank.toFixed(1))))),
     vs ? h('div', { class: 'muted', style: 'margin-top:10px' }, `나와의 전적: 내가 ${vs.myWins}승 ${vs.myLosses}패${vs.ties ? ` ${vs.ties}무` : ''}`) : null,
     h('div', { class: 'row', style: 'margin-top:12px' }, h('button', { class: 'btn go grow', onclick: () => m.close() }, '닫기'))));
 }
 export async function recordsView(app, root) {
   const recs = await listRecords(app.storage);
-  const ov = overall(recs), gs = gameStats(recs), cs = characterStats(recs);
+  let fdiff = 'all'; try { const d = localStorage.getItem('ba_recdiff'); if (d === 'all' || DIFFICULTIES.includes(d)) fdiff = d; } catch {}
+  const frecs = filterByDifficulty(recs, fdiff);
+  const ov = overall(frecs), gs = gameStats(frecs), cs = characterStats(frecs);
   const gname = id => plainName((app.games.find(g => g.id === id) || { name: `(없는 게임 ${id})` }).name);
   root.append(top('Record', '전적 기록', `승률<br><b>${pct(ov.winRate)}</b>`));
   root.append(h('div', { class: 'paper taped', id: 'overall', style: '--r:-1deg' },
-    h('div', { class: 'row' }, h('div', { class: 'big-num' }, ov.played), h('div', { class: 'grow' }, `총 ${ov.played}판 · ${ov.wins}승 · 승률 ${pct(ov.winRate)}`)),
-    ov.played ? null : h('div', { class: 'muted', style: 'margin-top:6px' }, '아직 경쟁 게임 기록이 없어요. 한 판 끝내면 여기에 쌓입니다.')));
+    h('div', { class: 'row wrap', id: 'diffFilter', style: 'gap:6px;margin-bottom:8px;align-items:center' }, h('small', {}, '난이도'),
+      ...['all', ...DIFFICULTIES].map(d => h('button', { class: 'btn small' + (d === fdiff ? ' on' : ''), 'data-f': d,
+        onclick: () => { try { localStorage.setItem('ba_recdiff', d); } catch {} app.render(); } }, d === 'all' ? '전체' : DIFF_LABEL[d]))),
+    h('div', { class: 'row' }, h('div', { class: 'big-num' }, ov.played), h('div', { class: 'grow' }, `총 ${ov.played}판 · ${ov.wins}승 · 승률 ${pct(ov.winRate)}${ov.played ? ` (기대 ${pct(ov.expected)})` : ''}`)),
+    fdiff !== 'all' ? h('div', { class: 'muted', style: 'margin-top:6px' }, `${DIFF_LABEL[fdiff]} 난이도로 한 판만 모아 본 숫자예요. 아래 캐릭터·게임 표도 같은 기준입니다.`) : null,
+    ov.played ? null : h('div', { class: 'muted', style: 'margin-top:6px' }, fdiff === 'all' ? '아직 경쟁 게임 기록이 없어요. 한 판 끝내면 여기에 쌓입니다.' : '이 난이도로 한 판이 아직 없어요.')));
   if (ov.played) {
     root.append(h('h2', {}, 'By Game', h('small', {}, '게임별')), h('div', { class: 'paper', style: '--r:.6deg' }, h('table', {},
-      h('tr', {}, h('th', {}, '게임'), h('th', { class: 'n' }, '판'), h('th', { class: 'n' }, '승'), h('th', { class: 'n' }, '승률'), h('th', { class: 'n' }, '평균 순위')),
-      ...Object.entries(gs).map(([id, g]) => h('tr', {}, h('td', {}, gname(id)), h('td', { class: 'n' }, g.played), h('td', { class: 'n' }, g.wins), h('td', { class: 'n' }, pct(g.winRate)), h('td', { class: 'n' }, g.avgRank.toFixed(1)))))));
-    const bs = botStats(recs);
+      h('tr', {}, h('th', {}, '게임'), h('th', { class: 'n' }, '판'), h('th', { class: 'n' }, '승'), h('th', { class: 'n' }, '승률'), h('th', { class: 'n' }, '기대'), h('th', { class: 'n' }, '평균 순위')),
+      ...Object.entries(gs).map(([id, g]) => h('tr', {}, h('td', {}, gname(id)), h('td', { class: 'n' }, g.played), h('td', { class: 'n' }, g.wins), h('td', { class: 'n' }, pct(g.winRate)), h('td', { class: 'n muted' }, pct(g.expected)), h('td', { class: 'n' }, g.avgRank.toFixed(1)))))));
+    const bs = botStats(frecs);
     const ids = Object.keys(bs).sort((a, b) => bs[b].winRate - bs[a].winRate || bs[b].played - bs[a].played);
     root.append(h('h2', {}, 'Characters', h('small', {}, '캐릭터별 전적 · 눌러서 게임별 보기')), h('div', { class: 'paper', id: 'charTable', style: '--r:-.5deg' },
-      h('table', {}, h('tr', {}, h('th', {}, '캐릭터'), h('th', { class: 'n' }, '판'), h('th', { class: 'n' }, '승률'), h('th', { class: 'n' }, '평균 순위')),
+      h('table', {}, h('tr', {}, h('th', {}, '캐릭터'), h('th', { class: 'n' }, '판'), h('th', { class: 'n' }, '승률'), h('th', { class: 'n' }, '기대'), h('th', { class: 'n' }, '평균 순위')),
         ...ids.map(id => h('tr', { class: 'crow', 'data-id': id, style: 'cursor:pointer', onclick: () => charDetail(app, id, bs, cs, gname) },
-          h('td', {}, app.lookup(id).name), h('td', { class: 'n' }, bs[id].played), h('td', { class: 'n' }, pct(bs[id].winRate)), h('td', { class: 'n' }, bs[id].avgRank.toFixed(1))))),
-      h('div', { class: 'muted', style: 'margin-top:6px' }, '내가 함께 앉은 모든 판 기준이에요. 판 수가 적을 땐 숫자가 크게 흔들려요.')));
+          h('td', {}, app.lookup(id).name), h('td', { class: 'n' }, bs[id].played), h('td', { class: 'n' }, pct(bs[id].winRate)), h('td', { class: 'n muted' }, pct(bs[id].expected)), h('td', { class: 'n' }, bs[id].avgRank.toFixed(1))))),
+      h('div', { class: 'muted', style: 'margin-top:6px' }, '내가 함께 앉은 모든 판 기준이에요. "기대"는 모두 같은 실력일 때의 승률이고, 판 수가 적을 땐 숫자가 크게 흔들려요.')));
   }
   const cp = coopStats(recs);
   if (cp.total.played) {
@@ -219,6 +248,29 @@ export async function settingsView(app, root) {
   root.append(h('h2', {}, 'Effects', h('small', {}, '게임 연출')), h('div', { class: 'paper', id: 'fxPrefs', style: '--r:-.4deg' },
     h('div', { class: 'row wrap' }, fxRow('ba_fx', '움직임', () => fxPrefs.motion), fxRow('ba_sfx', '효과음', () => fxPrefs.sound), fxRow('ba_haptic', '진동', () => fxPrefs.haptic)),
     h('div', { class: 'muted', style: 'margin-top:6px' }, '카드·칩·타일이 날아가는 움직임, 효과음, 폰 진동. 진동은 안드로이드에서만 동작해요.')));
+  // 홈 화면: 자주 하는 게임 + 게임 타이틀 이미지
+  const hp = await homePrefs(app);
+  const saveHp = async () => { await app.storage.put('settings', 'homePrefs', hp); app.render(); };
+  const coverIn = h('input', { type: 'file', accept: 'image/*', style: 'display:none', id: 'coverFile', onchange: async e => {
+    const f = e.target.files[0], id = coverIn.dataset.gid; e.target.value = ''; if (!f || !id) return;
+    try { const dataUrl = await fileToCover(f); await app.storage.put('portraits', coverKey(id), { dataUrl, updatedAt: new Date().toISOString() }); app.portraits.set(coverKey(id), dataUrl); toast('타이틀 이미지를 저장했어요'); app.render(); }
+    catch (err) { toast('이미지를 읽지 못했어요: ' + err.message); }
+  } });
+  root.append(h('h2', {}, 'Home', h('small', {}, '홈 화면')), h('div', { class: 'paper', id: 'homePrefs', style: '--r:.3deg' },
+    h('div', { class: 'row wrap', style: 'gap:6px;align-items:center' }, h('small', {}, '자주 하는 게임'),
+      h('button', { class: 'btn small' + (hp.mode === 'auto' ? ' on' : ''), 'data-hm': 'auto', onclick: () => { hp.mode = 'auto'; saveHp(); } }, '자동(많이 한 순)'),
+      h('button', { class: 'btn small' + (hp.mode === 'pin' ? ' on' : ''), 'data-hm': 'pin', onclick: () => { hp.mode = 'pin'; saveHp(); } }, '직접 고정')),
+    h('div', { class: 'row wrap', style: 'gap:6px;align-items:center;margin-top:6px' }, h('small', {}, '표시 개수'),
+      ...[6, 8].map(n => h('button', { class: 'btn small' + (hp.count === n ? ' on' : ''), 'data-hc': n, onclick: () => { hp.count = n; saveHp(); } }, `${n}개`))),
+    h('div', { style: 'margin-top:10px' }, ...app.games.map(g => {
+      const has = app.portraits.has(coverKey(g.id)), pinned = hp.pins.includes(g.id);
+      return h('div', { class: 'row', 'data-g': g.id, style: 'gap:6px;align-items:center;padding:5px 0;border-bottom:1px dashed #00000020' },
+        h('div', { class: 'grow' }, plainName(g.name)),
+        hp.mode === 'pin' ? h('button', { class: 'btn small pinb' + (pinned ? ' on' : ''), onclick: () => { hp.pins = pinned ? hp.pins.filter(x => x !== g.id) : [...hp.pins, g.id]; saveHp(); } }, pinned ? '고정됨' : '고정') : null,
+        h('button', { class: 'btn small covb', onclick: () => { coverIn.dataset.gid = g.id; coverIn.click(); } }, has ? '이미지 바꾸기' : '이미지 넣기'),
+        has ? h('button', { class: 'btn small', onclick: async () => { await app.storage.del('portraits', coverKey(g.id)); app.portraits.delete(coverKey(g.id)); toast('타이틀 이미지를 지웠어요'); app.render(); } }, '지우기') : null);
+    })),
+    h('div', { class: 'muted', style: 'margin-top:6px' }, hp.mode === 'pin' ? '고정한 순서대로 홈 위쪽에 나와요.' : '자동: 많이 한 게임이 위에 나와요. 아직 안 한 게임은 목록 순서대로 채워요.'), coverIn));
   const recs = await listRecords(app.storage);
   const meta = (await app.storage.get('settings', 'backupMeta')) || { recordsAt: 0, lastAt: null };
   const persisted = navigator.storage && navigator.storage.persisted ? await navigator.storage.persisted() : null;
@@ -256,7 +308,7 @@ export async function settingsView(app, root) {
 
   root.append(h('div', { class: 'paper taped', id: 'backupCard', style: '--r:-.6deg' },
     h('h3', {}, '백업'),
-    h('div', { class: 'muted', style: 'margin-bottom:10px' }, `기록 ${recs.length}판 · 초상화 ${app.portraits.size}개 · 마지막 백업 ${meta.lastAt ? fmtDate(meta.lastAt) : '없음'}`),
+    h('div', { class: 'muted', style: 'margin-bottom:10px' }, `기록 ${recs.length}판 · 초상화·이미지 ${app.portraits.size}개 · 마지막 백업 ${meta.lastAt ? fmtDate(meta.lastAt) : '없음'}`),
     h('div', { class: 'row wrap' },
       h('button', { class: 'btn go', id: 'btnExport', onclick: async () => {
         const b = await exportBackup(app.storage);

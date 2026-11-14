@@ -7,7 +7,7 @@ import { SCHEMA, validateCharacter, validateRecord, normTraits } from '../core/s
 import { parseCharacters, makeLookup, traitsFor, activeOnly, linesFor, pairLinesFor } from '../core/characters.js';
 import { drawSeats, rivalSeatsFor } from '../core/seating.js';
 import { buildRecord, saveRecord, listRecords } from '../core/records.js';
-import { overall, gameStats, characterStats, botStats, coopStats, computeAchievements } from '../core/stats.js';
+import { filterByDifficulty, overall, gameStats, characterStats, botStats, coopStats, computeAchievements } from '../core/stats.js';
 import { createMemoryStorage, ensureDataSchema, saveCampaign, loadCampaign } from '../core/storage.js';
 import { exportBackup, importBackup, migrateBackup, parseBackup } from '../core/backup.js';
 import { simulate, contractCheck, buildPlayers, runBotGame } from '../core/runner.js';
@@ -116,7 +116,7 @@ await test('기록·통계', '전적·승률·캐릭터별 상대 전적이 기�
     rec('stop-test', SEATS, [2, 2, 1], '2026-01-03T00:00:00Z'),   // 에델 1등, 나=라피 동순위
     rec('other-game', SEATS, [1, 3, 2], '2026-01-04T00:00:00Z')
   ];
-  eq(overall(R), { played: 4, wins: 2, winRate: 0.5 });
+  { const o = overall(R); eq({ played: o.played, wins: o.wins, winRate: o.winRate }, { played: 4, wins: 2, winRate: 0.5 }); }
   const g = gameStats(R); eq(g['stop-test'].played, 3); eq(g['stop-test'].wins, 1); eq(g['other-game'].wins, 1);
   const c = characterStats(R);
   eq([c.rapi.met, c.rapi.myWins, c.rapi.myLosses, c.rapi.ties, c.rapi.theirWins], [4, 2, 1, 1, 1]);
@@ -604,6 +604,21 @@ await test('배포 파일', '모든 경로가 상대 경로다 (하위 폴더에
 const fail = report('코어·규격 자동 테스트');
 
 // ---- 참고: 시험용 게임 봇 대전 승률 (4인, 2000판) ----
+
+test('통계: 난이도 필터는 해당 난이도 판만 남기고, 기대 승률(1/인원)을 계산한다', () => {
+  const mk = (diff, rank) => ({ v: 1, id: 'x' + Math.random(), at: '2026-01-01T00:00:00Z', gameId: 'g', mode: 'solo', difficulty: diff,
+    players: [{ seat: 0, human: true, characterId: null, rank, score: 0 }, { seat: 1, human: false, characterId: 'rapi', rank: rank === 1 ? 2 : 1, score: 0 }] });
+  const recs = [mk('easy', 1), mk('easy', 1), mk('hard', 2), mk(undefined, 1)];
+  eq(filterByDifficulty(recs, 'all').length, 4);
+  eq(filterByDifficulty(recs, 'easy').length, 2);
+  eq(filterByDifficulty(recs, 'hard').length, 1);
+  eq(filterByDifficulty(recs, 'normal').length, 0);
+  const o = overall(filterByDifficulty(recs, 'easy'));
+  eq(o.winRate, 1); assert(Math.abs(o.expected - 0.5) < 1e-9, '기대 승률 0.5');
+  const b = botStats(filterByDifficulty(recs, 'hard')); eq(b.rapi.winRate, 1); assert(Math.abs(b.rapi.expected - 0.5) < 1e-9);
+  assert(Math.abs(gameStats(recs).g.expected - 0.5) < 1e-9);
+});
+
 const s4 = simulate(stopTest, REAL, { games: 2000, count: 4, seed: 99 });
 console.log('\n[참고] 시험용 게임 4인 2000판 승률 (사람 자리=기준봇)');
 for (const [id, v] of Object.entries(s4.perCharacter)) console.log(`  ${id.padEnd(8)} ${(v.winRate * 100).toFixed(1)}%`);

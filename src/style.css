@@ -155,3 +155,13 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .g-goal b{font-size:28px}
 .g-sub{text-align:center;font-size:12px;color:#f1eee6;text-shadow:0 1px 2px #0009}
 .g-log{background:#efece4cc;padding:8px 10px;font-size:12px;color:var(--ink2);max-height:110px;overflow:auto;box-shadow:0 3px 8px #0002}
+
+.secH{margin:14px 4px 4px}
+.ggrid.compact{gap:12px 10px}
+.ggrid.compact>*{margin-top:0!important}
+.pol.compact .pic{aspect-ratio:1/.7}
+.pol.compact{padding:22px 7px 30px}
+.pol.compact .no{font-size:20px;left:7px}
+.pol.compact .big{font-size:40px}
+.pol.compact .ttl{font-size:13px;left:8px;bottom:6px}
+.pol.compact .meta{display:none}

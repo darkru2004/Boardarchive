@@ -3,23 +3,26 @@ const humanOf = r => r.players.find(p => p.human);
 // 협력 게임 기록(mode:'coop')은 순위 경쟁이 아니므로 경쟁 통계·업적과 절대 섞지 않는다.
 export const isCoop = r => r.mode === 'coop';
 const compete = records => records.filter(r => !isCoop(r));
+// 난이도 필터: 'all'(전체) 또는 기록에 남은 difficulty(easy/normal/hard/random). 난이도 기록이 없던 옛 판은 'all'에만 들어간다.
+export const filterByDifficulty = (records, diff) => (!diff || diff === 'all' ? records : records.filter(r => r.difficulty === diff));
 export const humanWon = r => { const h = humanOf(r); return !!h && h.rank === 1; };
 
 export function overall(records) {
   records = compete(records);
   const played = records.length, wins = records.filter(humanWon).length;
-  return { played, wins, winRate: played ? wins / played : 0 };
+  const exp = played ? records.reduce((a, r) => a + 1 / r.players.length, 0) / played : 0;   // 기대 승률: 전원이 같은 실력일 때의 승률
+  return { played, wins, winRate: played ? wins / played : 0, expected: exp };
 }
 
 export function gameStats(records) {
   records = compete(records);
   const out = {};
   for (const r of records) {
-    const g = (out[r.gameId] ||= { played: 0, wins: 0, rankSum: 0, lastAt: null });
-    g.played++; if (humanWon(r)) g.wins++;
+    const g = (out[r.gameId] ||= { played: 0, wins: 0, rankSum: 0, expSum: 0, lastAt: null });
+    g.played++; g.expSum += 1 / r.players.length; if (humanWon(r)) g.wins++;
     g.rankSum += humanOf(r).rank; g.lastAt = r.at;
   }
-  for (const g of Object.values(out)) { g.winRate = g.wins / g.played; g.avgRank = g.rankSum / g.played; }
+  for (const g of Object.values(out)) { g.winRate = g.wins / g.played; g.avgRank = g.rankSum / g.played; g.expected = g.expSum / g.played; }
   return out;
 }
 
@@ -51,15 +54,15 @@ export function botStats(records, { gameId } = {}) {
     if (gameId && r.gameId !== gameId) continue;
     for (const p of r.players) {
       if (p.human) continue;
-      const c = (out[p.characterId] ||= { played: 0, wins: 0, rankSum: 0, byGame: {}, lastAt: null });
-      const g = (c.byGame[r.gameId] ||= { played: 0, wins: 0, rankSum: 0 });
-      for (const x of [c, g]) { x.played++; x.rankSum += p.rank; if (p.rank === 1) x.wins++; }
+      const c = (out[p.characterId] ||= { played: 0, wins: 0, rankSum: 0, expSum: 0, byGame: {}, lastAt: null });
+      const g = (c.byGame[r.gameId] ||= { played: 0, wins: 0, rankSum: 0, expSum: 0 });
+      for (const x of [c, g]) { x.played++; x.rankSum += p.rank; x.expSum += 1 / r.players.length; if (p.rank === 1) x.wins++; }
       c.lastAt = r.at;
     }
   }
   for (const c of Object.values(out)) {
-    c.winRate = c.wins / c.played; c.avgRank = c.rankSum / c.played;
-    for (const g of Object.values(c.byGame)) { g.winRate = g.wins / g.played; g.avgRank = g.rankSum / g.played; }
+    c.winRate = c.wins / c.played; c.avgRank = c.rankSum / c.played; c.expected = c.expSum / c.played;
+    for (const g of Object.values(c.byGame)) { g.winRate = g.wins / g.played; g.avgRank = g.rankSum / g.played; g.expected = g.expSum / g.played; }
   }
   return out;
 }

@@ -421,6 +421,54 @@ try:
             assert p3.locator(".ach.done[data-id='coop-first']").count() == 0 or True
         check("협력 게임", "협력 기록은 경쟁 총 판수·캐릭터 표에 섞이지 않고 '협력 게임 기록'에 클리어율·동료별로 따로 나온다", coop_view)
         ctx3.close()
+        # ---------- 난이도 필터 / 홈 자주 하는 게임 / 타이틀 이미지 ----------
+        ctx4 = br.new_context(viewport={"width": 390, "height": 844}); p4 = ctx4.new_page(); p4.on("pageerror", lambda e: errors.append("pageerror(home): " + str(e)))
+        p4.goto(BASE + "?fast=1"); p4.wait_for_selector("#nav a")
+        p4.evaluate("""import('./core/records.js').then(async m => { const st = window.__ba.storage;
+          for (const [d, rk] of [['easy', 1], ['easy', 1], ['hard', 2]]) await m.saveRecord(st, m.buildRecord({ game: { id: 'nothanks', version: '1.9.0' }, at: new Date(), difficulty: d,
+            result: { ranking: [{ seat: 0, rank: rk, score: 1 }, { seat: 1, rank: rk === 1 ? 2 : 1, score: 1 }], summary: '시험' },
+            seats: [{ seat: 0, human: true }, { seat: 1, human: false, characterId: 'rapi' }] })); })""")
+        def diff_filter():
+            p4.reload(); p4.wait_for_selector("#nav a"); p4.click("#nav a[data-tab=records]"); p4.wait_for_selector("#diffFilter")
+            assert "총 3판" in p4.inner_text("#overall"), p4.inner_text("#overall")[:80]
+            p4.click("#diffFilter [data-f=easy]"); p4.wait_for_selector("#diffFilter [data-f=easy].on")
+            assert "총 2판" in p4.inner_text("#overall") and "승률 100%" in p4.inner_text("#overall"), p4.inner_text("#overall")[:120]
+            p4.click("#diffFilter [data-f=hard]"); p4.wait_for_selector("#diffFilter [data-f=hard].on")
+            assert "총 1판" in p4.inner_text("#overall") and "승률 0%" in p4.inner_text("#overall"), p4.inner_text("#overall")[:120]
+            assert p4.inner_text("#charTable tr.crow td:nth-child(2)").strip() == "1", "캐릭터 표가 필터를 따르지 않음"
+            p4.click("#diffFilter [data-f=normal]"); p4.wait_for_selector("#diffFilter [data-f=normal].on")
+            assert "총 0판" in p4.inner_text("#overall") and p4.locator("#charTable").count() == 0
+            p4.click("#diffFilter [data-f=all]")
+        check("난이도 필터", "기록 화면에서 난이도를 고르면 총 판수·승률·캐릭터 표가 그 난이도 판만으로 다시 계산된다", diff_filter)
+        def home_fav():
+            p4.click("#nav a[data-tab=home]"); p4.wait_for_selector("#favGrid .gcard")
+            ids = p4.eval_on_selector_all("#favGrid .gcard", "els => els.map(e => e.dataset.id)")
+            assert ids[0] == "nothanks", "많이 한 게임이 맨 앞이 아님: " + str(ids)
+            assert len(ids) == min(6, len(ids)) and len(ids) >= 4, ids
+        check("홈 화면", "'자주 하는 게임'에 많이 한 게임이 맨 앞으로 나온다(자동 모드)", home_fav)
+        def home_pin():
+            p4.click("#nav a[data-tab=settings]"); p4.wait_for_selector("#homePrefs")
+            p4.click("#homePrefs [data-hm=pin]"); p4.wait_for_selector("#homePrefs [data-hm=pin].on")
+            p4.click("#homePrefs [data-g=loveletter] .pinb"); p4.wait_for_selector("#homePrefs [data-g=loveletter] .pinb.on")
+            p4.click("#nav a[data-tab=home]"); p4.wait_for_selector("#favGrid .gcard")
+            ids = p4.eval_on_selector_all("#favGrid .gcard", "els => els.map(e => e.dataset.id)")
+            assert ids == ["loveletter"], ids
+            assert p4.locator("#allGrid .gcard[data-id=nothanks]").count() == 1, "고정 안 한 게임이 전체 게임에 없음"
+            p4.click("#nav a[data-tab=settings]"); p4.click("#homePrefs [data-hm=auto]")
+        check("홈 화면", "직접 고정 모드에서는 고정한 게임만 위에, 나머지는 '전체 게임'에 나온다", home_pin)
+        def cover_img():
+            p4.click("#nav a[data-tab=settings]"); p4.wait_for_selector("#homePrefs")
+            with p4.expect_file_chooser() as fc:
+                p4.click("#homePrefs [data-g=nothanks] .covb")
+            fc.value.set_files("/tmp/portrait-test.png")
+            p4.wait_for_function("window.__ba.portraits.has('game:nothanks')")
+            p4.click("#nav a[data-tab=home]"); p4.wait_for_selector("#favGrid .gcard[data-id=nothanks].hasimg")
+            bg = p4.eval_on_selector("#favGrid .gcard[data-id=nothanks] .pic", "e => e.style.background")
+            assert "data:image/jpeg" in bg, bg[:80]
+            bk = p4.evaluate("import('./core/backup.js').then(m => m.exportBackup(window.__ba.storage)).then(b => Object.keys(b.data.portraits))")
+            assert "game:nothanks" in bk, bk
+        check("타이틀 이미지", "설정에서 게임 타이틀 이미지를 올리면 홈 카드에 나오고 백업 파일에도 들어간다", cover_img)
+        ctx4.close()
         ctx2.close()
         check("전체", "테스트 내내 화면 오류(콘솔 에러·예외)가 0건이다", lambda: (None if not errors else (_ for _ in ()).throw(AssertionError("; ".join(errors[:3])))))
         br.close()
