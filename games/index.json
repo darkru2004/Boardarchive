@@ -5,7 +5,7 @@
       "id": "nothanks",
       "file": "nothanks.js",
       "name": "노땡스!",
-      "version": "1.8.0",
+      "version": "1.9.0",
       "players": {
         "min": 3,
         "max": 7
@@ -23,7 +23,7 @@
       "id": "loveletter",
       "file": "loveletter.js",
       "name": "러브레터",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "players": {
         "min": 2,
         "max": 6
@@ -41,7 +41,7 @@
       "id": "kingdomino",
       "file": "kingdomino.js",
       "name": "킹도미노",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "players": {
         "min": 2,
         "max": 4

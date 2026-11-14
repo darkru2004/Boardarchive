@@ -98,7 +98,7 @@ function allyTargetSeat(s, me, allies) {
 
 export default {
   meta: {
-    id: 'nothanks', name: '노땡스!', version: '1.8.0',
+    id: 'nothanks', name: '노땡스!', version: '1.9.0',
     players: { min: 3, max: 7 }, minutes: 10,
     campaign: null
   },
@@ -267,6 +267,10 @@ export default {
     const seatsBox = q('.nt-seats'), deckInfo = q('.nt-deck'), cardNum = q('.nt-card b'), cardTl = q('.nt-card .tl'), cardBr = q('.nt-card .br');
     const potBox = q('.nt-pot'), msgBox = q('.nt-msg'), hintBox = q('.nt-hint'), logBox = q('.nt-log'), resBox = q('.nt-result');
     const bTake = q('[data-a=take]'), bPass = q('[data-a=pass]'), acts = q('.nt-acts');
+    const cardEl = q('.nt-card');
+    // 공통 이펙트(아카이브가 ctx.fx로 줌). 없으면 아무것도 안 하는 대역.
+    const fx = ctx.fx ? ctx.fx.scope(q('.g-nt')) : new Proxy({}, { get: (t, k) => (k === 'on' ? false : () => Promise.resolve()) });
+    const plateOf = i => seatsBox.children[i];
 
     const later = (fn, ms) => { const id = setTimeout(() => { timers.delete(id); if (!dead) fn(); }, ms); timers.add(id); return id; };
     const nameOf = seat => (ctx.players[seat].human ? '나' : ctx.players[seat].name);
@@ -349,9 +353,37 @@ export default {
       if (mine) hintBox.append(hintHtml(s.turn));
     }
 
+    // 연출: 노땡스 = 내 자리에서 칩 하나가 판으로 '짤깍', 받기 = 칩 쌓인 카드가 그 자리로 '촤르륵 탁!'
+    function animate(seat, move, { cardR, potR, plateR, pot, net, reason }) {
+      if (!fx.on) { if (move === 'take') { fx.sfx(pot ? 'chips' : 'card'); later(() => fx.sfx('deal'), 260); } else fx.sfx('chip'); return; }
+      const plate = plateOf(seat);
+      if (move === 'pass') {
+        fx.fly({ from: plateR, to: potBox.querySelector('.nt-stack') || potBox, node: '<span class="nt-coin" style="width:22px;height:22px"></span>', dur: 380, arc: 0.35, spin: 200 })
+          .then(() => { fx.sfx('chip'); fx.pop(potBox.querySelector('.nt-stack .nt-coin:last-child') || potBox, 1.6); fx.float(potBox, '+1', { size: 16, dy: -30 }); });
+        fx.float(plate, '−1', { color: '#ff9b8a', size: 16 });
+        return;
+      }
+      fx.sfx('card');
+      const ghostCard = cardEl.cloneNode(true);
+      ghostCard.querySelector('b').textContent = ghostCard.querySelector('.tl').textContent = ghostCard.querySelector('.br').textContent = String(lastCard);
+      const tgt = plate.querySelector('.nt-cards') || plate;
+      fx.fly({ from: cardR, to: tgt, node: ghostCard, dur: 460, arc: 0.18, spin: -14, scale: 0.32 }).then(() => {
+        fx.sfx('slam'); fx.slam(plate); fx.buzz(14);
+        if (reason === 'forced' || net >= 14) { fx.shake(plate); fx.sfx('bad'); }
+        else if (net <= -3) { fx.burst(plate, { color: ['#ffd76a', '#fff3c4', '#9fe0a8'] }); fx.sfx('gain'); }
+        fx.float(plate, `${lastCard}${pot ? `  +칩${pot}` : ''}`, { color: net <= 0 ? '#9fe0a8' : '#ffd76a', size: 18 });
+      });
+      if (pot) fx.flyMany(Math.min(pot, 10), { from: potR, to: plate.querySelector('.nt-st') || plate, node: '<span class="nt-coin" style="width:16px;height:16px"></span>', dur: 420, arc: 0.3 }, 40)
+        .then(() => fx.sfx('chips'));
+      if (!s.over) { cardEl.style.visibility = 'hidden'; later(() => { cardEl.style.visibility = ''; fx.flip(cardEl); fx.sfx('deal'); }, 300); }
+    }
+    let lastCard = null;
+
     function step(seat, move, reason) {
       const card = s.card, pot = s.pot, mineGain = marginal(s.cards[seat], card), net = mineGain - pot;
       const leaderBefore = leaderSeat();
+      const before = { cardR: fx.rect(cardEl), potR: fx.rect(potBox.querySelector('.nt-stack') || potBox), plateR: fx.rect(plateOf(seat) && (plateOf(seat).querySelector('.nt-top') || plateOf(seat))), pot, net, reason };
+      lastCard = card;
       self.applyMove(s, move);
       if (move === 'pass') {
         log(`${nameOf(seat)}: 노땡스 (칩 -1)${reason === 'wait' ? ' · 공짜 카드라 칩을 더 모으려 기다림' : reason === 'assist' ? ' · 동료에게 양보' : ''}`);
@@ -374,6 +406,7 @@ export default {
         if (now !== leaderBefore && !ctx.players[leaderBefore].human) say(leaderBefore, 'overtaken');
       }
       draw();
+      animate(seat, move, before);
       if (s.over) return finish();
       loop();
     }
@@ -390,6 +423,11 @@ export default {
         ...res.ranking.map(r => el('div', 'nt-row' + (r.score === best ? ' first' : ''), `${r.rank}위 ${nameOf(r.seat)}   ${cardScore(s.cards[r.seat])} − ${s.chips[r.seat]} = ${r.score}`)));
       log(ctx.players[res.ranking[0].seat].human ? '당신이 이겼습니다!' : `${nameOf(res.ranking[0].seat)} 승리`);
       draw();
+      later(() => {
+        const me = res.ranking.find(r => ctx.players[r.seat].human);
+        res.ranking.filter(r => r.score === best).forEach(r => { const pl = plateOf(r.seat); fx.burst(pl, { n: 18, color: ['#ffd76a', '#fff', '#f0a35a'], spread: 90 }); fx.glow(pl); });
+        fx.sfx(me && me.score === best ? 'win' : 'lose');
+      }, 700);
       later(() => ctx.finish(res), ctx.delay(4800));      // 마지막 대사를 읽을 시간
     }
 
@@ -403,14 +441,15 @@ export default {
       }, ctx.delay(first ? 2600 : 800));    // 진행은 빠르게, 첫 수만 시작 대사를 읽을 여유를 둔다
     }
 
-    bTake.onclick = () => { if (!s.over && ctx.players[s.turn].human) step(s.turn, 'take', s.chips[s.turn] <= 0 ? 'forced' : 'human'); };
-    bPass.onclick = () => { if (!s.over && ctx.players[s.turn].human && s.chips[s.turn] > 0) step(s.turn, 'pass', 'human'); };
+    bTake.onclick = () => { if (!s.over && ctx.players[s.turn].human) fx.buzz(8), step(s.turn, 'take', s.chips[s.turn] <= 0 ? 'forced' : 'human'); };
+    bPass.onclick = () => { if (!s.over && ctx.players[s.turn].human && s.chips[s.turn] > 0) fx.buzz(8), step(s.turn, 'pass', 'human'); };
 
     log(`새 게임! 카드 24장, 칩 ${startChips(s.n)}개씩. ${nameOf(s.turn)} 선공`);
     draw();
+    later(() => { fx.flip(cardEl); fx.sfx('deal'); [...seatsBox.children].forEach((pl, i) => later(() => { fx.slam(pl); fx.sfx('tap'); }, 90 * i)); }, 60);
     ctx.players.forEach((p, i) => { if (!p.human) later(() => say(i, 'start'), ctx.delay(300 + i * 450)); });
     loop(true);
-    return { destroy() { dead = true; timers.forEach(clearTimeout); timers.clear(); } };
+    return { destroy() { dead = true; timers.forEach(clearTimeout); timers.clear(); container.querySelectorAll('.fx-layer').forEach(e => e.remove()); } };
   }
 };
 

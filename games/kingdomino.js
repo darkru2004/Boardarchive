@@ -335,7 +335,7 @@ function choosePick(s, seat, traits, rng, info) {
 }
 
 const game = {
-  meta: { id: 'kingdomino', name: '킹도미노', version: '1.0.0', players: { min: 2, max: 4 }, minutes: 15, campaign: null },
+  meta: { id: 'kingdomino', name: '킹도미노', version: '1.1.0', players: { min: 2, max: 4 }, minutes: 15, campaign: null },
   _t: { TILES, TNAME, placements, applyPlace, scoreBoard, evalBoard, makeEnv, mkBoard, cloneBoard, code, bestPlace },
 
   // options: { duel(2인 7×7 대결전, 기본 켬) · mk(중앙 왕국 +10) · harmony(조화 +5) }
@@ -448,6 +448,34 @@ const game = {
     const root = q('.g-kd'), setupBox = q('.kd-setup'), gameBox = q('.kd-game'), ov = q('.kd-ov');
     const oppBox = q('.kd-opps'), prevBox = q('.kd-prev'), nextBox = q('.kd-next'), boardBox = q('.kd-board'), dock = q('.kd-dock'), logBox = q('.kd-log');
     const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    // 공통 이펙트(아카이브가 ctx.fx로 줌). 없으면 아무것도 안 하는 대역.
+    const fx = ctx.fx ? ctx.fx.scope(root) : new Proxy({}, { get: (t, k) => (k === 'on' ? false : k === 'rect' || k === 'union' ? () => null : () => Promise.resolve()) });
+    const GOLD = ['#ffd76a', '#fff3c4', '#e3b341'];
+    const seatBox = i => (ctx.players[i].human ? q('.kd-mine') : oppBox.querySelector(`.kd-opp[data-seat="${i}"]`));
+    const boardOf = i => (ctx.players[i].human ? boardBox : oppBox.querySelector(`.kd-opp[data-seat="${i}"] .kd-mini`));
+    // 고르기: 그 사람의 말(아바타)이 타일 위로 '톡'
+    function animPick(seat, i, fromR) {
+      const t = nextBox.children[i]; if (!t) return;
+      const av = (seatBox(seat) && seatBox(seat).querySelector('.kd-av')) || null;
+      const node = el('span', 'kd-av'); node.style.cssText = `--pc:${colorOf(seat)};width:30px;height:30px;display:block`; node.append(ctx.avatar(seat, 'css'));
+      fx.fly({ from: fromR || av || seatBox(seat), to: t.querySelector('.kd-own') || t, node, size: { w: 30, h: 30 }, dur: 380, arc: 0.4, spin: 0 })
+        .then(() => { fx.sfx('pick'); fx.pop(t, 1.12); fx.buzz(8); });
+    }
+    // 놓기: 지금 줄의 타일이 그 사람 왕국의 놓인 자리로 '탁!' + 점수 튀어오름
+    function animPlace(seat, srcR, srcNode, gain, discard) {
+      const bd = boardOf(seat); if (!bd) return;
+      if (discard) { fx.fly({ from: srcR, to: bd, node: srcNode, size: srcR && { w: srcR.w, h: srcR.h }, dur: 420, spin: 40, scale: 0.4, fade: true }).then(() => { fx.sfx('bad'); fx.shake(seatBox(seat)); fx.float(bd, '버림', { color: '#ff9b8a' }); }); return; }
+      const cells = bd.querySelectorAll('.kd-new'), tgt = fx.union(cells) || fx.rect(bd);
+      const sc = srcR && tgt ? Math.max(0.25, Math.min(1.2, Math.max(tgt.w, tgt.h) / Math.max(srcR.w, srcR.h))) : 0.5;
+      fx.sfx('card');
+      fx.fly({ from: srcR, to: tgt, node: srcNode, size: srcR && { w: srcR.w, h: srcR.h }, dur: 430, arc: 0.25, spin: -10, scale: sc }).then(() => {
+        fx.sfx('place'); fx.slam(bd); fx.buzz(12);
+        fx.float(tgt, `${gain >= 0 ? '+' : ''}${gain}`, { color: gain >= 8 ? '#ffd76a' : gain > 0 ? '#bfe9b5' : '#d9d9d9', size: gain >= 8 ? 26 : 19 });
+        if (gain >= 8) { fx.burst(tgt, { color: GOLD, n: 14 }); fx.sfx('gain'); }
+      });
+    }
+    // 새 줄이 깔릴 때: 타일이 한 장씩 뒤집혀 '파라락'
+    function animDeal() { [...nextBox.children].forEach((t, k) => { t.style.opacity = fx.on ? '0' : ''; later(() => { t.style.opacity = ''; fx.flip(t); fx.sfx('flip'); }, 120 + k * 110); }); }
     const later = (fn, ms) => { const id = setTimeout(() => { timers.delete(id); if (!dead) fn(); }, ms); timers.add(id); return id; };
     const nameOf = seat => (ctx.players[seat].human ? '나' : ctx.players[seat].name.split(' ').pop());
     const colorOf = seat => ctx.players[seat].color || '#888';
@@ -494,6 +522,7 @@ const game = {
       q('.kd-vr').textContent = '변형 규칙: ' + ([s.opts.mk ? '중앙 왕국(성이 한가운데면 +10)' : '', s.opts.harmony ? '조화(버린 타일 없이 꽉 채우면 +5)' : ''].filter(Boolean).join(' · ') || '없음');
       log(`새 게임! ${s.size}×${s.size} 왕국, 타일 ${s.rounds * 4}장. 첫 줄은 ${s.init.map(nameOf).join(' → ')} 순서로 고릅니다.`);
       draw();
+      animDeal();
       ctx.players.forEach((p, i) => { if (!p.human) later(() => say(i, 'start'), ctx.delay(300 + i * 450)); });
       loop(true);
     }
@@ -654,6 +683,9 @@ const game = {
     function step(seat, move, reason) {
       const before = quickScores(s), wasLeader = before.indexOf(Math.max(...before));
       const phase = s.phase, id = phase === 'pick' ? s.line[move.i].id : s.prev[s.step].id;
+      const srcEl = phase === 'place' ? prevBox.children[s.step] : null, srcR = srcEl && fx.rect(srcEl), srcNode = srcEl && srcEl.cloneNode(true);
+      if (srcNode) srcNode.classList.remove('now', 'done');
+      const roundBefore = s.round;
       self.applyMove(s, move);
       ui = { cell: -1, opts: [], k: 0, pick: -1 };
       const after = quickScores(s), gain = after[seat] - before[seat];
@@ -670,6 +702,9 @@ const game = {
         if (nl !== wasLeader && nl === seat && !ctx.players[wasLeader].human && before[wasLeader] > 0) say(wasLeader, 'overtaken');
       }
       draw();
+      if (phase === 'pick') animPick(seat, move.i);
+      else animPlace(seat, srcR, srcNode, gain, move.t === 'discard');
+      if (s.round !== roundBefore && s.line) animDeal();
       if (s.over) return finish();
       loop();
     }
@@ -708,6 +743,7 @@ const game = {
       const res = self.result(s), best = res.ranking[0].score, last = res.ranking[res.ranking.length - 1];
       res.ranking.forEach(r => { if (ctx.players[r.seat].human) return; if (r.rank === 1) say(r.seat, 'win'); else if (r.seat === last.seat) say(r.seat, 'lose'); });
       log(res.ranking[0].seat === humanSeat ? `당신의 승리! ${best}점` : `${nameOf(res.ranking[0].seat)} 승리 · ${best}점`);
+      later(() => { res.ranking.filter(r => r.rank === 1).forEach(r => { const b = seatBox(r.seat); fx.burst(b, { n: 18, color: GOLD, spread: 90 }); fx.glow(b); }); fx.sfx(res.ranking.find(r => r.seat === humanSeat).rank === 1 ? 'win' : 'lose'); }, 500);
       later(() => {
         const title = el('h3', 'kd-ft', res.ranking.find(r => r.seat === humanSeat).rank === 1 ? '왕국 완성 — 승리!' : '왕국 완성');
         const rows = res.ranking.map(r => { const w = el('div', 'kd-fr' + (r.rank === 1 ? ' first' : '')); w.append(el('i', '', `${r.rank}위`), kingdomPanel(r.seat, r.seat === humanSeat ? '내 왕국' : null)); return w; });
@@ -752,7 +788,7 @@ const game = {
     };
 
     drawSetup();
-    return { destroy() { dead = true; timers.forEach(clearTimeout); timers.clear(); } };
+    return { destroy() { dead = true; timers.forEach(clearTimeout); timers.clear(); container.querySelectorAll('.fx-layer').forEach(x => x.remove()); } };
   }
 };
 export default game;

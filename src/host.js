@@ -6,6 +6,7 @@ import { computeAchievements } from '../core/stats.js';
 import { campaignKey, saveCampaign, loadCampaign } from '../core/storage.js';
 import { linesFor, activeOnly, pairLinesFor } from '../core/characters.js';
 import { h, avatar, modal, toast, dieSvg, ornament, bubbles } from './ui.js';
+import { makeFx } from './fx.js';
 
 export const achCtx = app => ({ activeIds: activeOnly(app.characters).map(c => c.id), gameIds: app.games.filter(g => !g.test).map(g => g.id) });
 
@@ -46,7 +47,8 @@ export async function launchGame(app, entry, seats, difficulty = null) {
     // 대사를 읽을 시간: 글자 수에 비례(짧은 대사 약 3.5초, 긴 대사 최대 7.5초). 진행 속도와는 별개.
     readMs: text => (app.fast ? 5 : Math.min(7500, Math.max(3500, 2200 + String(text || '').length * 95))),
     theme: entry.theme || null,               // games/index.json의 theme (포인트 색 등)
-    kit: { dieSvg, ornament, bubbles },       // 공용 디자인 조각(주사위·장식·물방울)
+    kit: { dieSvg, ornament, bubbles },
+    fx: makeFx({ fast: app.fast }),           // 공통 이펙트(움직임·소리·진동). 게임에서 ctx.fx.scope(게임루트)로 사용
     rng: makeRng(),
     avatar: (seat, size) => avatar(app, players[seat].characterId, size),
     say: (seat, key) => {

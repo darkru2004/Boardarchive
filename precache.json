@@ -23,6 +23,7 @@
   "index.html",
   "manifest.webmanifest",
   "src/app.js",
+  "src/fx.js",
   "src/host.js",
   "src/style.css",
   "src/ui.js",

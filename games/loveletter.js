@@ -244,7 +244,7 @@ function reasonOf(s, me, m, M) {
 
 // ---------- 모듈 ----------
 export default {
-  meta: { id: 'loveletter', name: '러브레터', version: '1.1.0', players: { min: 2, max: 6 }, minutes: 15, campaign: null },
+  meta: { id: 'loveletter', name: '러브레터', version: '1.2.0', players: { min: 2, max: 6 }, minutes: 15, campaign: null },
 
   newGame({ players, rng }) {
     const n = players.length;
@@ -416,6 +416,7 @@ function mountLL(self, container, ctx) {
   const speech = {};
   let sel = null;           // 사람 선택 중: {i, t, g} 또는 대신 단계 {keep, low}
   let peek = null;          // 나만 보는 정보 쪽지
+  let busy = false;         // 카드가 날아가는 동안엔 입력을 잠근다
   const pendingLog = [];    // 결과창을 닫은 뒤에 찍을 줄 (다음 라운드 시작)
   const popQ = [];          // 상대가 낸 카드 알림 대기열
 
@@ -444,6 +445,8 @@ function mountLL(self, container, ctx) {
   const q = x => container.querySelector(x);
   const seatsBox = q('.ll-seats'), pileBox = q('.ll-pile'), banner = q('.ll-banner'), meBox = q('.ll-me'), handBox = q('.ll-hand');
   const popBox = q('.ll-pop'), panel = q('.ll-panel'), overBox = q('.ll-over'), logBox = q('.ll-log'), ctBox = q('.ll-ct'), peekBox = q('.ll-peek');
+  // 공통 이펙트(아카이브가 ctx.fx로 줌). 없으면 아무것도 안 하는 대역.
+  const fx = ctx.fx ? ctx.fx.scope(q('.g-ll')) : new Proxy({}, { get: (t, k) => (k === 'on' ? false : () => Promise.resolve()) });
 
   const later = (fn, ms) => { const id = setTimeout(() => { timers.delete(id); if (!dead) fn(); }, ms); timers.add(id); return id; };
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -511,6 +514,39 @@ function mountLL(self, container, ctx) {
   }
   const targetOf = seat => { const p = ctx.players[seat]; return p.human ? -1 : targetSeat(s, seat, p.traits, { rivalSeats: p.rivalSeats }); };
 
+  // ---- 연출 ----
+  const others = () => ctx.players.map((_, i) => i).filter(i => i !== H);
+  const plateOf = i => (i === H ? meBox.firstChild : seatsBox.children[others().indexOf(i)]);
+  const RED = ['#ff6b6b', '#ffb3a8', '#fff'], GOLD = ['#ffd76a', '#fff3c4', '#f0a35a'];
+  // 카드를 낸다: 낸 사람(내 손패면 그 카드 자리) → 대상 자리로 '척', 대상이 없으면 가운데로. 결과에 따라 탁/흔들/불꽃.
+  function animPlay(e, fromR) {
+    const src = plateOf(e.s), tgt = e.t >= 0 ? plateOf(e.t) : pileBox;
+    if (!src || !tgt) return Promise.resolve();
+    fx.sfx('card');
+    const ghost = bigCard(e.v);
+    return fx.fly({ from: fromR || src, to: tgt, node: ghost, dur: 440, arc: 0.2, spin: e.s === H ? 8 : -8, fromScale: e.s === H ? 1 : 0.45, scale: e.t >= 0 ? 0.55 : 0.7, keep: 120 }).then(() => {
+      fx.sfx('slam'); fx.buzz(e.t === H ? 25 : 10);
+      if (e.t >= 0) fx.slam(tgt);
+      const died = e.v === 9 ? src : (e.v === 1 && e.hit) || (e.v === 5 && e.dropped === 9) ? tgt : e.v === 3 && e.loser >= 0 ? plateOf(e.loser) : null;
+      if (died) { fx.shake(died, 10); fx.burst(died, { color: RED, n: 14 }); fx.float(died, '탈락', { color: '#ff8b7e', size: 22 }); fx.sfx('out'); }
+      else if (e.v === 1 && e.t >= 0) fx.float(tgt, '빗나감', { color: '#cfd8e6', size: 16 });
+      else if (e.v === 4) { fx.glow(src, '#8fc3ff'); fx.float(src, '보호', { color: '#9fd0ff', size: 18 }); fx.sfx('pick'); }
+      else if (e.v === 2 && e.t >= 0) fx.float(tgt, '몰래 봄', { color: '#ffe3a0', size: 16 });
+      else if (e.v === 7 && e.t >= 0) {   // 왕: 두 장이 엇갈려 날아감
+        const b1 = backCard('sm'), b2 = backCard('sm');
+        fx.fly({ from: src, to: tgt, node: b1, dur: 380, arc: 0.4, spin: 180 }); fx.fly({ from: tgt, to: src, node: b2, dur: 380, arc: -0.4, spin: -180 }).then(() => fx.sfx('flip'));
+      }
+      else if (e.v === 5 && e.t >= 0) { fx.shake(tgt, 5); fx.float(tgt, `버림 ${e.dropped}`, { color: '#ffe3a0', size: 16 }); }
+      else if (e.v === 3 && e.t >= 0) fx.float(tgt, '무승부', { color: '#cfd8e6', size: 16 });
+    });
+  }
+  // 덱에서 한 장 뽑아 그 자리로 '척'
+  function animDeal(seat) {
+    const pl = plateOf(seat); if (!pl || s.over || paused) return;
+    const deck = pileBox.querySelector('.ll-back');
+    fx.fly({ from: deck || pileBox, to: seat === H ? handBox : pl, node: backCard('sm'), dur: 320, arc: 0.15, spin: seat === H ? 0 : 10, scale: seat === H ? 1.2 : 0.8 }).then(() => { fx.sfx('deal'); if (seat === H) fx.pop(handBox.lastChild, 1.08); });
+  }
+
   function seatPlate(i) {
     const p = ctx.players[i];
     const plate = el('div', 'll-seat' + (s.out[i] ? ' out' : '') + (!s.over && s.turn === i && !paused ? ' turn' : ''));
@@ -554,7 +590,7 @@ function mountLL(self, container, ctx) {
     meBox.firstChild.classList.add('mine');
     // 내 손패
     handBox.replaceChildren();
-    const mine = !s.over && !paused && s.turn === H && !s.out[H];
+    const mine = !s.over && !paused && !busy && s.turn === H && !s.out[H];
     const h = s.hand[H] || [];
     const legal = mine ? self.legalMoves(s) : [];
     h.forEach((v, i) => {
@@ -622,16 +658,24 @@ function mountLL(self, container, ctx) {
     panel.append(btn(v === 9 ? '그래도 내기' : '내기', v === 9 ? 'warn' : 'go', () => human(opts[0])), btn('취소', '', () => { sel = null; draw(); }));
   }
 
-  function human(m) { if (!m || dead || s.over || s.turn !== H) return; sel = null; act(m); }
+  function human(m) { if (!m || dead || busy || s.over || s.turn !== H) return; sel = null; act(m); }
 
   function act(m) {
     const leadBefore = leader();
+    const who = s.turn, fromR = who === H && m && m.i != null && handBox.children[m.i] ? fx.rect(handBox.children[m.i]) : null;
     self.applyMove(s, m, rng);
+    const plays = s.ev.filter(x => x.k === 'play');
     const re = consume();
     const leadNow = leader();
     if (leadBefore >= 0 && leadNow !== leadBefore && s.tokens[leadNow] > s.tokens[leadBefore]) say(leadBefore, 'overtaken');
-    const after = () => { if (re) return roundOver(re); draw(); loop(); };
-    if (popQ.length) { draw(); showPop(popQ.shift(), after); } else after();
+    const after = () => { if (re) return roundOver(re); draw(); if (s.turn !== who || s.phase === 'play') animDeal(s.turn); loop(); };
+    const wait = fx.on && plays.length;
+    busy = !!wait;
+    draw();
+    if (plays.length) animPlay(plays[0], fromR);
+    // 상대가 낸 카드 알림은 카드가 날아가 꽂힌 뒤에 띄운다
+    const go = () => { if (dead) return; busy = false; if (popQ.length) showPop(popQ.shift(), after); else after(); };
+    if (wait) later(go, 620); else go();
   }
 
   // 상대가 낸 카드 알림: 어떤 카드를 누구에게 써서 어떻게 됐는지 크게 보여준다 (나를 노렸으면 더 오래)
@@ -689,6 +733,8 @@ function mountLL(self, container, ctx) {
     box.append(go);
     overBox.replaceChildren(box); overBox.style.display = 'flex';
     draw();
+    fx.slam(box); fx.sfx(e.winners.includes(H) ? 'gain' : 'flip');
+    box.querySelectorAll('.ll-ovr.win').forEach((r, k) => later(() => { fx.burst(r.querySelector('em') || r, { color: GOLD, n: 10, spread: 50 }); fx.pop(r.querySelector('.ll-hearts') || r, 1.25); fx.sfx('chip'); }, 260 + k * 160));
     let left = 8;
     const tick = () => { if (!paused) return; go.textContent = `${s.over ? '최종 결과' : '다음 라운드'} (${left})`; if (left-- <= 0) return next(); later(tick, ctx.delay(1000)); };
     tick();
@@ -709,6 +755,7 @@ function mountLL(self, container, ctx) {
     res.ranking.forEach((r, k) => { if (r.seat === H) return; if (r.score === best) say(r.seat, 'win'); else if (k === res.ranking.length - 1) say(r.seat, 'lose'); });
     log(res.ranking[0].seat === H && res.ranking[0].score === best ? '당신이 공주의 마음을 얻었습니다!' : `${nm(res.ranking[0].seat)} 승리`, 'rw');
     draw();
+    later(() => { res.ranking.filter(r => r.score === best).forEach(r => { const pl = plateOf(r.seat); fx.burst(pl, { n: 18, color: GOLD, spread: 90 }); fx.glow(pl); }); fx.sfx(res.ranking.some(r => r.seat === H && r.score === best) ? 'win' : 'lose'); }, 300);
     later(() => ctx.finish(res), ctx.delay(4800));
   }
 
@@ -726,9 +773,10 @@ function mountLL(self, container, ctx) {
   log(`새 게임! ${s.n}인 · 호감 ${s.goal}개를 먼저 모으면 승리`);
   consume();
   draw();
+  later(() => { ctx.players.forEach((_, i) => later(() => { const pl = plateOf(i); fx.fly({ from: pileBox, to: pl, node: backCard('sm'), dur: 300, spin: 12, scale: 0.8 }).then(() => { fx.sfx('deal'); fx.pop(pl, 1.05); }); }, i * 110)); }, 80);
   ctx.players.forEach((p, i) => { if (!p.human) later(() => say(i, 'start'), ctx.delay(300 + i * 450)); });
   loop(true);
-  return { destroy() { dead = true; timers.forEach(clearTimeout); timers.clear(); } };
+  return { destroy() { dead = true; timers.forEach(clearTimeout); timers.clear(); container.querySelectorAll('.fx-layer').forEach(x => x.remove()); } };
 }
 
 const LL_CSS = `

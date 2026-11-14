@@ -63,7 +63,7 @@ try:
         check("게임 진행", "판이 끝나면 기록이 1건 저장된다", lambda: (_ for _ in ()).throw(AssertionError("기록 수 " + str(count_records(page)))) if count_records(page) != 1 else None)
         rec = page.evaluate("window.__ba.storage.all('records').then(a => a[0].value)")
         check("게임 진행", "저장된 기록에 게임·버전·4명의 순위가 들어 있다", lambda: (
-            None if (rec["gameId"] == "nothanks" and rec["gameVersion"] == "1.8.0" and rec.get("difficulty") == "easy" and len(rec["players"]) == 4 and sorted(p["rank"] for p in rec["players"])[0] == 1 and sum(1 for p in rec["players"] if p["human"]) == 1) else (_ for _ in ()).throw(AssertionError(json.dumps(rec, ensure_ascii=False)[:200]))))
+            None if (rec["gameId"] == "nothanks" and rec["gameVersion"] == "1.9.0" and rec.get("difficulty") == "easy" and len(rec["players"]) == 4 and sorted(p["rank"] for p in rec["players"])[0] == 1 and sum(1 for p in rec["players"] if p["human"]) == 1) else (_ for _ in ()).throw(AssertionError(json.dumps(rec, ensure_ascii=False)[:200]))))
         page.click("text=홈으로"); page.wait_for_selector(".gcard[data-id=nothanks]")
         check("게임 진행", "'홈으로'를 누르면 게임 목록으로 돌아온다 (하단 탭 복귀)", lambda: page.wait_for_selector("#nav a", state="visible"))
 
@@ -206,9 +206,37 @@ try:
         check("노땡스", "실제 화면을 눌러 4인 한 판을 끝까지 플레이하면 결과 화면이 나온다", play_nt)
         check("노땡스", "결과 화면에 순위 4줄이 나온다", lambda: (None if p2.locator(".modal .rank-row").count() == 4 else (_ for _ in ()).throw(AssertionError("순위 줄 수"))))
         rec2 = p2.evaluate("window.__ba.storage.all('records').then(a => a[0].value)")
-        check("노땡스", "기록에 노땡스·버전 1.8.0·4명이 저장된다", lambda: (None if rec2["gameId"] == "nothanks" and rec2["gameVersion"] == "1.8.0" and len(rec2["players"]) == 4 else (_ for _ in ()).throw(AssertionError(str(rec2)[:200]))))
+        check("노땡스", "기록에 노땡스·버전 1.9.0·4명이 저장된다", lambda: (None if rec2["gameId"] == "nothanks" and rec2["gameVersion"] == "1.9.0" and len(rec2["players"]) == 4 else (_ for _ in ()).throw(AssertionError(str(rec2)[:200]))))
         p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=nothanks]")
         check("노땡스", "게임에서 나오면 게임 전용 스타일이 남지 않는다 (앨범 화면 보호)", lambda: (None if p2.evaluate("![...document.querySelectorAll('style')].some(s => s.textContent.includes('.g-nt'))") else (_ for _ in ()).throw(AssertionError("스타일이 남음"))))
+        # ---------- 연출(이펙트): 실제 속도로 몇 수 진행 + 설정 켜기/끄기 ----------
+        def fx_real():
+            p2.goto(BASE); p2.wait_for_selector("#nav a")
+            p2.click(".gcard[data-id=nothanks]"); p2.wait_for_selector("#setup .seat"); p2.click("button[data-n='3']"); p2.click("#btnStart"); p2.wait_for_selector(".g-nt")
+            seen_ghost, moves, t0 = False, 0, time.time()
+            while moves < 3 and time.time() - t0 < 40:
+                if p2.locator("[data-a=take]:enabled").count():
+                    p2.click("[data-a=take]"); moves += 1
+                    for _ in range(20):
+                        if p2.locator(".g-nt .fx-layer .fx-ghost").count(): seen_ghost = True; break
+                        p2.wait_for_timeout(15)
+                p2.wait_for_timeout(60)
+            assert moves == 3, f"내 차례가 3번 오지 않음 ({moves})"
+            assert seen_ghost, "받기를 눌렀는데 날아가는 카드가 보이지 않음"
+            p2.wait_for_timeout(900)
+            assert p2.locator(".g-nt .fx-layer .fx-ghost").count() == 0, "연출이 끝난 뒤에도 유령 카드가 남음"
+            p2.click("text=나가기"); p2.click("text=정말 나갈까요? (기록 안 남음)"); p2.wait_for_selector("#nav a", state="visible")
+            assert p2.locator(".fx-layer").count() == 0, "게임에서 나왔는데 연출 층이 남음"
+        check("연출", "실제 속도에서 받기를 누르면 카드가 내 자리로 날아가고, 끝나면 흔적 없이 사라진다", fx_real)
+        def fx_prefs():
+            p2.click("#nav a[data-tab=settings]"); p2.wait_for_selector("#fxPrefs")
+            assert p2.locator("#fxPrefs [data-fx]").count() == 3, "설정 버튼 3개(움직임·효과음·진동)가 아님"
+            p2.click("#fxPrefs [data-fx=ba_fx]")
+            assert p2.evaluate("localStorage.getItem('ba_fx')") == "0", "움직임 끄기가 저장되지 않음"
+            p2.click("#fxPrefs [data-fx=ba_fx]")
+            assert p2.evaluate("localStorage.getItem('ba_fx')") == "1"
+        check("연출", "설정에서 움직임·효과음·진동을 각각 켜고 끌 수 있고 기기에 저장된다", fx_prefs)
+
         # ---------- 러브레터: 실제 화면에서 2인 한 판 끝까지 ----------
         p2.goto(BASE + "?fast=1"); p2.wait_for_selector("#nav a")
         p2.click(".gcard[data-id=loveletter]"); p2.wait_for_selector("#setup .seat"); p2.click("button[data-n='2']"); p2.click("#btnStart"); p2.wait_for_selector(".g-ll")
@@ -235,7 +263,7 @@ try:
                 p2.wait_for_timeout(15)
         check("러브레터", "실제 화면을 눌러 2인 한 판을 끝까지 플레이하면 결과 화면이 나온다", play_ll)
         rec3 = p2.evaluate("window.__ba.storage.all('records').then(a => a.map(x => x.value).find(v => v.gameId === 'loveletter'))")
-        check("러브레터", "기록에 러브레터·버전 1.1.0·2명이 저장된다", lambda: (None if rec3 and rec3["gameVersion"] == "1.1.0" and len(rec3["players"]) == 2 else (_ for _ in ()).throw(AssertionError(str(rec3)[:200]))))
+        check("러브레터", "기록에 러브레터·버전 1.2.0·2명이 저장된다", lambda: (None if rec3 and rec3["gameVersion"] == "1.2.0" and len(rec3["players"]) == 2 else (_ for _ in ()).throw(AssertionError(str(rec3)[:200]))))
         p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=loveletter]")
         check("러브레터", "게임에서 나오면 러브레터 전용 스타일이 남지 않는다", lambda: (None if p2.evaluate("![...document.querySelectorAll('style')].some(s => s.textContent.includes('.g-ll'))") else (_ for _ in ()).throw(AssertionError("스타일이 남음"))))
         # ---------- 킹도미노: 규칙 선택 → 실제 화면에서 4인 한 판 끝까지 ----------
@@ -271,7 +299,7 @@ try:
         p2.screenshot(path=f"{SHOTS}/12-kingdomino-final.png")
         p2.click(".g-kd .kd-finish"); p2.wait_for_selector(".modal .rank-row")
         rec4 = p2.evaluate("window.__ba.storage.all('records').then(a => a.map(x => x.value).find(v => v.gameId === 'kingdomino'))")
-        check("킹도미노", "기록에 킹도미노·버전 1.0.0·4명이 저장된다", lambda: (None if rec4 and rec4["gameVersion"] == "1.0.0" and len(rec4["players"]) == 4 else (_ for _ in ()).throw(AssertionError(str(rec4)[:200]))))
+        check("킹도미노", "기록에 킹도미노·버전 1.1.0·4명이 저장된다", lambda: (None if rec4 and rec4["gameVersion"] == "1.1.0" and len(rec4["players"]) == 4 else (_ for _ in ()).throw(AssertionError(str(rec4)[:200]))))
         p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=kingdomino]")
         check("킹도미노", "게임에서 나오면 킹도미노 전용 스타일이 남지 않는다", lambda: (None if p2.evaluate("![...document.querySelectorAll('style')].some(s => s.textContent.includes('.g-kd'))") else (_ for _ in ()).throw(AssertionError("스타일이 남음"))))
         ctx2.close()

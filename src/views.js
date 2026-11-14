@@ -7,6 +7,7 @@ import { overall, gameStats, characterStats, botStats, computeAchievements } fro
 import { exportBackup, parseBackup, importBackup, migrateBackup } from '../core/backup.js';
 import { activeOnly } from '../core/characters.js';
 import { launchGame, achCtx } from './host.js';
+import { makeFx, fxPrefs } from './fx.js';
 
 export const BACKUP_NUDGE_EVERY = 10;
 const top = (title, sub, recHtml) => {
@@ -178,6 +179,14 @@ export async function recordsView(app, root) {
 // ================= 설정: 백업·저장 상태 =================
 export async function settingsView(app, root) {
   root.append(top('Option', '설정', ''));
+  // 게임 연출 켜기/끄기 (기기에 저장)
+  const fxRow = (key, label, get) => h('button', { class: 'btn small' + (get() ? ' on' : ''), 'data-fx': key, onclick: ev => {
+    const on = !get(); fxPrefs.set(key, on); ev.currentTarget.classList.toggle('on', on); ev.currentTarget.lastChild.textContent = on ? '켜짐' : '꺼짐';
+    if (on && key === 'ba_sfx') makeFx().sfx('chips'); if (on && key === 'ba_haptic') makeFx().buzz(30);
+  } }, label + ' ', h('small', {}, get() ? '켜짐' : '꺼짐'));
+  root.append(h('h2', {}, 'Effects', h('small', {}, '게임 연출')), h('div', { class: 'paper', id: 'fxPrefs', style: '--r:-.4deg' },
+    h('div', { class: 'row wrap' }, fxRow('ba_fx', '움직임', () => fxPrefs.motion), fxRow('ba_sfx', '효과음', () => fxPrefs.sound), fxRow('ba_haptic', '진동', () => fxPrefs.haptic)),
+    h('div', { class: 'muted', style: 'margin-top:6px' }, '카드·칩·타일이 날아가는 움직임, 효과음, 폰 진동. 진동은 안드로이드에서만 동작해요.')));
   const recs = await listRecords(app.storage);
   const meta = (await app.storage.get('settings', 'backupMeta')) || { recordsAt: 0, lastAt: null };
   const persisted = navigator.storage && navigator.storage.persisted ? await navigator.storage.persisted() : null;
