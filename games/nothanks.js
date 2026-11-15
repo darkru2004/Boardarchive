@@ -609,4 +609,55 @@ const CSS = `
  .g-nt .nt-card b{font-size:48px;line-height:92px}
  .g-nt .nt-btn{font-size:11px;min-height:40px}
 }
+
+/* BGA-inspired portrait table + original No Thanks card face */
+.g-nt{padding:10px 8px 12px;border-radius:18px}
+.g-nt .nt-bar{margin-bottom:8px;padding-bottom:7px}
+.g-nt .nt-seats{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:0}
+.g-nt .nt-seat{display:flex;flex-direction:column;justify-content:space-between;min-height:66px;padding:6px 5px 5px;border-radius:10px;background:linear-gradient(150deg,#ffffff18,#00000028);border:1px solid #d8c28c55}
+.g-nt .nt-top{gap:4px;align-items:center}
+.g-nt .nt-top .av{width:21px!important;height:21px!important;border:1px solid #d8bd80;font-size:10px!important}
+.g-nt .nt-nm{font-size:10px;line-height:1.1}
+.g-nt .nt-st{font:700 8px/1.2 ui-rounded,'Trebuchet MS',system-ui,sans-serif;margin-top:2px;white-space:nowrap}
+.g-nt .nt-st .nt-coin{width:7px;height:7px;margin-right:2px}
+.g-nt .nt-cards{min-height:20px;margin-top:4px;overflow:hidden}
+.g-nt .nt-c{width:17px;height:22px;margin-right:-5px;border:1px solid #fff9;border-radius:3px;background:#f6e8c5!important;color:#225eaa;font:1000 11px/1 ui-rounded,'Trebuchet MS',sans-serif;text-shadow:1px 1px 0 #fff,2px 2px 0 #163d77;box-shadow:0 1px 3px #0008,inset 0 0 0 1px #c5a66a}
+.g-nt .nt-c:before{inset:2px;border:1px solid #c9ad78;border-radius:1px}
+.g-nt .nt-c:after{display:block;right:1px;bottom:0;font-size:5px;color:#244f8b;text-shadow:none}
+.g-nt .nt-c.tone-5,.g-nt .nt-c.tone-6{color:#df6a22;text-shadow:1px 1px 0 #fff,2px 2px 0 #9b431c}
+.g-nt .nt-c.tone-5:after,.g-nt .nt-c.tone-6:after{color:#a84c1c}
+.g-nt .nt-seat.turn{border:1.5px solid #f4d47f;background:linear-gradient(145deg,#e9c56a38,#00000025);box-shadow:0 0 0 1px #e6c47755,0 0 13px #e4bd6833}
+.g-nt .nt-seat.turn:after{top:3px;right:4px;padding:2px 3px;font-size:5px;letter-spacing:.04em}
+.g-nt .nt-table{margin:10px 0 8px;padding:12px 8px 10px;border-radius:15px;background:radial-gradient(ellipse at 50% 28%,#ffffff12,transparent 70%),linear-gradient(145deg,#0d2a20e8,#071b14f2)}
+.g-nt .nt-table:before{content:"가운데 공개 카드";margin-bottom:9px;font:900 9px ui-rounded,'Trebuchet MS',sans-serif;letter-spacing:.12em;color:#dfc58e}
+.g-nt .nt-card{width:104px;height:142px;border:2px solid #f8edcf;border-radius:9px;background:#4b9bd4!important;color:#fff;box-shadow:0 0 0 2px #b99555,0 5px 12px #0009;transform:rotate(-1deg)}
+.g-nt .nt-card:before{inset:5px;border:1px solid #d8e7edaa;border-radius:4px;box-shadow:inset 0 0 0 2px #ffffff24}
+.g-nt .nt-card:after{background:linear-gradient(115deg,#ffffff38 0%,transparent 30%,transparent 68%,#00000020 100%),repeating-linear-gradient(0deg,#ffffff0b 0 1px,transparent 1px 3px)}
+.g-nt .nt-card b{font:1000 76px/142px ui-rounded,'Arial Rounded MT Bold','Trebuchet MS',sans-serif;letter-spacing:-.1em;color:#e8f3fb;-webkit-text-stroke:2px #2466a8;text-shadow:2px 3px 0 #174b85,4px 5px 0 #123a6a}
+.g-nt .nt-card i{font:1000 13px ui-rounded,'Trebuchet MS',sans-serif;color:#f7fbff;-webkit-text-stroke:.5px #225f9b;text-shadow:1px 1px 0 #174b85}
+.g-nt .nt-card.tone-5,.g-nt .nt-card.tone-6{background:#f2a33e!important;color:#fff}
+.g-nt .nt-card.tone-5 b,.g-nt .nt-card.tone-6 b{-webkit-text-stroke:2px #b95720;text-shadow:2px 3px 0 #a9471b,4px 5px 0 #813415}
+.g-nt .nt-card.tone-5 i,.g-nt .nt-card.tone-6 i{-webkit-text-stroke:.5px #a94b1b;text-shadow:1px 1px 0 #813415}
+.g-nt .nt-pot{margin-top:9px;font:800 11px ui-rounded,'Trebuchet MS',sans-serif}
+.g-nt .nt-stack{min-height:14px;margin-bottom:5px}
+.g-nt .nt-stack .nt-coin{width:13px;height:13px}
+.g-nt .nt-msg{margin-top:7px;min-height:16px;font-size:11px}
+.g-nt .nt-hint{margin-top:6px;padding:7px 8px;font-size:10px;line-height:1.4}
+.g-nt .nt-acts{gap:8px;margin-top:7px;padding:2px 0 4px}
+.g-nt .nt-btn{min-height:46px;border-radius:10px;font-size:13px}
+.g-nt .nt-log{margin-top:8px;max-height:62px;padding:7px 9px}
+.g-nt .nt-rules{margin-top:7px;padding:8px 10px}
+@media(max-width:390px){
+ .g-nt{padding:8px 6px 10px}
+ .g-nt .nt-seats{gap:4px}
+ .g-nt .nt-seat{min-height:61px;padding:5px 4px}
+ .g-nt .nt-top{gap:3px}
+ .g-nt .nt-top .av{width:18px!important;height:18px!important}
+ .g-nt .nt-nm{font-size:9px}
+ .g-nt .nt-st{font-size:7px}
+ .g-nt .nt-c{width:15px;height:20px;font-size:10px;margin-right:-5px}
+ .g-nt .nt-card{width:94px;height:130px}
+ .g-nt .nt-card b{font-size:68px;line-height:130px}
+ .g-nt .nt-btn{min-height:43px;font-size:12px}
+}
 `;
