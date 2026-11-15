@@ -379,18 +379,31 @@ function mountSplendor(self, container, ctx) {
     noble: () => { snd('gain'); if (fx) fx.buzz(25); }, err: () => snd('bad'), win: () => snd('win'), lose: () => snd('lose')
   };
 
+  // ----- 사용자 일러스트(없으면 기본 그림) -----
+  // ctx.art(그룹) = 사용자가 올린 그림 주소 배열. 그림마다 CSS 클래스 1개만 만들어 두고 카드는 클래스만 가리킨다(화면 글이 커지지 않게).
+  const ART_COL = ['w', 'u', 'g', 'r', 'k'];
+  const artStyle = document.createElement('style'); container.append(artStyle);
+  const artSeen = new Set();
+  function artCls(group, idx) {
+    const list = ctx.art ? ctx.art(group) : null;
+    if (!list || !list.length) return '';
+    const i = ((idx % list.length) + list.length) % list.length, cls = `sp-A-${group}-${i}`;
+    if (!artSeen.has(cls)) { artSeen.add(cls); artStyle.append(`.g-splendor .${cls}{background-image:url("${list[i]}")}\n`); }
+    return cls;
+  }
   // ----- 그림 조각 -----
   const gem = (c, cls = '') => `<svg class="sp-gem ${cls}" viewBox="0 0 40 40"><use href="#sp-g${c}"/></svg>`;
   function cardHTML(id, o = {}) {
     const c = CARDS[id], b = o.bonus;
     const pips = c.cost.map((v, i) => (v ? `<i class="sp-pip sp-k${i}${b && b[i] >= v ? ' ok' : ''}">${v}</i>` : '')).join('');
-    return `<div class="sp-card sp-k${c.col} sp-l${c.lv}${o.cls || ''}"${o.attr || ''}>
-      <svg class="sp-art" viewBox="0 0 100 70" preserveAspectRatio="xMidYMid slice"><use href="#sp-a${c.lv}${c.id % 2}"/></svg>
+    const ac = artCls('card-' + ART_COL[c.col], c.id % 18);
+    return `<div class="sp-card sp-k${c.col} sp-l${c.lv}${ac ? ' has-art' : ''}${o.cls || ''}"${o.attr || ''}>
+      ${ac ? `<div class="sp-img ${ac}"></div>` : `<svg class="sp-art" viewBox="0 0 100 70" preserveAspectRatio="xMidYMid slice"><use href="#sp-a${c.lv}${c.id % 2}"/></svg>`}
       <div class="sp-hd"><b class="sp-pt">${c.pts || ''}</b><span class="sp-lvd">${'◆'.repeat(c.lv)}</span>${gem(c.col, 'sp-bn')}</div>
       <div class="sp-cost">${pips}</div></div>`;
   }
-  const backHTML = (lv, cnt, o = {}) => `<div class="sp-back sp-l${lv}${o.cls || ''}"${o.attr || ''}><span class="sp-bk">${'◆'.repeat(lv)}</span><b>${LVNAME[lv]}</b>${cnt != null ? `<small>${cnt}</small>` : ''}</div>`;
-  const nobleHTML = (k, cls = '') => `<div class="sp-nb${cls}"><svg class="sp-crown" viewBox="0 0 40 30"><use href="#sp-crown"/></svg><b>3</b><div class="sp-req">${NOBLES[k].map((r, i) => (r ? `<i class="sp-k${i}">${r}</i>` : '')).join('')}</div></div>`;
+  const backHTML = (lv, cnt, o = {}) => `<div class="sp-back sp-l${lv}${artCls('back-' + lv, 0) ? ' has-art ' + artCls('back-' + lv, 0) : ''}${o.cls || ''}"${o.attr || ''}><span class="sp-bk">${'◆'.repeat(lv)}</span><b>${LVNAME[lv]}</b>${cnt != null ? `<small>${cnt}</small>` : ''}</div>`;
+  const nobleHTML = (k, cls = '') => `<div class="sp-nb${artCls('noble', k) ? ' has-art ' + artCls('noble', k) : ''}${cls}"><svg class="sp-crown" viewBox="0 0 40 30"><use href="#sp-crown"/></svg><b>3</b><div class="sp-req">${NOBLES[k].map((r, i) => (r ? `<i class="sp-k${i}">${r}</i>` : '')).join('')}</div></div>`;
 
   // ----- 그리기 -----
   function drawTop() {
@@ -444,7 +457,8 @@ function mountSplendor(self, container, ctx) {
     const can = myTurn() && s.phase === 'act';
     bank.innerHTML = [0, 1, 2, 3, 4, 5].map(c => {
       const k = selGemCount(c);
-      return `<button class="sp-tok sp-k${c}${k ? ' on' : ''}${s.supply[c] ? '' : ' none'}" data-g="${c}"${can ? '' : ' tabindex="-1"'}>${gem(c)}<b>${s.supply[c] - k}</b>${k ? `<i class="sp-plus">+${k}</i>` : ''}</button>`;
+      const tc = artCls('token-' + (c < 5 ? ART_COL[c] : 'y'), 0);
+      return `<button class="sp-tok sp-k${c}${tc ? ' has-art ' + tc : ''}${k ? ' on' : ''}${s.supply[c] ? '' : ' none'}" data-g="${c}"${can ? '' : ' tabindex="-1"'}>${tc ? '' : gem(c)}<b>${s.supply[c] - k}</b>${k ? `<i class="sp-plus">+${k}</i>` : ''}</button>`;
     }).join('');
     bank.classList.toggle('live', can);
   }
@@ -835,6 +849,17 @@ const CSS = `
 .g-splendor .sp-back small{font:700 calc(var(--cw)*.2)/1 var(--fd);color:#fff;text-shadow:0 1px 2px #000}
 .g-splendor .sp-back.sp-empty{--fr:#ffffff20;background:none;box-shadow:inset 0 0 0 1.5px #ffffff22;cursor:default}
 .g-splendor .sp-back.sp-empty b{display:block;font-size:9px;font-weight:400;opacity:.5;writing-mode:vertical-rl}
+
+/* 사용자 일러스트 */
+.g-splendor .sp-img,.g-splendor .has-art.sp-back,.g-splendor .has-art.sp-nb,.g-splendor .has-art.sp-tok{background-size:cover;background-position:center;background-repeat:no-repeat}
+.g-splendor .sp-img{position:absolute;inset:0}
+.g-splendor .sp-img:after{content:"";position:absolute;left:0;right:0;bottom:0;height:42%;background:linear-gradient(#0000,#000c)}
+.g-splendor .sp-card.has-art .sp-hd{background:linear-gradient(#000c,#0006 65%,#0000)}
+.g-splendor .sp-back.has-art>*,.g-splendor .sp-nb.has-art .sp-crown{display:none}
+.g-splendor .sp-back.has-art small{display:block;position:absolute;bottom:4px;left:0;right:0;text-align:center}
+.g-splendor .sp-nb.has-art:after{content:"";position:absolute;inset:0;border-radius:7px;background:linear-gradient(#0000 40%,#000b);pointer-events:none}
+.g-splendor .sp-nb.has-art>*{z-index:1}
+.g-splendor .sp-tok.has-art{box-shadow:0 2px 5px #000a,inset 0 0 0 2px #fff4}
 
 /* 보석 창고 */
 .g-splendor .sp-bank{display:flex;justify-content:center;gap:6px;margin-bottom:5px}

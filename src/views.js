@@ -6,6 +6,7 @@ import { listRecords } from '../core/records.js';
 import { filterByDifficulty, overall, gameStats, characterStats, botStats, coopStats, isCoop, computeAchievements } from '../core/stats.js';
 import { exportBackup, parseBackup, importBackup, migrateBackup } from '../core/backup.js';
 import { activeOnly } from '../core/characters.js';
+import { openArtManager } from './art.js';
 import { launchGame, achCtx, AUTO_SLOT } from './host.js';
 import { makeFx, fxPrefs } from './fx.js';
 import { loadCampaign, deleteCampaign } from '../core/storage.js';
@@ -267,6 +268,7 @@ export async function settingsView(app, root) {
       return h('div', { class: 'row', 'data-g': g.id, style: 'gap:6px;align-items:center;padding:5px 0;border-bottom:1px dashed #00000020' },
         h('div', { class: 'grow' }, plainName(g.name)),
         hp.mode === 'pin' ? h('button', { class: 'btn small pinb' + (pinned ? ' on' : ''), onclick: () => { hp.pins = pinned ? hp.pins.filter(x => x !== g.id) : [...hp.pins, g.id]; saveHp(); } }, pinned ? '고정됨' : '고정') : null,
+        g.art ? h('button', { class: 'btn small artb', onclick: () => openArtManager(app, g) }, '카드 그림') : null,
         h('button', { class: 'btn small covb', onclick: () => { coverIn.dataset.gid = g.id; coverIn.click(); } }, has ? '이미지 바꾸기' : '이미지 넣기'),
         has ? h('button', { class: 'btn small', onclick: async () => { await app.storage.del('portraits', coverKey(g.id)); app.portraits.delete(coverKey(g.id)); toast('타이틀 이미지를 지웠어요'); app.render(); } }, '지우기') : null);
     })),

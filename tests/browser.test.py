@@ -468,6 +468,28 @@ try:
             bk = p4.evaluate("import('./core/backup.js').then(m => m.exportBackup(window.__ba.storage)).then(b => Object.keys(b.data.portraits))")
             assert "game:nothanks" in bk, bk
         check("타이틀 이미지", "설정에서 게임 타이틀 이미지를 올리면 홈 카드에 나오고 백업 파일에도 들어간다", cover_img)
+        def art_slot():
+            import shutil
+            d = tempfile.mkdtemp(); files = []
+            for nm in ["card-w-01", "card-w-02", "card-u-01", "card-u-02", "card-g-01", "card-g-02", "card-r-01", "card-r-02", "card-k-01", "card-k-02", "back-1", "back-2", "back-3", "noble-01", "token-y", "unknown"]:
+                f = os.path.join(d, nm + ".png"); shutil.copy("/tmp/portrait-test.png", f); files.append(f)
+            p4.click("#nav a[data-tab=settings]"); p4.wait_for_selector("#homePrefs")
+            p4.click("#homePrefs [data-g=splendor] .artb"); p4.wait_for_selector("#artManager")
+            p4.set_input_files("#artBulkFile", files)
+            p4.wait_for_function("[...window.__ba.portraits.keys()].filter(k => k.startsWith('art:splendor:')).length >= 15", timeout=15000)
+            keys = p4.evaluate("[...window.__ba.portraits.keys()].filter(k => k.startsWith('art:splendor:')).sort()")
+            assert "art:splendor:card-r:02" in keys and "art:splendor:back-3:01" in keys and "art:splendor:noble:01" in keys and "art:splendor:token-y:01" in keys, keys
+            assert not any("unknown" in k for k in keys), "이름 모르는 파일이 저장됨"
+            assert p4.locator("#artManager .athumb").count() == len(keys), "미리보기 개수"
+            p4.click("#artManager .btn.go.grow"); p4.wait_for_selector("#nav a")
+            p4.click("#nav a[data-tab=home]"); p4.wait_for_selector(".gcard[data-id=splendor]"); p4.click(".gcard[data-id=splendor]")
+            p4.wait_for_selector("#setup .seat"); p4.click("#btnStart"); p4.wait_for_selector(".g-splendor .sp-dock.mine", timeout=30000)
+            n_art = p4.locator(".g-splendor .sp-card.has-art").count(); n_all = p4.locator(".g-splendor .sp-board .sp-card").count()
+            assert n_art == n_all and n_all >= 6, f"그림이 카드에 안 들어감 {n_art}/{n_all}"
+            assert p4.locator(".g-splendor .sp-back.has-art").count() >= 1 and p4.locator(".g-splendor .sp-tok.has-art").count() >= 1, "뒷면/토큰 그림 없음"
+            p4.screenshot(path=f"{SHOTS}/16-splendor-art.png")
+            p4.click(".gamebar button"); p4.click(".gamebar button"); p4.wait_for_selector(".gcard[data-id=splendor]")
+        check("카드 일러스트", "스플렌더 그림을 한꺼번에 올리면 이름으로 분류되고, 판에서 카드·뒷면·토큰에 적용된다(모르는 이름은 건너뜀)", art_slot)
         ctx4.close()
         ctx2.close()
         check("전체", "테스트 내내 화면 오류(콘솔 에러·예외)가 0건이다", lambda: (None if not errors else (_ for _ in ()).throw(AssertionError("; ".join(errors[:3])))))

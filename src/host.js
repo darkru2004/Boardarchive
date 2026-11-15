@@ -1,5 +1,6 @@
 // 게임 실행기: 게임 모듈을 불러와 ctx를 만들어 주고, 끝나면 기록 저장·업적 판정·결과 화면을 처리한다.
 import { makeRng } from '../core/rng.js';
+import { artList } from './art.js';
 import { buildPlayers } from '../core/runner.js';
 import { buildRecord, saveRecord, listRecords } from '../core/records.js';
 import { computeAchievements } from '../core/stats.js';
@@ -55,6 +56,7 @@ export async function launchGame(app, entry, seats, difficulty = null, resume = 
     fx: makeFx({ fast: app.fast }),           // 공통 이펙트(움직임·소리·진동). 게임에서 ctx.fx.scope(게임루트)로 사용
     rng: makeRng(),
     avatar: (seat, size) => avatar(app, players[seat].characterId, size),
+    art: group => artList(app, entry.id, group),   // 사용자가 올린 일러스트 주소 배열(없으면 [])
     say: (seat, key) => {
       const p = players[seat];
       if (p.human) return null;
