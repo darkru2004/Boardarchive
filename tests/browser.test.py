@@ -426,6 +426,30 @@ try:
                 if time.time() - t0 > 90: raise AssertionError("90초 안에 끝나지 않음")
                 if p2.locator(".g-sprawlopolis .sr-dock.mine").count() and p2.locator(".g-sprawlopolis .sr-hand .sr-card.live").count(): sr_turn()
                 p2.wait_for_timeout(15)
+        def sr_drag_turn():
+            """손패 카드를 마우스로 끌어 도시 위(놓을 수 있는 칸)에서 놓는다. 손가락(마우스) 위로 카드가 떠 있도록 LIFT(38px)만큼 아래를 가리킨다."""
+            card = p2.locator(".g-sprawlopolis .sr-hand .sr-card.live").first
+            b = card.bounding_box(); x0, y0 = b["x"] + b["width"] / 2, b["y"] + b["height"] / 2
+            p2.mouse.move(x0, y0); p2.mouse.down(); p2.mouse.move(x0, y0 - 40, steps=4)
+            assert p2.locator(".g-sprawlopolis .sr-drag").count() == 1, "끌 때 손가락 위로 떠오르는 카드가 없음"
+            pts = p2.evaluate("(() => [...document.querySelectorAll('.g-sprawlopolis .sr-hint')].map(h => { const r = h.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }))()")
+            assert pts, "끄는 동안 놓을 수 있는 칸 표시가 없음"
+            # 표시된 칸은 카드가 덮을 수 있는 칸 전체라서, 그중 하나라도 붙을 자리(미리보기)가 나오면 된다
+            ok = False
+            for pt in pts[::max(1, len(pts) // 12)][:14] + pts[-3:]:
+                p2.mouse.move(pt[0], pt[1] + 38, steps=6)
+                if p2.locator(".g-sprawlopolis .sr-ghost").count() == 1: ok = True; break
+            assert ok, "도시 위에서 놓을 자리 미리보기가 없음"
+            p2.mouse.up()
+        def sr_drag_cancel():
+            n0 = p2.inner_text(".g-sprawlopolis .sr-prog b")
+            card = p2.locator(".g-sprawlopolis .sr-hand .sr-card.live").first
+            b = card.bounding_box(); x0, y0 = b["x"] + b["width"] / 2, b["y"] + b["height"] / 2
+            p2.mouse.move(x0, y0); p2.mouse.down(); p2.mouse.move(x0 + 5, 4, steps=8); p2.mouse.up()
+            p2.wait_for_timeout(200)
+            assert p2.inner_text(".g-sprawlopolis .sr-prog b") == n0, "도시 밖에서 놓았는데 카드가 놓임"
+            assert p2.locator(".g-sprawlopolis .sr-drag").count() == 0, "끌던 카드 그림이 남음"
+            assert p2.locator(".g-sprawlopolis .sr-hand .sr-card").count() == 3, "손패가 줄었음"
         def sr_screen():
             sr_start(3)
             assert p2.locator(".g-sprawlopolis .sr-mate").count() == 2, "동료 2명 패널"
@@ -438,8 +462,24 @@ try:
             assert p2.locator(".g-sprawlopolis .sr-hand .sr-card").count() == 3, "첫 차례 손패 3장"
             p2.screenshot(path=f"{SHOTS}/16-sprawlopolis-3p.png")
         check("스프롤로폴리스", "3인 화면: 동료 2명 · 점수 조건 3장 · 도시 판 · 손패 3장이 폰 폭 안에 보이고, 난이도 선택이 반영된다", sr_screen)
+        def sr_shape():
+            r = p2.evaluate("(() => { const b = document.querySelector('.g-sprawlopolis .sr-hand .sr-card').getBoundingClientRect(); const c = document.querySelector('.g-sprawlopolis .sr-bsvg g > rect').getBoundingClientRect(); return [b.width / b.height, c.width / c.height]; })()")
+            assert 1.3 < r[0] < 1.5, f"손패 카드가 가로로 긴 직사각형이 아님: {r[0]:.2f}"
+            assert 1.3 < r[1] < 1.5, f"도시 판의 블록이 가로로 긴 직사각형이 아님: {r[1]:.2f}"
+        check("스프롤로폴리스", "카드와 도시의 블록이 실제처럼 가로로 긴 직사각형(약 7:5)으로 그려진다", sr_shape)
+        def sr_goal_sheet():
+            p2.click(".g-sprawlopolis .sr-goal >> nth=0"); p2.wait_for_selector(".g-sprawlopolis .sr-gc .sr-dia")
+            assert p2.locator(".g-sprawlopolis .sr-gc").count() == 1 and p2.locator(".g-sprawlopolis .sr-gc .sr-gen").inner_text().strip(), "점수 조건 카드 뒷면이 안 뜸"
+            p2.screenshot(path=f"{SHOTS}/16b-sprawlopolis-goal.png")
+            p2.click(".g-sprawlopolis [data-a=close]")
+            p2.click(".g-sprawlopolis [data-a=goals]"); p2.wait_for_selector(".g-sprawlopolis .sr-glist .sr-gc")
+            assert p2.locator(".g-sprawlopolis .sr-glist .sr-gc").count() == 18 and p2.locator(".g-sprawlopolis .sr-glist .sr-gc .sr-dia").count() == 18, "도감에 18장과 그림이 다 없음"
+            assert p2.locator(".g-sprawlopolis .sr-glist .sr-gc.on").count() == 3, "이번 판 조건 3장 표시"
+            p2.click(".g-sprawlopolis [data-a=close]")
+        check("스프롤로폴리스", "점수 조건 카드를 누르면 그림이 든 뒷면 설명이 뜨고, '조건 도감'에 18장이 모두 그림과 함께 나온다", sr_goal_sheet)
         def sr_place_resume():
-            sr_turn()
+            sr_drag_cancel()
+            sr_drag_turn()
             p2.wait_for_function("document.querySelector('.g-sprawlopolis .sr-prog b') && +document.querySelector('.g-sprawlopolis .sr-prog b').textContent >= 3", timeout=30000)
             p2.wait_for_selector(".g-sprawlopolis .sr-dock.mine", timeout=30000)
             before = p2.evaluate("document.querySelector('.sr-prog b').textContent + '|' + [...document.querySelectorAll('.g-sprawlopolis .sr-hand [data-c]')].map(e => e.dataset.c).join(',')")
@@ -448,13 +488,13 @@ try:
             p2.click("#btnResume"); p2.wait_for_selector(".g-sprawlopolis .sr-dock.mine", timeout=30000)
             after = p2.evaluate("document.querySelector('.sr-prog b').textContent + '|' + [...document.querySelectorAll('.g-sprawlopolis .sr-hand [data-c]')].map(e => e.dataset.c).join(',')")
             assert before == after, f"이어하기 후 상태가 다름: {before} vs {after}"
-        check("스프롤로폴리스", "카드를 놓으면 도시에 붙고 동료 차례가 돌아오며, 나갔다가 '이어하기'로 같은 도시·손패로 돌아온다", sr_place_resume)
+        check("스프롤로폴리스", "카드를 끌어다 도시 위에 놓으면 붙고(도시 밖에서 놓으면 취소) 동료 차례가 돌아오며, 나갔다가 '이어하기'로 같은 도시·손패로 돌아온다", sr_place_resume)
         check("스프롤로폴리스", "실제 화면을 눌러(카드 선택 · 자리 선택 · 놓기) 3인 한 판을 끝까지 플레이하면 결과가 나온다", sr_play_to_end)
         p2.screenshot(path=f"{SHOTS}/17-sprawlopolis-final.png")
         p2.click(".g-sprawlopolis [data-a=finish]"); p2.wait_for_selector(".modal")
         rec7 = p2.evaluate("window.__ba.storage.all('records').then(a => a.map(x => x.value).find(v => v.gameId === 'sprawlopolis'))")
         left3 = p2.evaluate("window.__ba.storage.all('campaigns').then(a => a.filter(x => x.key.startsWith('sprawlopolis:')).length)")
-        check("스프롤로폴리스", "협력 기록(mode coop · 3명 · 버전 1.0.0)이 저장되고 이어하기 저장은 지워진다", lambda: (None if rec7 and rec7["mode"] == "coop" and rec7["gameVersion"] == "1.0.0" and len(rec7["players"]) == 3 and rec7["outcome"] in ("win", "lose") and left3 == 0 else (_ for _ in ()).throw(AssertionError(str(rec7)[:220] + f" 남은 저장 {left3}"))))
+        check("스프롤로폴리스", "협력 기록(mode coop · 3명 · 버전 2.0.0)이 저장되고 이어하기 저장은 지워진다", lambda: (None if rec7 and rec7["mode"] == "coop" and rec7["gameVersion"] == "2.0.0" and len(rec7["players"]) == 3 and rec7["outcome"] in ("win", "lose") and left3 == 0 else (_ for _ in ()).throw(AssertionError(str(rec7)[:220] + f" 남은 저장 {left3}"))))
         p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=sprawlopolis]")
         check("스프롤로폴리스", "게임에서 나오면 스프롤로폴리스 전용 스타일이 남지 않는다", lambda: (None if p2.evaluate("![...document.querySelectorAll('style')].some(s => s.textContent.includes('.g-sprawlopolis'))") else (_ for _ in ()).throw(AssertionError("스타일이 남음"))))
         def sr_solo():
