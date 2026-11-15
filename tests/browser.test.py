@@ -548,16 +548,30 @@ try:
             p4.goto(BASE + "?fast=1"); p4.wait_for_selector(".gcard[data-id=nothanks]"); p4.click(".gcard[data-id=nothanks]"); p4.wait_for_selector("#btnRec"); p4.click("#btnRec")
             p4.wait_for_selector("#gOverall")
         check("게임별 기록", "기록 탭의 게임 목록과 게임 화면의 '기록' 버튼으로 그 게임만의 기록 페이지(전적·인원별·캐릭터별·최근 판)가 열린다", game_page)
+        def kd_board():
+            p4.goto(BASE + "?fast=1"); p4.wait_for_selector("#nav a")
+            p4.evaluate("""import('./core/records.js').then(async m => { const st = window.__ba.storage;
+              const mk = (sc, det) => m.buildRecord({ game: { id: 'kingdomino', version: '1.1.0' }, at: new Date(), seats: [{ seat: 0, human: true }, { seat: 1, human: false, characterId: 'rapi' }],
+                result: { ranking: [{ seat: 0, rank: 1, score: sc }, { seat: 1, rank: 2, score: sc - 3 }], summary: '시험', detail: det } });
+              const det = { size: 5, k: [{ seat: 0, w: 3, h: 2, c: '110170120031404150', total: 40, crowns: 4, big: 3 }, { seat: 1, w: 1, h: 1, c: '70', total: 1, crowns: 0, big: 1 }] };
+              for (const [sc, d] of [[40, det], [55, null], [31, det]]) await m.saveRecord(st, mk(sc, d)); })""")
+            p4.goto(BASE + "?fast=1#/records/kingdomino"); p4.wait_for_selector("#kdBoard .kdtop")
+            rows = p4.locator("#kdBoard .kdtop"); assert rows.count() == 3, rows.count()
+            first = p4.inner_text("#kdBoard .kdtop >> nth=0"); assert "55점" in first, first
+            assert p4.locator("#kdBoard .kdtop >> nth=0 >> svg").count() == 0 and p4.locator("#kdBoard .kdtop >> nth=1 >> svg").count() == 1, "그림 유무"
+            p4.click("#kdBoard .kdtop >> nth=1"); p4.wait_for_selector(".modal svg"); assert "40점" in p4.inner_text(".modal"); p4.click(".modal .btn.go")
+            p4.screenshot(path=f"{SHOTS}/17-kd-board.png", full_page=True)
+        check("게임별 기록", "킹도미노 기록 페이지에 최고 점수 TOP10이 높은 순으로 나오고, 저장된 왕국은 그림으로 보이며 눌러서 크게 볼 수 있다", kd_board)
         def img_backup():
             p4.click("#nav a[data-tab=settings]"); p4.wait_for_selector("#imagesCard")
             with p4.expect_download() as dl: p4.click("#btnExportImages")
             path = dl.value.path(); txt = open(path, encoding="utf-8").read(); o = json.loads(txt)
             assert o["format"] == "boardarchive-images" and "records" not in o["data"] and len(o["data"]["portraits"]) >= 1, list(o["data"].keys())
-            n0 = p4.evaluate("window.__ba.portraits.size")
+            n0 = p4.evaluate("window.__ba.portraits.size"); nrec = p4.evaluate("window.__ba.storage.all('records').then(a => a.length)")
             p4.evaluate("window.__ba.storage.clear('portraits').then(() => window.__ba.loadPortraits())")
             assert p4.evaluate("window.__ba.portraits.size") == 0
             p4.set_input_files("#imagesFile", path); p4.wait_for_function("window.__ba.portraits.size >= %d" % n0, timeout=8000)
-            assert p4.evaluate("window.__ba.storage.all('records').then(a => a.length)") == 3, "이미지 가져오기가 기록을 건드림"
+            assert p4.evaluate("window.__ba.storage.all('records').then(a => a.length)") == nrec, "이미지 가져오기가 기록을 건드림"
             bad = os.path.join(tempfile.mkdtemp(), "bad.json"); open(bad, "w").write('{"format":"boardarchive-backup"}')
             p4.set_input_files("#imagesFile", bad); p4.wait_for_selector("text=이미지 백업 파일이 아닙니다")
         check("이미지 백업", "이미지만 내보내고(기록 미포함) 비운 뒤 가져오면 복구되고, 기록은 그대로이며, 다른 파일은 거부된다", img_backup)

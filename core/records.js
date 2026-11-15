@@ -15,6 +15,7 @@ export function buildRecord({ game, seats, result, at = new Date(), slot = null,
     mode: coop ? 'coop' : 'solo', slot, players, summary: result.summary || '' };
   if (coop) { rec.outcome = coop.won ? 'win' : 'lose'; if (coop.score != null) rec.score = coop.score; }
   if (difficulty) rec.difficulty = difficulty;   // 선택 필드(옛 기록엔 없음)
+  if (result.detail) rec.detail = result.detail;  // 선택 필드: 게임 전용 기록 보드용 요약(result().detail)
   const errs = validateRecord(rec);
   if (errs.length) throw new Error('기록 형식 오류: ' + errs.join(', '));
   return rec;

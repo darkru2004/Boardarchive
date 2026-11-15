@@ -402,7 +402,53 @@ const game = {
       if (!p || p.d.total !== r.d.total || p.d.maxTerr !== r.d.maxTerr || p.d.crowns !== r.d.crowns) rank = i + 1;
       return { seat: r.seat, rank, score: r.d.total };
     });
-    return { ranking, summary: `최고 ${rows[0].d.total}점` };
+    // 기록용 요약(detail): 좌석별 완성 왕국을 작게 담는다. c = 칸마다 2글자(지형 0~7, 왕관 0~3; 7=성, 0=빈칸)를 가로로 이어 붙인 문자열.
+    const k = s.boards.map((b, seat) => {
+      const W = 2 * s.size - 1; let x0 = W, x1 = -1, y0 = W, y1 = -1;
+      for (let i = 0; i < b.g.length; i++) if (b.g[i]) { const x = i % W, y = (i - x) / W; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+      let c = ''; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const v = b.g[y * W + x]; c += v ? `${v & 7}${(v >> 3) & 3}` : '00'; }
+      const d = rows.find(r => r.seat === seat).d;
+      return { seat, w: x1 - x0 + 1, h: y1 - y0 + 1, c, total: d.total, crowns: d.crowns, big: d.maxTerr };
+    });
+    return { ranking, summary: `최고 ${rows[0].d.total}점`, detail: { size: s.size, k } };
+  },
+
+  // ---------- 게임 전용 기록 보드 (기록 > 킹도미노): 최고 점수 TOP 10 + 완성한 왕국 그림 ----------
+  recordBoards(records, kit) {
+    const { h, fmtDate, modal } = kit, mine = records.filter(r => r.mode !== 'coop' && r.players.some(p => p.human && p.score != null));
+    if (!mine.length) return [];
+    const me = r => r.players.find(p => p.human);
+    const sorted = mine.slice().sort((a, b) => me(b).score - me(a).score || (a.at < b.at ? 1 : -1));
+    const scores = mine.map(r => me(r).score), avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+    const COL = { 1: '#e3c458', 2: '#2f7a3d', 3: '#3a7fc2', 4: '#9fcf5a', 5: '#7d6a8c', 6: '#5b5149', 7: '#f2e3a3' };
+    const svg = (k, px) => {
+      const NS = 'http://www.w3.org/2000/svg', el = document.createElementNS(NS, 'svg');
+      el.setAttribute('viewBox', `0 0 ${k.w * 10} ${k.h * 10}`); el.setAttribute('width', k.w * px); el.setAttribute('height', k.h * px);
+      let m = '';
+      for (let i = 0; i < k.w * k.h; i++) {
+        const t = +k.c[i * 2], cr = +k.c[i * 2 + 1]; if (!t) continue;
+        const x = (i % k.w) * 10, y = Math.floor(i / k.w) * 10;
+        m += `<rect x="${x}" y="${y}" width="10" height="10" fill="${COL[t]}" stroke="#0004" stroke-width=".4"/>`;
+        if (t === 7) m += `<rect x="${x + 2.5}" y="${y + 2.5}" width="5" height="5" fill="#7a4d2a"/>`;
+        for (let j = 0; j < cr; j++) m += `<circle cx="${x + 2.5 + j * 2.5}" cy="${y + 2.2}" r="1.1" fill="#ffe27a" stroke="#6a4a00" stroke-width=".3"/>`;
+      }
+      el.innerHTML = m; return el;
+    };
+    const mineK = r => r.detail && r.detail.k && r.detail.k.find(x => x.seat === r.players.findIndex(p => p.human) || x.seat === me(r).seat);
+    const rows = sorted.slice(0, 10).map((r, i) => {
+      const k = mineK(r), p = me(r);
+      const th = h('div', { class: 'kdthumb' }, k ? svg(k, 5) : h('span', { class: 'muted' }, '그림 없음'));
+      const open = () => { if (!k) return; const mm = modal(h('div', {}, h('h3', { style: 'margin:0 0 6px' }, `${p.score}점 · ${fmtDate(r.at)}`),
+        h('div', { style: 'display:grid;place-items:center;background:#00000018;padding:8px;border-radius:8px' }, svg(k, Math.min(30, Math.floor(300 / Math.max(k.w, k.h))))),
+        h('div', { class: 'muted', style: 'margin-top:6px' }, `왕관 ${k.crowns} · 가장 큰 땅 ${k.big}칸 · ${r.players.length}인${r.difficulty ? '' : ''}`),
+        h('div', { class: 'row', style: 'margin-top:10px' }, h('button', { class: 'btn go grow', onclick: () => mm.close() }, '닫기')))); };
+      return h('div', { class: 'row kdtop', 'data-rank': i + 1, style: 'gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed #00000020;cursor:' + (k ? 'pointer' : 'default'), onclick: open },
+        h('b', { style: 'width:22px;font-family:var(--fd);font-size:18px' }, i + 1), th,
+        h('div', { class: 'grow' }, h('b', { style: 'font-size:18px' }, `${p.score}점`), h('div', { class: 'muted', style: 'font-size:12px' }, `${r.players.length}인 · ${p.rank}위${k ? ` · 왕관 ${k.crowns}` : ''}`)),
+        h('div', { class: 'muted', style: 'font-size:12px' }, fmtDate(r.at)));
+    });
+    return [h('h2', {}, 'Best', h('small', {}, '최고 점수 TOP 10')), h('div', { class: 'paper', id: 'kdBoard', style: '--r:.3deg' },
+      h('div', { class: 'muted', style: 'margin-bottom:6px' }, `최고 ${sorted.length ? me(sorted[0]).score : 0}점 · 평균 ${avg.toFixed(1)}점 · ${mine.length}판. 눌러서 완성한 왕국을 크게 볼 수 있어요(그림은 새로 한 판부터 저장돼요).`), ...rows)];
   },
 
   // ---------- 화면: "왕국 지도" 테마 ----------

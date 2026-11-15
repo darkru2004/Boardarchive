@@ -128,7 +128,11 @@ export async function gameRecordsView(app, root, gameId) {
   }
 
   // 게임 전용 기록 보드 자리 (2단계)
-  root.append(h('div', { id: 'gBoards' }));
+  const boards = h('div', { id: 'gBoards' }); root.append(boards);
+  try {   // 게임 파일이 recordBoards(records, kit)를 갖고 있으면 게임 전용 기록 보드를 그린다
+    const mod = (await import(`../games/${entry.file}`)).default;
+    if (mod && typeof mod.recordBoards === 'function') boards.append(...mod.recordBoards(all, { h, fmtDate, pct, modal, DIFF_LABEL }));
+  } catch (e) { console.warn('게임 전용 기록 보드를 못 그림', e); }
 
   // 이 게임 업적
   const comps = computeAchievements(recsAll, app.achievementDefs, achCtx(app)).filter(a => a.gameId === gameId || (app.achievementDefs.find(d => d.id === a.id) || {}).gameId === gameId);

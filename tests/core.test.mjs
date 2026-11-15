@@ -636,6 +636,18 @@ test('이미지 백업: 이미지만 내보내고 가져오며 기록은 건드�
   eq((await importImages(B, bad)).invalid, 2);
 });
 
+
+test('기록 detail(게임 전용 요약)은 4000자 이하 객체만 허용하고, 없어도 된다', () => {
+  const base = { v: 1, id: 'abcdefgh1', at: '2026-01-01T00:00:00Z', gameId: 'g', gameVersion: '1', mode: 'solo',
+    players: [{ seat: 0, human: true, characterId: null, rank: 1, score: 3 }, { seat: 1, human: false, characterId: 'rapi', rank: 2, score: 2 }] };
+  eq(validateRecord(base).length, 0);
+  eq(validateRecord({ ...base, detail: { a: 1 } }).length, 0);
+  assert(validateRecord({ ...base, detail: 'x' }).length > 0 && validateRecord({ ...base, detail: [1] }).length > 0);
+  assert(validateRecord({ ...base, detail: { s: 'x'.repeat(4100) } }).length > 0, '너무 큰 detail');
+  const r = buildRecord({ game: { id: 'g', version: '1' }, seats: [{ seat: 0, human: true }, { seat: 1, characterId: 'rapi' }], result: { ranking: [{ seat: 0, rank: 1, score: 3 }, { seat: 1, rank: 2, score: 2 }], summary: '', detail: { k: 1 } } });
+  eq(r.detail, { k: 1 });
+});
+
 const s4 = simulate(stopTest, REAL, { games: 2000, count: 4, seed: 99 });
 console.log('\n[참고] 시험용 게임 4인 2000판 승률 (사람 자리=기준봇)');
 for (const [id, v] of Object.entries(s4.perCharacter)) console.log(`  ${id.padEnd(8)} ${(v.winRate * 100).toFixed(1)}%`);

@@ -146,4 +146,14 @@ await test(G, '실력 차이가 결과에 드러난다 (실력 9·7·5·3 → 9�
 await test(G, '실제 캐릭터 2~4인 자동 대전: 오류 0·불법 수 0·자리 편향 없음', () => {
   for (const [n, games] of [[2, 60], [3, 200], [4, 300]]) { const r = simulate(kd, CH, { games, count: n, seed: 21 }); eq([r.errors, r.illegal], [0, 0], r.firstError || ''); eq(r.warnings.filter(w => w.includes('자리')), []); }
 });
+
+test(G, '기록용 요약(detail)에 좌석별 완성 왕국이 작게 담기고 크기가 한도 안이다', () => {
+  const rng = makeRng(5), pl = [0, 1, 2, 3].map(i => ({ seat: i, human: i === 0, characterId: i ? 'rapi' : null }));
+  const s = kd.newGame({ players: pl, rng });
+  for (let g = 0; g < 400 && !kd.isOver(s); g++) { const m = kd.legalMoves(s); kd.applyMove(s, m[Math.floor(rng.next() * m.length)], rng); }
+  const r = kd.result(s); assert(r.detail && r.detail.k.length === 4, 'detail 없음');
+  for (const k of r.detail.k) { eq(k.c.length, k.w * k.h * 2); assert(k.w >= 1 && k.w <= 5 && k.h >= 1 && k.h <= 5, '크기'); assert(k.c.includes('70'), '성 없음'); }
+  assert(JSON.stringify(r.detail).length < 4000, '요약이 너무 큼');
+});
 process.exit(report('킹도미노 테스트') ? 1 : 0);
+
