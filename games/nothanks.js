@@ -660,4 +660,105 @@ const CSS = `
  .g-nt .nt-card b{font-size:68px;line-height:130px}
  .g-nt .nt-btn{min-height:43px;font-size:12px}
 }
+
+/* Reference-faithful BGA card language and playful type system */
+@import url('https://fonts.googleapis.com/css2?family=Bungee&family=Jua&display=swap');
+.g-nt,.g-nt button,.g-nt .nt-seat,.g-nt .nt-log,.g-nt .nt-rules,.g-nt .nt-hint{
+ font-family:'Jua',ui-rounded,'Trebuchet MS',system-ui,sans-serif!important;
+}
+.g-nt .nt-deck:before{font-family:'Bungee','Jua',sans-serif!important;letter-spacing:.02em}
+.g-nt .nt-nm,.g-nt .nt-st,.g-nt .nt-msg,.g-nt .nt-pot,.g-nt .nt-hint,.g-nt .nt-btn,.g-nt .nt-log,.g-nt .nt-rules{font-family:'Jua',ui-rounded,system-ui,sans-serif!important}
+.g-nt .nt-card{
+ width:116px;height:174px;border:0;border-radius:11px;overflow:hidden;
+ background:#fff0c9!important;color:#24528d;box-shadow:0 2px 0 #c69a55,0 5px 12px #0008;
+ transform:none;isolation:isolate;
+}
+.g-nt .nt-card:before{
+ content:"";position:absolute;z-index:0;inset:13px 17px;
+ border:0;border-radius:34% 42% 38% 35%;
+ background:
+ radial-gradient(ellipse at 48% 10%,#ff9b18 0 13%,transparent 14%),
+ radial-gradient(ellipse at 20% 24%,#ff9b18 0 11%,transparent 12%),
+ radial-gradient(ellipse at 78% 26%,#ff9b18 0 13%,transparent 14%),
+ radial-gradient(ellipse at 14% 52%,#f58a0c 0 12%,transparent 13%),
+ radial-gradient(ellipse at 87% 55%,#f58a0c 0 12%,transparent 13%),
+ radial-gradient(ellipse at 22% 78%,#ff9b18 0 12%,transparent 13%),
+ radial-gradient(ellipse at 77% 82%,#ff9b18 0 13%,transparent 14%),
+ radial-gradient(ellipse at 50% 50%,#ff9c16 0 55%,#ef7900 74%,transparent 76%);
+ filter:drop-shadow(0 1px 1px #bd5b00);
+}
+.g-nt .nt-card:after{
+ content:attr(data-card);position:absolute;z-index:3;inset:0;
+ background:none;mix-blend-mode:normal;
+}
+.g-nt .nt-card b{
+ position:absolute;z-index:2;inset:0;display:flex;align-items:center;justify-content:center;
+ padding:0 0 2px;font:400 75px/.95 'Bungee',Impact,sans-serif!important;
+ letter-spacing:-.12em;color:#77b8ee;
+ -webkit-text-stroke:2.4px #fff1c9;
+ paint-order:stroke fill;
+ text-shadow:3px 3px 0 #1d4b8c,-3px -2px 0 #1d4b8c,2px -3px 0 #1d4b8c,-2px 3px 0 #1d4b8c,0 5px 0 #163c79,0 7px 2px #6b3a14;
+ transform:scaleX(.92);
+}
+.g-nt .nt-card i{z-index:4;font:400 14px/1 'Bungee',Impact,sans-serif!important;color:#244d83;text-shadow:1px 1px 0 #fff0c9}
+.g-nt .nt-card .tl{left:9px;top:8px}.g-nt .nt-card .br{right:9px;bottom:8px}
+.g-nt .nt-card.tone-5,.g-nt .nt-card.tone-6{background:#fff0c9!important}
+.g-nt .nt-card.tone-5:before,.g-nt .nt-card.tone-6:before{
+ background:
+ radial-gradient(ellipse at 48% 10%,#ff9b18 0 13%,transparent 14%),
+ radial-gradient(ellipse at 20% 24%,#ff9b18 0 11%,transparent 12%),
+ radial-gradient(ellipse at 78% 26%,#ff9b18 0 13%,transparent 14%),
+ radial-gradient(ellipse at 14% 52%,#f58a0c 0 12%,transparent 13%),
+ radial-gradient(ellipse at 87% 55%,#f58a0c 0 12%,transparent 13%),
+ radial-gradient(ellipse at 22% 78%,#ff9b18 0 12%,transparent 13%),
+ radial-gradient(ellipse at 77% 82%,#ff9b18 0 13%,transparent 14%),
+ radial-gradient(ellipse at 50% 50%,#ff9c16 0 55%,#ef7900 74%,transparent 76%);
+}
+.g-nt .nt-c{
+ width:25px;height:35px;margin-right:-7px;border:0;border-radius:4px;
+ background:#fff0c9!important;color:#24528d!important;
+ font:400 13px/1 'Bungee',Impact,sans-serif!important;
+ -webkit-text-stroke:.45px #fff1c9;
+ text-shadow:1px 1px 0 #1d4b8c,-1px -1px 0 #1d4b8c,1px -1px 0 #1d4b8c,-1px 1px 0 #1d4b8c,0 2px 0 #173c78;
+ box-shadow:0 2px 4px #0008,inset 0 0 0 1px #d4b879;
+}
+.g-nt .nt-c:before{
+ content:"";position:absolute;inset:4px 3px;border:0;border-radius:35%;
+ background:radial-gradient(ellipse at 50% 50%,#ff9b18 0 57%,#ed7900 75%,transparent 77%);
+ z-index:-1;
+}
+.g-nt .nt-c:after{font:400 5px 'Bungee',sans-serif;color:#244d83;text-shadow:none}
+.g-nt .nt-c.tone-5,.g-nt .nt-c.tone-6{color:#24528d!important}
+.g-nt .nt-c.dim{filter:grayscale(.8);opacity:.55}
+.g-nt .nt-table:before{font-family:'Jua',sans-serif!important;letter-spacing:.08em}
+.g-nt .nt-btn{font-size:15px!important}
+@media(max-width:520px){
+ .g-nt .nt-seats{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+ .g-nt .nt-seat{min-height:62px;padding:5px 4px 4px}
+ .g-nt .nt-top{gap:4px}
+ .g-nt .nt-top .av{width:21px!important;height:21px!important}
+ .g-nt .nt-nm{font-size:10px!important}
+ .g-nt .nt-st{font-size:8px!important}
+ .g-nt .nt-cards{min-height:22px;margin-top:3px}
+ .g-nt .nt-c{width:17px;height:23px;margin-right:-5px;font-size:9px!important}
+ .g-nt .nt-table{margin:8px 0 6px;padding:9px 7px 8px}
+ .g-nt .nt-card{width:91px;height:137px;border-radius:9px}
+ .g-nt .nt-card b{font-size:59px!important}
+ .g-nt .nt-card i{font-size:11px!important}
+ .g-nt .nt-card .tl{left:7px;top:7px}.g-nt .nt-card .br{right:7px;bottom:7px}
+ .g-nt .nt-pot{font-size:11px}
+ .g-nt .nt-btn{font-size:13px!important;min-height:44px}
+}
+@media(max-width:390px){
+ .g-nt .nt-seats{gap:4px}
+ .g-nt .nt-seat{min-height:57px;padding:4px 3px}
+ .g-nt .nt-top .av{width:18px!important;height:18px!important}
+ .g-nt .nt-nm{font-size:9px!important}
+ .g-nt .nt-st{font-size:7px!important}
+ .g-nt .nt-c{width:15px;height:21px;font-size:8px!important;margin-right:-5px}
+ .g-nt .nt-card{width:83px;height:125px}
+ .g-nt .nt-card b{font-size:53px!important}
+ .g-nt .nt-card i{font-size:10px!important}
+}
+
 `;
