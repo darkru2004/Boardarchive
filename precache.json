@@ -29,6 +29,7 @@
   "src/art.js",
   "src/fx.js",
   "src/host.js",
+  "src/recviews.js",
   "src/style.css",
   "src/ui.js",
   "src/views.js"

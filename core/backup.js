@@ -82,3 +82,30 @@ export async function importBackup(storage, input, { mode = 'merge', migrations,
   await storage.put('settings', 'unlocked', curU);
   return summary;
 }
+
+// ---- 이미지만 백업: 캐릭터 초상화·게임 타이틀·카드 일러스트(portraits 칸)만 따로 내보내고 가져온다. 기록·설정은 건드리지 않는다. ----
+export const IMAGES_FORMAT = 'boardarchive-images';
+export async function exportImages(storage) {
+  const portraits = {};
+  for (const { key, value } of await storage.all('portraits')) portraits[key] = value;
+  return { format: IMAGES_FORMAT, schemaVersion: 1, appVersion: APP_VERSION, exportedAt: new Date().toISOString(), data: { portraits } };
+}
+export function parseImages(text) {
+  let obj;
+  try { obj = JSON.parse(text); } catch { throw new Error('이미지 파일을 읽을 수 없습니다 (JSON 형식이 아님)'); }
+  if (!obj || obj.format !== IMAGES_FORMAT) throw new Error('이 앱의 이미지 백업 파일이 아닙니다 (설정의 "이미지만 내보내기"로 만든 파일이 필요해요)');
+  if (!obj.data || typeof obj.data.portraits !== 'object' || !obj.data.portraits) throw new Error('이미지 파일 내용이 손상되었습니다');
+  return obj;
+}
+// 같은 칸은 더 늦게 저장된 쪽을 남긴다(merge). 형식이 이상한 이미지는 건너뛴다.
+export async function importImages(storage, obj) {
+  const sum = { added: 0, updated: 0, kept: 0, invalid: 0 };
+  for (const [key, v] of Object.entries(obj.data.portraits)) {
+    if (!/^[a-z0-9:-]{2,80}$/.test(key) || !v || !isSafePortrait(v.dataUrl)) { sum.invalid++; continue; }
+    const cur = await storage.get('portraits', key);
+    if (!cur) { await storage.put('portraits', key, v); sum.added++; }
+    else if ((v.updatedAt || '') > (cur.updatedAt || '')) { await storage.put('portraits', key, v); sum.updated++; }
+    else sum.kept++;
+  }
+  return sum;
+}

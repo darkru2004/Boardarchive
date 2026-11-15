@@ -4,9 +4,10 @@ import { drawSeats, DIFFICULTIES, DIFF_LABEL } from '../core/seating.js';
 import { makeRng } from '../core/rng.js';
 import { listRecords } from '../core/records.js';
 import { filterByDifficulty, overall, gameStats, characterStats, botStats, coopStats, isCoop, computeAchievements } from '../core/stats.js';
-import { exportBackup, parseBackup, importBackup, migrateBackup } from '../core/backup.js';
+import { exportBackup, parseBackup, importBackup, migrateBackup, exportImages, parseImages, importImages } from '../core/backup.js';
 import { activeOnly } from '../core/characters.js';
 import { openArtManager } from './art.js';
+export { recordsView, gameRecordsView } from './recviews.js';
 import { launchGame, achCtx, AUTO_SLOT } from './host.js';
 import { makeFx, fxPrefs } from './fx.js';
 import { loadCampaign, deleteCampaign } from '../core/storage.js';
@@ -93,6 +94,7 @@ export function setupPanel(app, entry, count, holder) {
         avatar(app, s.characterId, 58), s.human ? '나' : app.lookup(s.characterId).name.split(' ').pop(), h('small', {}, `${s.seat + 1}번 자리`)))),
       h('div', { class: 'muted', style: 'margin-bottom:10px' }, entry.mode === 'coop' || diff === 'random' ? '함께할 캐릭터와 자리 순서는 판마다 무작위로 정해져요. 1번 자리부터 시작합니다.' : `${DIFF_LABEL[diff]}: 이 게임에서 실력이 ${diff === 'easy' ? '낮은' : diff === 'hard' ? '높은' : '중간인'} 캐릭터들이 앉아요. (봇 수준은 그대로)`),
       h('div', { class: 'row' },
+        h('button', { class: 'btn small', id: 'btnRec', onclick: () => { location.hash = '#/records/' + entry.id; } }, '기록', h('small', {}, 'RECORD')),
         h('button', { class: 'btn', onclick: () => { seats = draw(); render(); } }, '다시 뽑기', h('small', {}, 'SHUFFLE')),
         h('button', { class: 'btn go grow', id: 'btnStart', onclick: () => launchGame(app, entry, seats, entry.mode === 'coop' ? null : diff).catch(e => toast('실행 오류: ' + e.message)) }, '시작', h('small', {}, 'START'))));
   };
@@ -156,86 +158,6 @@ export async function dexView(app, root) {
     h('button', { class: 'th dex' + (c.id === sel.id ? ' on' : ''), 'data-id': c.id, onclick: () => { app.dexSel = c.id; app.render(); } },
       avatar(app, c.id, 62), c.name.split(' ').pop(), h('small', {}, c.status === 'retired' ? '퇴역' : cs[c.id] ? `${cs[c.id].met}판` : '미대면')))));
   root.append(h('p', { class: 'muted', style: 'margin:12px 4px' }, '초상화는 이 기기에 저장되고 백업 파일에 함께 담깁니다.'));
-}
-
-// ================= 기록 =================
-
-// 캐릭터 상세: 그 캐릭터의 전체·게임별 전적 + 나와의 전적
-function charDetail(app, id, bs, cs, gname) {
-  const c = app.lookup(id), b = bs[id], vs = cs[id];
-  const rows = Object.entries(b.byGame).sort((x, y) => y[1].played - x[1].played);
-  const m = modal(h('div', { class: 'charDetail', 'data-id': id },
-    h('div', { class: 'row', style: 'gap:12px;align-items:center' }, avatar(app, id, 64),
-      h('div', { class: 'grow' }, h('h3', { style: 'margin:0' }, c.name), h('div', { class: 'muted' }, `${b.played}판 · ${b.wins}승 · 승률 ${pct(b.winRate)}(기대 ${pct(b.expected)}) · 평균 ${b.avgRank.toFixed(1)}위`))),
-    h('h4', { style: 'margin:14px 0 4px' }, '게임별'),
-    h('table', {}, h('tr', {}, h('th', {}, '게임'), h('th', { class: 'n' }, '판'), h('th', { class: 'n' }, '승'), h('th', { class: 'n' }, '승률'), h('th', { class: 'n' }, '기대'), h('th', { class: 'n' }, '평균 순위')),
-      ...rows.map(([gid, g]) => h('tr', {}, h('td', {}, gname(gid)), h('td', { class: 'n' }, g.played), h('td', { class: 'n' }, g.wins), h('td', { class: 'n' }, pct(g.winRate)), h('td', { class: 'n muted' }, pct(g.expected)), h('td', { class: 'n' }, g.avgRank.toFixed(1))))),
-    vs ? h('div', { class: 'muted', style: 'margin-top:10px' }, `나와의 전적: 내가 ${vs.myWins}승 ${vs.myLosses}패${vs.ties ? ` ${vs.ties}무` : ''}`) : null,
-    h('div', { class: 'row', style: 'margin-top:12px' }, h('button', { class: 'btn go grow', onclick: () => m.close() }, '닫기'))));
-}
-export async function recordsView(app, root) {
-  const recs = await listRecords(app.storage);
-  let fdiff = 'all'; try { const d = localStorage.getItem('ba_recdiff'); if (d === 'all' || DIFFICULTIES.includes(d)) fdiff = d; } catch {}
-  const frecs = filterByDifficulty(recs, fdiff);
-  const ov = overall(frecs), gs = gameStats(frecs), cs = characterStats(frecs);
-  const gname = id => plainName((app.games.find(g => g.id === id) || { name: `(없는 게임 ${id})` }).name);
-  root.append(top('Record', '전적 기록', `승률<br><b>${pct(ov.winRate)}</b>`));
-  root.append(h('div', { class: 'paper taped', id: 'overall', style: '--r:-1deg' },
-    h('div', { class: 'row wrap', id: 'diffFilter', style: 'gap:6px;margin-bottom:8px;align-items:center' }, h('small', {}, '난이도'),
-      ...['all', ...DIFFICULTIES].map(d => h('button', { class: 'btn small' + (d === fdiff ? ' on' : ''), 'data-f': d,
-        onclick: () => { try { localStorage.setItem('ba_recdiff', d); } catch {} app.render(); } }, d === 'all' ? '전체' : DIFF_LABEL[d]))),
-    h('div', { class: 'row' }, h('div', { class: 'big-num' }, ov.played), h('div', { class: 'grow' }, `총 ${ov.played}판 · ${ov.wins}승 · 승률 ${pct(ov.winRate)}${ov.played ? ` (기대 ${pct(ov.expected)})` : ''}`)),
-    fdiff !== 'all' ? h('div', { class: 'muted', style: 'margin-top:6px' }, `${DIFF_LABEL[fdiff]} 난이도로 한 판만 모아 본 숫자예요. 아래 캐릭터·게임 표도 같은 기준입니다.`) : null,
-    ov.played ? null : h('div', { class: 'muted', style: 'margin-top:6px' }, fdiff === 'all' ? '아직 경쟁 게임 기록이 없어요. 한 판 끝내면 여기에 쌓입니다.' : '이 난이도로 한 판이 아직 없어요.')));
-  if (ov.played) {
-    root.append(h('h2', {}, 'By Game', h('small', {}, '게임별')), h('div', { class: 'paper', style: '--r:.6deg' }, h('table', {},
-      h('tr', {}, h('th', {}, '게임'), h('th', { class: 'n' }, '판'), h('th', { class: 'n' }, '승'), h('th', { class: 'n' }, '승률'), h('th', { class: 'n' }, '기대'), h('th', { class: 'n' }, '평균 순위')),
-      ...Object.entries(gs).map(([id, g]) => h('tr', {}, h('td', {}, gname(id)), h('td', { class: 'n' }, g.played), h('td', { class: 'n' }, g.wins), h('td', { class: 'n' }, pct(g.winRate)), h('td', { class: 'n muted' }, pct(g.expected)), h('td', { class: 'n' }, g.avgRank.toFixed(1)))))));
-    const bs = botStats(frecs);
-    const ids = Object.keys(bs).sort((a, b) => bs[b].winRate - bs[a].winRate || bs[b].played - bs[a].played);
-    root.append(h('h2', {}, 'Characters', h('small', {}, '캐릭터별 전적 · 눌러서 게임별 보기')), h('div', { class: 'paper', id: 'charTable', style: '--r:-.5deg' },
-      h('table', {}, h('tr', {}, h('th', {}, '캐릭터'), h('th', { class: 'n' }, '판'), h('th', { class: 'n' }, '승률'), h('th', { class: 'n' }, '기대'), h('th', { class: 'n' }, '평균 순위')),
-        ...ids.map(id => h('tr', { class: 'crow', 'data-id': id, style: 'cursor:pointer', onclick: () => charDetail(app, id, bs, cs, gname) },
-          h('td', {}, app.lookup(id).name), h('td', { class: 'n' }, bs[id].played), h('td', { class: 'n' }, pct(bs[id].winRate)), h('td', { class: 'n muted' }, pct(bs[id].expected)), h('td', { class: 'n' }, bs[id].avgRank.toFixed(1))))),
-      h('div', { class: 'muted', style: 'margin-top:6px' }, '내가 함께 앉은 모든 판 기준이에요. "기대"는 모두 같은 실력일 때의 승률이고, 판 수가 적을 땐 숫자가 크게 흔들려요.')));
-  }
-  const cp = coopStats(recs);
-  if (cp.total.played) {
-    const mates = Object.entries(cp.byChar).sort((a, b) => b[1].clearRate - a[1].clearRate || b[1].played - a[1].played);
-    root.append(h('h2', {}, 'Co-op', h('small', {}, '협력 게임 기록 · 경쟁 기록과 따로 집계')), h('div', { class: 'paper taped', id: 'coopBox', style: '--r:.5deg' },
-      h('div', { class: 'row' }, h('div', { class: 'big-num' }, cp.total.wins), h('div', { class: 'grow' }, `${cp.total.played}판 중 ${cp.total.wins}번 클리어 · 클리어율 ${pct(cp.total.clearRate)}${cp.bestStreak > 1 ? ` · 최고 ${cp.bestStreak}연속 클리어` : ''}`)),
-      h('table', { style: 'margin-top:10px' }, h('tr', {}, h('th', {}, '게임'), h('th', { class: 'n' }, '판'), h('th', { class: 'n' }, '클리어'), h('th', { class: 'n' }, '클리어율'), h('th', { class: 'n' }, '최고점')),
-        ...Object.entries(cp.byGame).map(([id, g]) => h('tr', {}, h('td', {}, gname(id)), h('td', { class: 'n' }, g.played), h('td', { class: 'n' }, g.wins), h('td', { class: 'n' }, pct(g.clearRate)), h('td', { class: 'n' }, g.best ?? '-')))),
-      Object.keys(cp.byPlayers).length > 1 ? h('div', { class: 'muted', style: 'margin-top:6px' }, '인원별 클리어율: ' + Object.entries(cp.byPlayers).map(([n, v]) => `${n}인 ${pct(v.clearRate)}(${v.played}판)`).join(' · ')) : null));
-    root.append(h('div', { class: 'paper', id: 'mateTable', style: '--r:-.4deg;margin-top:10px' }, h('b', {}, '같이 한 동료'),
-      h('table', {}, h('tr', {}, h('th', {}, '동료'), h('th', { class: 'n' }, '함께한 판'), h('th', { class: 'n' }, '클리어율')),
-        ...mates.map(([id, v]) => h('tr', {}, h('td', {}, app.lookup(id).name), h('td', { class: 'n' }, v.played), h('td', { class: 'n' }, pct(v.clearRate))))),
-      h('div', { class: 'muted', style: 'margin-top:6px' }, '판 수가 적을 땐 숫자가 크게 흔들려요.')));
-  }
-  const comp = computeAchievements(recs, app.achievementDefs, achCtx(app));
-  const sticky = (await app.storage.get('settings', 'unlocked')) || {};
-  const hasCoopGame = app.games.some(g => g.mode === 'coop');
-  const isDone = a => a.unlocked || a.id in sticky;
-  const groups = [...new Set(comp.map(a => a.group))].filter(g => g !== '협력' || hasCoopGame || comp.some(a => a.group === '협력' && isDone(a)));
-  root.append(h('h2', {}, 'Stamps', h('small', {}, `업적 ${comp.filter(isDone).length}/${comp.length}`)), ...groups.map(gr => {
-    const list = comp.filter(a => a.group === gr);
-    return h('div', { class: 'paper', id: 'achs', 'data-group': gr, style: '--r:.4deg;margin-bottom:12px' },
-      h('h4', { style: 'margin:0 0 4px' }, `${gr}  ${list.filter(isDone).length}/${list.length}`),
-      ...list.map(a => {
-        const done = isDone(a);
-        return h('div', { class: 'ach ' + (done ? 'done' : 'lock'), 'data-id': a.id }, h('div', { class: 'ic' }, done ? '✓' : ''),
-          h('div', { class: 'grow' }, h('b', {}, a.name), h('div', { class: 'muted' }, a.desc + (done ? '' : `  (${a.progress}/${a.target})`))),
-          done ? h('div', { class: 'muted' }, fmtDate(sticky[a.id] || a.at)) : null);
-      }));
-  }));
-  if (recs.length) {
-    if (recs.some(r => !isCoop(r))) root.append(h('h2', {}, 'Recent', h('small', {}, '최근 판')), h('div', { class: 'paper', style: '--r:-.4deg' }, ...recs.filter(r => !isCoop(r)).slice(-20).reverse().map(r => {
-      const me = r.players.find(p => p.human);
-      return h('div', { class: 'row', style: 'padding:6px 0;border-bottom:1px dashed #00000020;font-size:13px' },
-        h('div', { class: 'grow' }, `${gname(r.gameId)} · ${r.players.length}인`), h('div', { class: 'muted' }, fmtDate(r.at)),
-        h('b', { style: `font-family:var(--fd);font-size:18px;${me.rank === 1 ? 'color:var(--blue2)' : ''}` }, `${me.rank}위`));
-    })));
-  }
 }
 
 // ================= 설정: 백업·저장 상태 =================
@@ -322,6 +244,27 @@ export async function settingsView(app, root) {
       h('button', { class: 'btn', onclick: () => fileIn.click() }, '백업 가져오기', h('small', {}, 'IMPORT'))),
     h('div', { class: 'muted', style: 'margin-top:10px' }, 'PC에서 만든 백업 파일을 폰에서 가져오면 기록·초상화가 그대로 옮겨져요.'),
     importBox, fileIn));
+
+  // 이미지만 백업(초상화·게임 타이틀·카드 그림)
+  const imgIn = h('input', { type: 'file', accept: '.json,application/json', style: 'display:none', id: 'imagesFile', onchange: async e => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    try {
+      const o = parseImages(await f.text()), n = Object.keys(o.data.portraits).length;
+      const r = await importImages(app.storage, o); await app.loadPortraits();
+      toast(`이미지 ${n}개 중 새로 ${r.added} · 갱신 ${r.updated} · 그대로 ${r.kept}${r.invalid ? ` · 건너뜀 ${r.invalid}` : ''}`); app.render();
+    } catch (err) { toast(err.message); }
+  } });
+  root.append(h('div', { class: 'paper taped', id: 'imagesCard', style: '--r:.5deg' },
+    h('h3', {}, '이미지만 백업'),
+    h('div', { class: 'muted', style: 'margin-bottom:10px' }, `캐릭터 초상화 · 게임 타이틀 · 카드 일러스트 ${app.portraits.size}개. 기록은 들어가지 않아요.`),
+    h('div', { class: 'row wrap' },
+      h('button', { class: 'btn go', id: 'btnExportImages', onclick: async () => {
+        const b = await exportImages(app.storage), d = new Date(), z = n => String(n).padStart(2, '0');
+        downloadJson(b, `boardarchive-images-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.json`);
+        toast('이미지 파일을 만들었어요');
+      } }, '이미지만 내보내기', h('small', {}, 'EXPORT')),
+      h('button', { class: 'btn', onclick: () => imgIn.click() }, '이미지만 가져오기', h('small', {}, 'IMPORT'))),
+    h('div', { class: 'muted', style: 'margin-top:8px' }, '가져오면 같은 이미지는 더 최근 것을 남기고 합쳐요. 기록은 그대로예요.'), imgIn));
 
   root.append(h('div', { class: 'paper', id: 'storageCard', style: '--r:.5deg' },
     h('h3', {}, '저장 상태'),

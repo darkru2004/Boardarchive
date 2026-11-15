@@ -9,7 +9,7 @@ import { drawSeats, rivalSeatsFor } from '../core/seating.js';
 import { buildRecord, saveRecord, listRecords } from '../core/records.js';
 import { filterByDifficulty, overall, gameStats, characterStats, botStats, coopStats, computeAchievements } from '../core/stats.js';
 import { createMemoryStorage, ensureDataSchema, saveCampaign, loadCampaign } from '../core/storage.js';
-import { exportBackup, importBackup, migrateBackup, parseBackup } from '../core/backup.js';
+import { exportBackup, importBackup, migrateBackup, parseBackup, exportImages, parseImages, importImages } from '../core/backup.js';
 import { simulate, contractCheck, buildPlayers, runBotGame } from '../core/runner.js';
 import stopTest from './fixtures/stop-test.js';
 import nothanks from '../games/nothanks.js';
@@ -617,6 +617,23 @@ test('통계: 난이도 필터는 해당 난이도 판만 남기고, 기대 승�
   eq(o.winRate, 1); assert(Math.abs(o.expected - 0.5) < 1e-9, '기대 승률 0.5');
   const b = botStats(filterByDifficulty(recs, 'hard')); eq(b.rapi.winRate, 1); assert(Math.abs(b.rapi.expected - 0.5) < 1e-9);
   assert(Math.abs(gameStats(recs).g.expected - 0.5) < 1e-9);
+});
+
+
+test('이미지 백업: 이미지만 내보내고 가져오며 기록은 건드리지 않고, 형식이 다른 파일·이상한 이미지는 거른다', async () => {
+  const A = createMemoryStorage(), B = createMemoryStorage();
+  const img = 'data:image/jpeg;base64,AAAA';
+  await A.put('portraits', 'rapi', { dataUrl: img, updatedAt: '2026-01-02' });
+  await A.put('portraits', 'art:splendor:card-r:01', { dataUrl: img, updatedAt: '2026-01-02' });
+  await A.put('records', 'r1', { id: 'r1' });
+  const out = await exportImages(A);
+  eq(out.format, 'boardarchive-images'); eq(Object.keys(out.data.portraits).length, 2); assert(!('records' in out.data), '기록이 섞임');
+  await B.put('records', 'keep', { id: 'keep' }); await B.put('portraits', 'rapi', { dataUrl: img, updatedAt: '2026-02-01' });
+  const sum = await importImages(B, parseImages(JSON.stringify(out)));
+  eq(sum.added, 1); eq(sum.kept, 1); eq((await B.all('records')).length, 1);
+  throws(() => parseImages(JSON.stringify({ format: 'boardarchive-backup' })));
+  const bad = { format: 'boardarchive-images', data: { portraits: { 'x-1': { dataUrl: 'javascript:alert(1)' }, 'BAD KEY': { dataUrl: img } } } };
+  eq((await importImages(B, bad)).invalid, 2);
 });
 
 const s4 = simulate(stopTest, REAL, { games: 2000, count: 4, seed: 99 });

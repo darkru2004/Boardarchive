@@ -170,3 +170,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .artg{padding:8px 0;border-bottom:1px dashed #00000025}
 .athumb{position:relative;width:54px;height:70px;border-radius:6px;background:#222 center/cover no-repeat;box-shadow:0 1px 3px #0006}
 .athumb .ax{position:absolute;right:-5px;top:-5px;width:20px;height:20px;border-radius:50%;border:0;background:#222;color:#fff;font-size:13px;line-height:18px;padding:0}
+
+.recgames{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
+.recg{display:flex;flex-direction:column;gap:2px;padding:10px 12px;text-decoration:none;color:inherit;min-height:52px}
+.recg b{font-size:15px}.recg small{color:var(--ink2);font-size:11px}

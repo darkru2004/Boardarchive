@@ -2,7 +2,7 @@ import { createIdbStorage, ensureDataSchema } from '../core/storage.js';
 import { parseCharacters, makeLookup } from '../core/characters.js';
 import { isSafePortrait } from '../core/backup.js';
 import { h, toast } from './ui.js';
-import { homeView, dexView, recordsView, settingsView, setupPanel } from './views.js';
+import { homeView, dexView, recordsView, gameRecordsView, settingsView, setupPanel } from './views.js';
 
 const app = {
   fast: new URLSearchParams(location.search).has('fast'),
@@ -23,10 +23,11 @@ const app = {
   async render() {
     const root = h('div', {});
     document.body.classList.remove('playing');
-    const tab = location.hash.replace('#/', '') || 'home';
+    const [tab, sub] = (location.hash.replace('#/', '') || 'home').split('/');
     app.tab = ['home', 'dex', 'records', 'settings'].includes(tab) ? tab : 'home';
     try {
-      await { home: homeView, dex: dexView, records: recordsView, settings: settingsView }[app.tab](app, root);
+      if (app.tab === 'records' && sub) await gameRecordsView(app, root, decodeURIComponent(sub));
+      else await { home: homeView, dex: dexView, records: recordsView, settings: settingsView }[app.tab](app, root);
     } catch (e) { root.append(h('div', { class: 'banner' }, '화면 오류: ' + e.message)); console.error(e); }
     app.view.replaceChildren(root);
     renderNav();

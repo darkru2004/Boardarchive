@@ -70,7 +70,7 @@ try:
         # ---------- 기록 화면 ----------
         page.click("#nav a[data-tab=records]"); page.wait_for_selector("#overall")
         check("기록 화면", "총 1판이 표시되고 '첫 판' 업적이 달성 상태다", lambda: (
-            None if "총 1판" in page.inner_text("#overall") and page.locator(".ach.done[data-id='first-game']").count() == 1 else (_ for _ in ()).throw(AssertionError(page.inner_text("#overall")))))
+            None if "경쟁 1판" in page.inner_text("#overall") and page.locator(".ach.done[data-id='first-game']").count() == 1 else (_ for _ in ()).throw(AssertionError(page.inner_text("#overall")))))
         def char_detail():
             assert page.locator("#charTable .crow").count() == 3, "캐릭터 전적 줄 수 " + str(page.locator("#charTable .crow").count())
             page.click("#charTable .crow >> nth=0"); page.wait_for_selector(".modal .charDetail")
@@ -151,7 +151,7 @@ try:
             page.reload(); page.wait_for_selector("#nav a", timeout=10000)
             page.wait_for_selector(".gcard[data-id=nothanks]")
             page.click("#nav a[data-tab=records]"); page.wait_for_selector("#overall")
-            assert "총 1판" in page.inner_text("#overall"), "기록이 안 보임"
+            assert "경쟁 1판" in page.inner_text("#overall"), "기록이 안 보임"
         check("오프라인(PWA)", "인터넷을 끊고 새로고침해도 앱이 열리고 기록이 보인다", offline_ok)
         def offline_game():
             page.click("#nav a[data-tab=home]"); page.click(".gcard[data-id=nothanks]"); page.wait_for_selector("#setup .seat"); page.click("#btnStart"); page.wait_for_selector(".g-nt", timeout=8000)
@@ -478,8 +478,9 @@ try:
             seats: [{ seat: 0, human: true }, { seat: 1, human: false, characterId: 'rapi' }, { seat: 2, human: false, characterId: 'edel' }] })); })""")
         def coop_view():
             p3.reload(); p3.wait_for_selector("#nav a"); p3.click("#nav a[data-tab=records]"); p3.wait_for_selector("#overall")
-            assert "총 0판" in p3.inner_text("#overall"), "협력 기록이 경쟁 총 판수에 섞임: " + p3.inner_text("#overall")
-            p3.wait_for_selector("#coopBox"); t = p3.inner_text("#coopBox")
+            assert "경쟁 0판" in p3.inner_text("#overall"), "협력 기록이 경쟁 총 판수에 섞임: " + p3.inner_text("#overall")
+            assert p3.locator("#mateTable tr").count() >= 3, "기록 탭에 동료 표가 없음"
+            p3.goto(BASE + "?fast=1#/records/nothanks"); p3.wait_for_selector("#coopBox"); t = p3.inner_text("#coopBox")
             assert "3판 중 2번 클리어" in t and "67%" in t, t[:160]
             assert p3.locator("#mateTable tr").count() >= 3, "동료 표가 없음"
             assert p3.locator("#charTable").count() == 0, "경쟁 캐릭터 표에 협력 기록이 섞임"
@@ -495,14 +496,14 @@ try:
             seats: [{ seat: 0, human: true }, { seat: 1, human: false, characterId: 'rapi' }] })); })""")
         def diff_filter():
             p4.reload(); p4.wait_for_selector("#nav a"); p4.click("#nav a[data-tab=records]"); p4.wait_for_selector("#diffFilter")
-            assert "총 3판" in p4.inner_text("#overall"), p4.inner_text("#overall")[:80]
+            assert "경쟁 3판" in p4.inner_text("#overall"), p4.inner_text("#overall")[:80]
             p4.click("#diffFilter [data-f=easy]"); p4.wait_for_selector("#diffFilter [data-f=easy].on")
-            assert "총 2판" in p4.inner_text("#overall") and "승률 100%" in p4.inner_text("#overall"), p4.inner_text("#overall")[:120]
+            assert "경쟁 2판" in p4.inner_text("#overall") and "승률 100%" in p4.inner_text("#overall"), p4.inner_text("#overall")[:120]
             p4.click("#diffFilter [data-f=hard]"); p4.wait_for_selector("#diffFilter [data-f=hard].on")
-            assert "총 1판" in p4.inner_text("#overall") and "승률 0%" in p4.inner_text("#overall"), p4.inner_text("#overall")[:120]
+            assert "경쟁 1판" in p4.inner_text("#overall") and "승률 0%" in p4.inner_text("#overall"), p4.inner_text("#overall")[:120]
             assert p4.inner_text("#charTable tr.crow td:nth-child(2)").strip() == "1", "캐릭터 표가 필터를 따르지 않음"
             p4.click("#diffFilter [data-f=normal]"); p4.wait_for_selector("#diffFilter [data-f=normal].on")
-            assert "총 0판" in p4.inner_text("#overall") and p4.locator("#charTable").count() == 0
+            assert "경쟁 0판" in p4.inner_text("#overall") and p4.locator("#charTable").count() == 0
             p4.click("#diffFilter [data-f=all]")
         check("난이도 필터", "기록 화면에서 난이도를 고르면 총 판수·승률·캐릭터 표가 그 난이도 판만으로 다시 계산된다", diff_filter)
         def home_fav():
@@ -533,6 +534,33 @@ try:
             bk = p4.evaluate("import('./core/backup.js').then(m => m.exportBackup(window.__ba.storage)).then(b => Object.keys(b.data.portraits))")
             assert "game:nothanks" in bk, bk
         check("타이틀 이미지", "설정에서 게임 타이틀 이미지를 올리면 홈 카드에 나오고 백업 파일에도 들어간다", cover_img)
+        def game_page():
+            p4.goto(BASE + "?fast=1"); p4.wait_for_selector("#nav a"); p4.click("#nav a[data-tab=records]"); p4.wait_for_selector("#recGames .recg")
+            assert p4.locator("#recGames .recg").count() >= 6, "게임 목록"
+            p4.click("#recGames .recg[data-id=nothanks]"); p4.wait_for_selector("#gOverall")
+            t = p4.inner_text("#gOverall"); assert "3판 · 2승" in t, t[:120]
+            assert "2인" in p4.inner_text("#byPlayers") and p4.locator("#gCharTable .crow").count() == 1, "인원별/캐릭터별"
+            assert p4.locator("#gRecent .row").count() == 3, "최근 판 수"
+            p4.click("#diffFilter [data-f=hard]"); p4.wait_for_selector("#diffFilter [data-f=hard].on"); assert "1판 · 0승" in p4.inner_text("#gOverall"), p4.inner_text("#gOverall")[:100]
+            p4.click("#diffFilter [data-f=all]")
+            p4.click("#recBack"); p4.wait_for_selector("#recGames")
+            p4.goto(BASE + "?fast=1#/records/없는게임"); p4.wait_for_selector("text=없는 게임이에요")
+            p4.goto(BASE + "?fast=1"); p4.wait_for_selector(".gcard[data-id=nothanks]"); p4.click(".gcard[data-id=nothanks]"); p4.wait_for_selector("#btnRec"); p4.click("#btnRec")
+            p4.wait_for_selector("#gOverall")
+        check("게임별 기록", "기록 탭의 게임 목록과 게임 화면의 '기록' 버튼으로 그 게임만의 기록 페이지(전적·인원별·캐릭터별·최근 판)가 열린다", game_page)
+        def img_backup():
+            p4.click("#nav a[data-tab=settings]"); p4.wait_for_selector("#imagesCard")
+            with p4.expect_download() as dl: p4.click("#btnExportImages")
+            path = dl.value.path(); txt = open(path, encoding="utf-8").read(); o = json.loads(txt)
+            assert o["format"] == "boardarchive-images" and "records" not in o["data"] and len(o["data"]["portraits"]) >= 1, list(o["data"].keys())
+            n0 = p4.evaluate("window.__ba.portraits.size")
+            p4.evaluate("window.__ba.storage.clear('portraits').then(() => window.__ba.loadPortraits())")
+            assert p4.evaluate("window.__ba.portraits.size") == 0
+            p4.set_input_files("#imagesFile", path); p4.wait_for_function("window.__ba.portraits.size >= %d" % n0, timeout=8000)
+            assert p4.evaluate("window.__ba.storage.all('records').then(a => a.length)") == 3, "이미지 가져오기가 기록을 건드림"
+            bad = os.path.join(tempfile.mkdtemp(), "bad.json"); open(bad, "w").write('{"format":"boardarchive-backup"}')
+            p4.set_input_files("#imagesFile", bad); p4.wait_for_selector("text=이미지 백업 파일이 아닙니다")
+        check("이미지 백업", "이미지만 내보내고(기록 미포함) 비운 뒤 가져오면 복구되고, 기록은 그대로이며, 다른 파일은 거부된다", img_backup)
         def art_slot():
             import shutil
             d = tempfile.mkdtemp(); files = []
