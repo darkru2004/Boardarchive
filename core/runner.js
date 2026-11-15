@@ -97,7 +97,7 @@ export function contractCheck(mod, entry, characters, { games = 200, seed = 7 } 
   const m = mod && mod.meta;
   if (!m) return { ok: false, problems: ['meta 없음'], sims };
   for (const f of ['id', 'name', 'version']) if (typeof m[f] !== 'string' || !m[f]) problems.push(`meta.${f} 없음`);
-  if (!m.players || !Number.isInteger(m.players.min) || !Number.isInteger(m.players.max) || m.players.min < 2 || m.players.max < m.players.min) problems.push('meta.players {min,max} 오류');
+  if (!m.players || !Number.isInteger(m.players.min) || !Number.isInteger(m.players.max) || m.players.min < 1 || m.players.max < m.players.min) problems.push('meta.players {min,max} 오류');
   for (const fn of ['newGame', 'legalMoves', 'applyMove', 'botChoose', 'currentSeat', 'isOver', 'result', 'mount']) {
     if (typeof mod[fn] !== 'function') problems.push(`함수 없음: ${fn}`);
   }

@@ -89,7 +89,7 @@ export function validateRecord(r) {
   if (r.mode != null && !['solo', 'coop'].includes(r.mode)) e.push('mode 오류');
   if (r.mode === 'coop' && !['win', 'lose'].includes(r.outcome)) e.push('협력 기록은 outcome(win/lose)이 필요함');
   if (r.difficulty != null && !['easy', 'normal', 'hard', 'random'].includes(r.difficulty)) e.push('difficulty 오류');
-  if (!Array.isArray(r.players) || r.players.length < 2) e.push('players는 2명 이상');
+  if (!Array.isArray(r.players) || r.players.length < 1) e.push('players는 1명 이상');
   else {
     let humans = 0;
     for (const p of r.players) {

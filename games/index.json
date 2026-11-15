@@ -215,6 +215,25 @@
         "table2": "#180a16",
         "glyph": "♛"
       }
+    },
+    {
+      "id": "sprawlopolis",
+      "file": "sprawlopolis.js",
+      "name": "스프롤로폴리스",
+      "version": "1.0.0",
+      "mode": "coop",
+      "players": {
+        "min": 1,
+        "max": 4
+      },
+      "minutes": 15,
+      "desc": "카드 15장으로 도시를 지어요. 같은 구역은 크게 모으고 도로는 줄이고, 점수 조건 3장을 맞추면 승리. 혼자서도, 봇 동료와 카드를 넘기며 함께도.",
+      "theme": {
+        "accent": "#e8a33d",
+        "table": "#2c3a4a",
+        "table2": "#141c26",
+        "glyph": "▦"
+      }
     }
   ]
 }

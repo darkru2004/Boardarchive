@@ -22,7 +22,7 @@ export function drawSeats({ characters, count, rng, pinned = [], excludeIds = []
   const botsNeeded = count - 1;
   const all = characters.filter(c => c.status !== 'retired' && !excludeIds.includes(c.id));
   const pool = all.filter(c => pinned.includes(c.id)).concat(difficultyPool(all.filter(c => !pinned.includes(c.id)), difficulty, Math.max(0, botsNeeded - pinned.length), gameId, rng));
-  if (botsNeeded < 1) throw new Error('인원은 2명 이상');
+  if (botsNeeded < 0) throw new Error('인원은 1명 이상');
   if (pool.length < botsNeeded) throw new Error(`캐릭터가 부족합니다 (필요 ${botsNeeded}, 보유 ${pool.length})`);
   const pins = pinned.filter(id => pool.some(c => c.id === id)).slice(0, botsNeeded);
   const rest = rng.shuffle(pool.filter(c => !pins.includes(c.id)));

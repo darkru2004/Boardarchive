@@ -421,6 +421,42 @@
    "type": "coop_distinct_mates",
    "group": "협력",
    "n": 10
+  },
+  {
+   "id": "sprawlopolis-first",
+   "name": "스프롤로폴리스 입문",
+   "desc": "스프롤로폴리스 한 판 끝내기",
+   "type": "coop_played",
+   "group": "게임별",
+   "n": 1,
+   "gameId": "sprawlopolis"
+  },
+  {
+   "id": "sprawlopolis-win",
+   "name": "첫 도시 완성",
+   "desc": "스프롤로폴리스에서 목표 점수 달성",
+   "type": "coop_wins",
+   "group": "게임별",
+   "n": 1,
+   "gameId": "sprawlopolis"
+  },
+  {
+   "id": "sprawlopolis-win-5",
+   "name": "도시계획 전문가",
+   "desc": "스프롤로폴리스에서 5번 목표 달성",
+   "type": "coop_wins",
+   "group": "게임별",
+   "n": 5,
+   "gameId": "sprawlopolis"
+  },
+  {
+   "id": "sprawlopolis-streak-3",
+   "name": "스프롤로폴리스 3연속 달성",
+   "desc": "스프롤로폴리스에서 3연속 목표 달성",
+   "type": "coop_streak",
+   "group": "게임별",
+   "n": 3,
+   "gameId": "sprawlopolis"
   }
  ]
 }

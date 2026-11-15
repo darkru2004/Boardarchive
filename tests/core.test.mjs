@@ -107,7 +107,7 @@ await test('좌석 랜덤', '라이벌 상성: 같은 판에 라이벌이 앉았
 await test('기록·통계', '기록 한 줄이 형식 검사를 통과하고, 사람이 없거나 2명이면 거부된다', async () => {
   const r = rec('stop-test', SEATS, [1, 2, 3], '2026-01-01T00:00:00Z'); eq(validateRecord(r), []);
   assert(validateRecord({ ...r, players: r.players.map(p => ({ ...p, human: false, characterId: p.characterId || 'rapi' })) }).length > 0);
-  assert(validateRecord({ ...r, players: [r.players[0]] }).length > 0);
+  assert(validateRecord({ ...r, players: [] }).length > 0);   // 솔로(사람 1명) 기록은 허용, 빈 기록은 거부
 });
 await test('기록·통계', '전적·승률·캐릭터별 상대 전적이 기록에서 정확히 계산된다', () => {
   const R = [
