@@ -313,6 +313,25 @@
           }
         ]
       }
+    },
+    {
+      "id": "agentdecker",
+      "file": "agentdecker.js",
+      "name": "에이전트 데커",
+      "version": "1.0.0",
+      "mode": "coop",
+      "players": {
+        "min": 1,
+        "max": 1
+      },
+      "minutes": 60,
+      "desc": "스파이가 되어 경비 사이로 잠입하세요. 은신·전투 자원으로 장애물을 처리하고, 경보 50이 되기 전에 미션 5개를 완수하는 1인용 덱 빌딩.",
+      "theme": {
+        "accent": "#4aa3ff",
+        "table": "#10294a",
+        "table2": "#060f1a",
+        "glyph": "🕶"
+      }
     }
   ]
 }
