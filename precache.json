@@ -13,6 +13,7 @@
   "core/storage.js",
   "data/achievements.json",
   "data/characters.json",
+  "games/friday.js",
   "games/index.json",
   "games/kingdomino.js",
   "games/loveletter.js",
