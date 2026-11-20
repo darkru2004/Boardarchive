@@ -613,6 +613,9 @@ function rewBadge(r) {
   return h;
 }
 
+// 앱의 "카드 그림" 칸(group 'card')에 올리는 파일 순서 = card-01 ~ card-38
+const ART_ORDER = ['hide','punch','gun','interrogate','dontmove','bin','follow','machinegun','outofsight','flashy','keycard','chloroform','rock','misdirect','gearup','guarduniform','recall','planahead','distraction','emp','retrace','justthing','foresight','prisoner','burn','bazooka','optic','savebullets','superspeed','heavyhand','autorifle','swap','m1','m2','m3','m4','m5','alarm'];
+
 function goalProgress(s) {
   const g = MISSIONS[s.mission - 1].goal, parts = [];
   if (g.k === 'hand') parts.push([`손패 ${s.hand.length}/${g.n}`, s.hand.length >= g.n]);
@@ -629,6 +632,11 @@ function goalProgress(s) {
 function mountAD(self, container, ctx) {
   const rng = ctx.rng, th = ctx.theme || {};
   const fx = ctx.fx ? ctx.fx.scope(container) : new Proxy({}, { get: (t, k) => (k === 'on' ? false : k === 'rect' || k === 'union' ? () => null : () => Promise.resolve()) });
+  const artArr = ctx.art ? ctx.art('card') : [];
+  const ART = Array.isArray(artArr) && artArr.length >= ART_ORDER.length ? artArr : null;
+  const artOf = uid => (ART ? ART[ART_ORDER.indexOf(INST[uid].key)] || null : null);
+  const bgArr = ctx.art ? ctx.art('bg') : [];
+  const BG = Array.isArray(bgArr) && bgArr.length ? bgArr[0] : null;
   const timers = new Set(); let dead = false;
   const later = (fn, ms) => { const id = setTimeout(() => { timers.delete(id); if (!dead) fn(); }, ms); timers.add(id); return id; };
   const safe = fn => { try { fn(); } catch (e) { /* 연출은 실패해도 게임을 멈추지 않는다 */ } };
@@ -649,6 +657,7 @@ function mountAD(self, container, ctx) {
     <div class="ad-over" hidden></div>
   </div>`;
   const root = container.querySelector('.g-ad');
+  if (BG) { root.style.backgroundImage = `linear-gradient(#0008,#000b),url(${BG})`; root.style.backgroundSize = 'cover'; root.style.backgroundPosition = 'center'; root.style.backgroundAttachment = 'local'; }
   const q = x => root.querySelector(x);
   const el = { top: q('.ad-top'), goal: q('.ad-goal'), line: q('.ad-line'), exit: q('.ad-exit'), pool: q('.ad-pool'), equip: q('.ad-equip'), hand: q('.ad-hand'), bar: q('.ad-bar'), log: q('.ad-log'), sheet: q('.ad-sheet'), over: q('.ad-over') };
 
@@ -663,6 +672,9 @@ function mountAD(self, container, ctx) {
     const blocked = blockReason(s, l);
     const cost = e.down ? null : effCost(s, l);
     const watch = cost && cost.n !== o.cost.n;
+    const img = e.down ? null : artOf(e.u);
+    if (img) return `<div class="ad-card ob img ${blocked ? 'blk' : ''} ${ui.sheet && ui.sheet.k === 'line' && ui.sheet.l === l ? 'sel' : ''}" data-act="line" data-l="${l}" data-u="${e.u}" style="background-image:url(${img})">
+      ${watch ? `<span class="ad-wc">${symSvg(o.cost.k, cost.n)}</span>` : ''}${last ? '<i class="ad-exm">출구</i>' : ''}${blocked ? '<i class="ad-lock">🔒</i>' : ''}<button class="ad-i" data-act="info" data-u="${e.u}">ⓘ</button></div>`;
     if (e.down) return `<div class="ad-card ob down" data-u="${e.u}"><div class="ad-dn"><b>기절</b><small>${esc(o.ko)}</small></div>${last ? '<i class="ad-exm">출구</i>' : ''}</div>`;
     return `<div class="ad-card ob ${blocked ? 'blk' : ''} ${ui.sheet && ui.sheet.k === 'line' && ui.sheet.l === l ? 'sel' : ''}" data-act="line" data-l="${l}" data-u="${e.u}">
       <div class="ad-rw"><span class="t">${esc(r.ko)}</span>${rewBadge(r)}</div>
@@ -672,7 +684,8 @@ function mountAD(self, container, ctx) {
       ${last ? '<i class="ad-exm">출구</i>' : ''}${blocked ? '<i class="ad-lock">🔒</i>' : ''}</div>`;
   }
   function handCard(uid, i, extra = '') {
-    const r = D(uid).rew;
+    const r = D(uid).rew, img = artOf(uid);
+    if (img) return `<div class="ad-card hd himg ${extra}" data-act="hand" data-i="${i}" data-u="${uid}" style="background-image:url(${img})"><button class="ad-i" data-act="info" data-u="${uid}">ⓘ</button></div>`;
     return `<div class="ad-card hd ${extra}" data-act="hand" data-i="${i}" data-u="${uid}"><div class="ad-hn">${esc(r.ko)}</div><div class="ad-hb">${rewBadge(r)}</div><div class="ad-ht">${esc(r.tx || '')}</div></div>`;
   }
   const faceMini = (uid, side = 'rew') => { const d = D(uid), r = d.rew; return side === 'rew' ? `<div class="ad-mini"><b>${esc(r.ko)}</b>${rewBadge(r)}<small>${esc(r.tx || '')}</small></div>` : `<div class="ad-mini"><b>${esc(d.ob.ko)}</b><small>${costTx(d.ob.cost)} · 경보 ${d.ob.alarm}</small></div>`; };
@@ -721,6 +734,7 @@ function mountAD(self, container, ctx) {
     if (sh.k === 'line') return lineSheet(sh);
     if (sh.k === 'hand') return handSheet(sh);
     if (sh.k === 'equip') { const en = s.equip[sh.i]; if (!en) return ''; const t = en.m ? MISSIONS[en.m - 1].rewTx : D(en.u).rew.tx; const nmx = en.m ? MISSIONS[en.m - 1].ko + ' 보상' : nm(en.u); return `<div class="ad-sh"><b>${esc(nmx)}</b><p>${esc(t)}</p>${!en.m && D(en.u).rew.free ? `<p class="hint">${TYPE_KO[D(en.u).rew.free]} 장애물을 고르면 "${esc(nm(en.u))} 사용" 지불 방법이 나옵니다.</p>` : ''}<div class="ad-sb"><button data-act="close">닫기</button></div></div>`; }
+    if (sh.k === 'info') return infoHtml(sh.u);
     if (sh.k === 'rules') return rulesHtml();
     if (sh.k === 'cards') return cardsHtml(sh);
     return '';
@@ -789,6 +803,15 @@ function mountAD(self, container, ctx) {
       }
     }
     return '';
+  }
+  function infoHtml(u) {
+    const d = D(u), r = d.rew, o = d.ob; if (!o) return '';
+    const rtx = (r.res ? `얻는 자원: ${resTx(r.res)}` : '') + (r.calc ? '버린 더미 2장당 전투 1' : '') + (r.draw ? ` 카드 ${r.draw}장 뽑기` : '');
+    return `<div class="ad-sh"><div class="ad-shh"><b>${esc(o.ko)}</b> <em>${esc(o.en)}</em></div>
+      <p class="rwp">${TYPE_KO[o.type]} · 비용 ${costTx(o.cost)} · 경보 ${o.alarm}</p>${o.tx ? `<p class="fxp">${esc(o.tx)}</p>` : ''}
+      <div class="ad-shh" style="margin-top:10px"><b>${esc(r.ko)}</b> <em>${esc(r.en)}</em></div>
+      <p class="rwp">${esc(rtx.trim())}${r.keep ? ' · KEEP(장비)' : ''}</p>${r.tx ? `<p class="fxp">${esc(r.tx)}</p>` : ''}
+      <div class="ad-sb"><button class="go" data-act="close">닫기</button></div></div>`;
   }
   function rulesHtml() {
     return `<div class="ad-sh rules"><div class="ad-shh"><b>규칙 요약</b></div><ul>
@@ -882,8 +905,19 @@ function mountAD(self, container, ctx) {
   }
 
   // ----- 입력 -----
+  let lp = null, lpDone = false;
+  const lpClear = () => { if (lp) { clearTimeout(lp); lp = null; } };
+  root.addEventListener('pointerdown', ev => {
+    const c = ev.target.closest('.ad-card[data-u]'); if (!c || ev.target.closest('.ad-i')) return;
+    lpDone = false; lpClear();
+    lp = setTimeout(() => { lp = null; lpDone = true; if (!dead && !s.pend) { ui.sheet = { k: 'info', u: +c.dataset.u }; draw(); safe(() => fx.buzz(12)); } }, 450);
+  });
+  ['pointerup', 'pointercancel', 'pointerleave', 'pointermove'].forEach(n => root.addEventListener(n, ev => { if (n === 'pointermove' && Math.abs(ev.movementX) + Math.abs(ev.movementY) < 4) return; lpClear(); }));
+  root.addEventListener('contextmenu', ev => { if (ev.target.closest('.ad-card')) ev.preventDefault(); });
   root.addEventListener('click', ev => {
+    if (lpDone) { lpDone = false; ev.stopPropagation(); return; }
     const t = ev.target.closest('[data-act]'); if (!t || dead) return;
+    if (t.dataset.act === 'info') { ui.sheet = { k: 'info', u: +t.dataset.u }; draw(); return; }
     const a = t.dataset.act, d = t.dataset;
     safe(() => fx.buzz(6));
     if (a === 'noop') return;
@@ -1033,5 +1067,10 @@ const AD_CSS = `
 .g-ad .ad-ov.win{box-shadow:0 0 0 2px #7fe29a,0 12px 30px #000c}.g-ad .ad-ov.lose{box-shadow:0 0 0 2px #ff6b6b,0 12px 30px #000c}
 .g-ad .ad-ov h2{margin:0 0 4px;font-size:24px;letter-spacing:.08em}.g-ad .ad-ov .sub{color:#aebde6;font-size:13px}
 .g-ad .ad-ovl{display:flex;flex-direction:column;gap:3px;margin:10px 0;font-size:12.5px;color:#7a89ad}.g-ad .ad-ovl .y{color:#bfe9cc}
+.g-ad .ad-card.ob.img{background-size:100% 100%;background-color:#0e1118;aspect-ratio:63/89;min-height:0;-webkit-touch-callout:none}
+.g-ad .ad-card.hd.himg{background-size:100% auto;background-position:top;background-repeat:no-repeat;min-height:0;aspect-ratio:1.45;padding:0;box-shadow:0 0 0 1.5px #7fa2ee inset,0 3px 8px #0008}
+.g-ad .ad-i{position:absolute;left:3px;top:3px;width:20px;height:20px;border:0;border-radius:50%;padding:0;font-size:12px;line-height:20px;background:#000a;color:#cfe0ff}
+.g-ad .ad-card.hd .ad-i{left:auto;right:2px;top:2px;width:16px;height:16px;font-size:10px;line-height:16px}
+.g-ad .ad-wc{position:absolute;right:5px;bottom:34%;background:#000b;border-radius:10px;padding:1px 3px;filter:drop-shadow(0 0 5px #ff6b6b)}
 @media (min-width:520px){.g-ad .ad-line{grid-template-columns:repeat(6,1fr)}.g-ad .ad-hs{grid-template-columns:repeat(6,1fr)}.g-ad .ad-card.ob{min-height:170px}}
 `;
