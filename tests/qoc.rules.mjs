@@ -1,5 +1,5 @@
 // Quests Over Coffee 규칙 테스트 — 손으로 만든 장면 + 봇 대량 플레이(불변식·종료·클리어율)
-import mod, { QUESTS, ITEMS, ENVS, SHOPS, card, legalMoves, applyMove, botChoose, result, scoreOf, gradeOf, boardPossible, helpCost, shopCost, outcomeOf, _internal as I } from '../games/qoc.js';
+import mod, { QUESTS, ITEMS, ENVS, SHOPS, card, legalMoves, applyMove, botChoose, result, scoreOf, gradeOf, boardPossible, helpCost, shopCost, outcomeOf, analysisOf, _internal as I } from '../games/qoc.js';
 import { makeRng } from '../core/rng.js';
 let pass = 0, fail = 0;
 const t = (name, cond) => { if (cond) pass++; else { fail++; console.log('  ✗ ' + name); } };
@@ -256,6 +256,26 @@ for (const [name, opt] of CONFIGS) {
   const a = mod.newGame({ rng: makeRng(77), options: { packs: ['base', 'sci', 'nc'], env: true } }), b = mod.newGame({ rng: makeRng(77), options: { packs: ['base', 'sci', 'nc'], env: true } });
   t('같은 시드면 같은 시작', JSON.stringify(a) === JSON.stringify(b));
 }
+
+// ---------- 12. 운 vs 선택 분석 ----------
+{
+  const z = scene({ q: 'b01', dice: [1, 1, 1], l: 3 });                      // 실패 ≤8, 성공 ≥11, 별 1
+  go(z, { a: 'reroll', m: 0b111 });
+  const st = z.an[z.an.length - 1].steps[0];
+  t('분석: 3개 모두 재굴림의 기대 점수는 정확히 계산(≈0.241)', Math.abs(st.ev - (108 / 216 - 56 / 216)) < 0.002 && st.vb === -1 && st.cl === 1);
+  const y = scene({ q: 'b01', dice: [3, 3, 3], l: 0, items: ['b-spy'] });     // 합 9(포기) → 망원경 +2 = 11 성공
+  go(y, { a: 'item', i: 0 }); const s2 = y.an[y.an.length - 1].steps[0];
+  t('분석: 결정적인 선택은 기대=실제(운 0), 이득 +1', s2.ev === s2.va && s2.va - s2.vb === 1);
+  let worst = 0, n = 0;
+  for (const [, opt] of CONFIGS) for (let g = 0; g < 60; g++) {
+    const r = makeRng(5000 + g), s = mod.newGame({ rng: r, options: opt });
+    while (!s.over) { const ch = botChoose(s, {}, r); applyMove(s, ch.move, r); }
+    if (s.dead) continue;
+    const a = analysisOf(s), sc = scoreOf(s); worst = Math.max(worst, Math.abs(a.total - (sc.stars - sc.pen))); n++;
+  }
+  t(`분석: 기대+운+선택 합이 실제 퀘스트 점수와 정확히 일치 (${n}판, 최대 오차 ${worst.toExponential(1)})`, n > 100 && worst < 1e-6);
+}
+
 console.log('\n봇(약한 기준선) 지표:'); for (const [k, v] of Object.entries(stats)) console.log(`  ${k}: 사망 ${(v.dead * 100).toFixed(0)}% · 클리어 ${(v.won * 100).toFixed(0)}% · 평균 점수 ${v.avgVP.toFixed(1)} · 평균 ${v.avgSteps.toFixed(0)}수`);
 console.log(`\nQOC 규칙 테스트: ${pass}/${pass + fail} 통과${fail ? ', 실패 ' + fail : ''}`);
 process.exit(fail ? 1 : 0);

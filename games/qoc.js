@@ -146,7 +146,7 @@ export function newState(rng, { packs = ['base'], mode = 'std', env = false, sid
     stars: qs.reduce((a, id) => a + card(id).stars, 0),
     kept: [], failed: [], voided: [], resolved: 0,
     envDeck: [], envCur: null, shop: null,
-    q: null, opq: [], pend: null, phase: 'init', ev: [], log: [], moves: 0, rolls: 0
+    q: null, opq: [], pend: null, phase: 'init', ev: [], log: [], moves: 0, rolls: 0, an: []
   };
   if (s.env) { s.envDeck = rng.shuffle(E.envs.map(e => e.id)); s.envCur = s.envDeck.shift(); }
   // 시작 아이템: 2장을 뽑아 1장을 고르고 나머지는 덱 맨 아래로
@@ -357,6 +357,7 @@ function rerollMask(s, mask, rng) {
 
 export function applyMove(s, m, rng) {
   if (s.over) throw new Error('이미 끝난 게임');
+  const A_ = anPre0(s, m);
   const legal = legalMoves(s);
   if (!legal.some(x => JSON.stringify(x) === JSON.stringify(m))) throw new Error('불법 수: ' + JSON.stringify(m));
   s.ev = []; s.moves++;
@@ -406,9 +407,11 @@ export function applyMove(s, m, rng) {
     case 'finish': finishGame(s); break;
     default: throw new Error('모르는 수');
   }
+  anPost(s, m, A_);
   if (!s.over) runOps(s, rng);
   return s;
 }
+function anPre0(s, m) { try { return anPre(s, m); } catch (e) { return null; } }
 
 // ---- 점수 ----
 export function gradeOf(s, vp) {
@@ -419,6 +422,52 @@ export function gradeOf(s, vp) {
   const d = s.stars - vp;
   const i = d <= 0 ? 0 : d <= 5 ? 1 : d <= 10 ? 2 : 3;
   return { tier: i, text: ['환상적이에요! 완벽한 모험가!', '잘했어요! 스스로 뿌듯해해도 돼요', '조금 아쉽지만 괜찮아요. 냉장고에 붙여둘 만해요', '내일도 열어요! 일찍 와서 공짜 커피 한 잔 하세요'][i] };
+}
+// ---- 운 vs 선택 분석(참조용): 퀘스트 점수(성공 별 − 실패 1)만 기준 ----
+// 점수는 합계의 함수라서 주사위 k개 합의 분포(P3)로 정확히 계산한다.
+const vSum = (q, t) => (t <= q.f.v ? -1 : t >= q.w.v ? q.stars : 0);
+const evAdd = (q, k, rest) => { if (k <= 0) return vSum(q, rest); let e = 0; for (const [t, p] of Object.entries(P3[k])) e += p * vSum(q, rest + +t); return e; };
+const r3 = x => Math.round(x * 1000) / 1000;
+function anPre(s, m) {
+  if (!s.an || !s.q || s.q.stage !== 'roll' || s.pend) return null;
+  const q = card(s.q.id), vals = dicesOf(s), cur = vals.reduce((a, b) => a + b, 0) + s.q.bonus, vb = vSum(q, cur);
+  const re = mask => { let k = 0, rest = cur; vals.forEach((v, i) => { if (mask & (1 << i)) { k++; rest -= v; } }); return evAdd(q, k, rest); };
+  let ev = null;
+  if (m.a === 'reroll') ev = re(m.m);
+  else if (m.a === 'help') ev = evAdd(q, 1, cur);
+  else if (m.a === 'item') { const it = card(s.items[m.i]); if (it.fx === 'reroll') ev = re(m.m); else if (it.fx === 'robo') ev = evAdd(q, 1, cur); else if (it.fx === 'plus2' || it.fx === 'set6') ev = null; else return null; }
+  else if (m.a === 'env' && (m.e === 'set' || m.e === 'nudge' || m.e === 'rain')) ev = null;
+  else return null;
+  return { vb, ev, l0: s.l, m0: s.m };
+}
+function anPost(s, m, A) {
+  if (!s.an) return;
+  if (m.a === 'pick') {
+    const q = card(m.q), vals = dicesOf(s), n = vals.length;
+    s.an.push({ q: q.id, st: q.stars, e0: r3(evAdd(q, n, 0)), v0: vSum(q, vals.reduce((a, b) => a + b, 0) + s.q.bonus), steps: [], v1: null }); return;
+  }
+  const e = s.an[s.an.length - 1];
+  if (!e || !s.q || e.q !== s.q.id) return;
+  if (m.a === 'done') {
+    e.v1 = vSum(card(s.q.id), dicesOf(s).reduce((a, b) => a + b, 0) + s.q.bonus);
+    log(s, `분석: 기대 ${e.e0.toFixed(1)} → 첫 굴림 ${e.v0 >= 0 ? '+' : ''}${e.v0} → 최종 ${e.v1 >= 0 ? '+' : ''}${e.v1}`); return;
+  }
+  if (A) {
+    const va = vSum(card(s.q.id), dicesOf(s).reduce((a, b) => a + b, 0) + s.q.bonus);
+    e.steps.push({ k: m.a, vb: A.vb, ev: r3(A.ev == null ? va : A.ev), va, cl: A.l0 - s.l, cm: A.m0 - s.m });
+  }
+}
+export function analysisOf(s) {
+  const out = { base: 0, l1: 0, sk: 0, l2: 0, sl: 0, sm: 0, rows: [], total: 0 };
+  for (const e of s.an || []) {
+    if (e.v1 == null) continue;
+    const adj = (s.voided || []).includes(e.q) ? -e.v1 : 0;      // 완전히 버려서 실패 −1을 피한 선택
+    let k = adj, l = 0;
+    for (const st of e.steps) { k += st.ev - st.vb; l += st.va - st.ev; out.sl += st.cl; out.sm += st.cm; }
+    out.base += e.e0; out.l1 += e.v0 - e.e0; out.sk += k; out.l2 += l;
+    out.rows.push({ q: e.q, st: e.st, e0: e.e0, l1: e.v0 - e.e0, k, l2: l, v1: e.v1 + adj, n: e.steps.length });
+  }
+  out.total = out.base + out.l1 + out.sk + out.l2; return out;
 }
 export function scoreOf(s) {
   const stars = s.kept.reduce((a, id) => a + card(id).stars, 0), pen = s.failed.length;
@@ -435,7 +484,7 @@ export function result(s) {
   const g = s.dead ? { tier: 99, text: '쓰러졌어요' } : gradeOf(s, sc.vp);
   const won = !s.dead && (s.mode === 'board' ? sc.vp >= 16 : g.tier <= 1);
   return { coop: { won, score: sc.vp }, summary: s.dead ? `쓰러졌어요 · 0점` : `${g.text} · ${sc.vp}점${s.mode === 'board' ? '(퀘스트 보드)' : `/${s.stars}`}`,
-    detail: { vp: sc.vp, stars: s.stars, board: s.mode === 'board', packs: s.packs, side: s.side, env: s.env, kept: s.kept.length, failed: s.failed.length, dead: s.dead, tier: g.tier } };
+    detail: { vp: sc.vp, stars: s.stars, board: s.mode === 'board', packs: s.packs, side: s.side, env: s.env, kept: s.kept.length, failed: s.failed.length, dead: s.dead, tier: g.tier, an: (() => { const a = analysisOf(s); return { base: +a.base.toFixed(2), luck: +(a.l1 + a.l2).toFixed(2), skill: +a.sk.toFixed(2) }; })() } };
 }
 
 // ---- 봇(자동 테스트·추천용): 합법 수 안에서만 고른다 ----
@@ -531,7 +580,7 @@ function mountQOC(mod, container, ctx) {
   const later = (fn, ms) => { const id = setTimeout(() => { timers.delete(id); if (!dead) fn(); }, ms); timers.add(id); return id; };
   const safe = fn => { try { fn(); } catch (e) { /* 연출이 실패해도 게임은 계속 */ } };
   let s = null, opts = loadOpts(), finished = false;
-  const ui = { sheet: null, sel: [], tab: 'base' };
+  const ui = { sheet: null, sel: [], tab: 'base', rev: null, revId: 0 };
 
   container.innerHTML = `<style>${QC_CSS}</style>
   <div class="g-qoc" style="--acc:${th.accent || '#e0a53a'};--bg1:${th.table || '#4a3426'};--bg2:${th.table2 || '#2a1d15'}">
@@ -605,16 +654,16 @@ function mountQOC(mod, container, ctx) {
         <div class="qc-qrow">${s.qAct.map(id => cardHTML(card(id), { cls: 'pickable' })).join('')}</div>
         <div class="qc-hint">누른 카드에서 <b>도전</b>을 선택하면 주사위를 굴립니다. 아이템·환경 효과는 왼쪽 카드를 눌러 쓸 수 있어요.</div>`;
     } else if (s.phase === 'roll') {
-      const c = card(s.q.id), o = outcomeOf(s), idle = !!s.pend;
+      const c = card(s.q.id), o = outcomeOf(s), rev = !!(ui.rev && ui.rev.size), idle = !!s.pend || rev, part = rev ? s.q.dice.reduce((a, d, i) => a + (ui.rev.has(i) ? 0 : d.v), s.q.bonus) : o.total;
       const mask = ui.sel.reduce((a, i) => a | (1 << i), 0), cost = helpCost(s, c.stars);
       const canHelp = mv.some(m => m.a === 'help'), canRe = mask && s.l >= 1;
-      el.c.innerHTML = `<div class="qc-roll"><div class="qc-rq">${cardHTML(c)}<div class="qc-rt"><b>${esc(c.ko)}</b> <i>${starsTx(c.stars)}</i>${questText(c, o)}</div></div>
-        <div class="qc-dice">${s.q.dice.map((d, i) => dieHTML(d, i, ui.sel.includes(i))).join('')}${s.q.bonus ? `<span class="qc-bonus">+${s.q.bonus}</span>` : ''}${s.q.shield ? '<span class="qc-shd" title="상자 준비됨">🛡</span>' : ''}</div>
-        <div class="qc-out ${o.res}"><div class="qc-total" data-total>${o.total}</div><div class="qc-bar"><span class="seg f" style="flex:${c.f.v - 2}">실패 ≤${c.f.v}</span><span class="seg a" style="flex:${c.w.v - c.f.v - 1}">포기</span><span class="seg w" style="flex:${19 - c.w.v}">성공 ≥${c.w.v}</span><i class="mk" style="left:${Math.max(1, Math.min(99, (o.total - 2.5) / 16 * 100))}%"></i></div>
-          <div class="qc-rs">${RES_KO[o.res]}${o.special ? ' + 특수조건!' : ''}</div></div>
+      el.c.innerHTML = `<div class="qc-roll"><div class="qc-rq">${cardHTML(c)}<div class="qc-rt"><b>${esc(c.ko)}</b> <i>${starsTx(c.stars)}</i>${questText(c, rev ? null : o)}</div></div>
+        <div class="qc-dice">${s.q.dice.map((d, i) => rev && ui.rev.has(i) ? dieHTML({ ...d, v: 1 + Math.floor(Math.random() * 6) }, i, false, 'rolling') : dieHTML(d, i, ui.sel.includes(i))).join('')}${s.q.bonus ? `<span class="qc-bonus">+${s.q.bonus}</span>` : ''}${s.q.shield ? '<span class="qc-shd" title="상자 준비됨">🛡</span>' : ''}</div>
+        <div class="qc-out ${rev ? 'rev' : o.res}"><div class="qc-total" data-total>${part}</div><div class="qc-bar"><span class="seg f" style="flex:${c.f.v - 2}">실패 ≤${c.f.v}</span><span class="seg a" style="flex:${c.w.v - c.f.v - 1}">포기</span><span class="seg w" style="flex:${19 - c.w.v}">성공 ≥${c.w.v}</span><i class="mk" style="left:${Math.max(1, Math.min(99, (part - 2.5) / 16 * 100))}%"></i></div>
+          <div class="qc-rs">${rev ? '굴리는 중…' : RES_KO[o.res] + (o.special ? ' + 특수조건!' : '')}</div></div>
         <div class="qc-act"><button data-skin="button" class="qc-btn" data-act="reroll" ${canRe && !idle ? '' : 'disabled'}>행운 재굴림<small>${mask ? `선택 ${ui.sel.length}개 · 행운 −1` : '주사위를 눌러 고르세요'}</small></button>
           <button data-skin="button" class="qc-btn" data-act="help" ${canHelp && !idle ? '' : 'disabled'}>도움 요청<small>${s.q.help >= 3 ? '더 못 불러요' : `돈 −${cost} · ${s.q.help}/3`}</small></button>
-          <button data-skin="button" class="qc-btn go" data-act="done" ${idle ? 'disabled' : ''}>결과 확정<small>${RES_KO[o.res]}${o.special ? ' + 특수' : ''}</small></button></div></div>`;
+          <button data-skin="button" class="qc-btn go" data-act="done" ${idle ? 'disabled' : ''}>결과 확정<small>${rev ? '…' : RES_KO[o.res] + (o.special ? ' + 특수' : '')}</small></button></div></div>`;
     } else if (s.phase === 'shop') {
       const sh = s.shop, shopC = card(sh.card);
       const full = s.items.length >= s.imax;
@@ -724,12 +773,33 @@ function mountQOC(mod, container, ctx) {
   }
 
   // ----- 끝 -----
+  function anHTML() {
+    const an = analysisOf(s); if (!an.rows.length) return '';
+    const f = x => (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(1), luck = an.l1 + an.l2;
+    const verdict = an.sk >= 1 && luck <= -0.5 ? '운은 따라주지 않았지만 내 선택으로 점수를 지켜냈어요.'
+      : an.sk >= 1 && luck >= 0.5 ? '운도 좋았고, 선택도 점수를 끌어올렸어요.'
+      : an.sk >= 1 ? '내 선택이 점수를 끌어올렸어요.'
+      : luck >= 1 ? '이번 판은 주사위 운 덕이 컸어요.'
+      : luck <= -1 ? '이번 판은 주사위 운이 나빴어요. 선택 탓은 아니에요.'
+      : an.sk <= -0.5 ? '선택이 기대값에는 아쉬웠어요 (재굴림·도움이 오히려 손해).'
+      : '운과 선택이 비슷하게 작용한 무난한 판이었어요.';
+    return `<div class="qc-an"><h4>운 vs 선택 <small>참조용 · 퀘스트 점수(별 − 실패)만 계산</small></h4>
+      <div class="qc-ar"><span>기준: 첫 굴림을 그냥 받았다면 기대 점수</span><b>${an.base.toFixed(1)}</b></div>
+      <div class="qc-ar luck"><span>첫 굴림 운</span><b>${f(an.l1)}</b></div>
+      <div class="qc-ar skill"><span>내 선택 <em>(재굴림·도움·아이템·버리기의 기대 이득)</em></span><b>${f(an.sk)}</b></div>
+      <div class="qc-ar luck"><span>선택 뒤 굴림 운</span><b>${f(an.l2)}</b></div>
+      <div class="qc-ar tot"><span>실제 퀘스트 점수 합</span><b>${an.total.toFixed(1)}</b></div>
+      <p class="qc-av">${verdict}</p>
+      <small class="qc-an-n">쓴 자원: 행운 ${an.sl} · 돈 ${an.sm}. 퀘스트 고르는 순서·상점 구매·아이템 점수는 계산에 넣지 않았어요.</small>
+      <details><summary>퀘스트별 보기</summary>${an.rows.map(r => `<div class="qc-arow"><b>${esc(card(r.q).ko)} ${starsTx(r.st)}</b><span>기대 ${r.e0.toFixed(1)} · 첫 굴림 ${f(r.l1)} · 선택 ${f(r.k)} · 재굴림 ${f(r.l2)} → <b>${r.v1 >= 0 ? '+' : '−'}${Math.abs(r.v1)}</b></span></div>`).join('')}</details></div>`;
+  }
   function showOver() {
     if (finished) return;
     const res = mod.result(s), sc = scoreOf(s);
     el.over.hidden = false;
     el.over.innerHTML = `<div class="qc-back"></div><div data-skin="panel" class="qc-sh ov ${s.dead ? 'lose' : res.coop.won ? 'win' : ''}"><h2>${s.dead ? '쓰러졌어요…' : res.coop.won ? '잘 마셨어요! ☕' : '다음 잔을 기약해요'}</h2><p class="sub">${esc(res.summary)}</p>
       <div class="qc-ovl"><span>성공 ${s.kept.length}장 (★${s.dead ? 0 : sc.stars})</span><span>실패 ${s.failed.length}장</span><span>포기·버림 ${s.resolved - s.kept.length - s.failed.length}장</span>${s.dead ? `<span>${esc(s.why || '')}</span>` : `<span>아이템 점수 ${sc.endvp}</span>`}</div>
+      ${s.dead ? '' : anHTML()}
       <div class="qc-shb"><button data-skin="button" class="qc-btn go" data-act="quit">결과 저장하고 나가기</button></div></div>`;
   }
 
@@ -739,10 +809,7 @@ function mountQOC(mod, container, ctx) {
     const die = i => root.querySelectorAll('.qc-die')[i], stat = k => root.querySelector(`[data-stat="${k}"] b`);
     const items = () => root.querySelectorAll('.qc-irow .qc-card');
     evs.slice(0, 14).forEach((e, n) => later(() => safe(() => {
-      if (e.t === 'roll') { root.querySelectorAll('.qc-die').forEach((d, i) => later(() => safe(() => fx.flip(d)), i * 70)); fx.sfx('deal'); }
-      else if (e.t === 'reroll') { const idx = Array.isArray(e.idx) ? e.idx : [...Array(s.q ? s.q.dice.length : 0).keys()].filter(i => e.idx & (1 << i)); idx.forEach((i, j) => later(() => safe(() => fx.flip(die(i))), j * 60)); fx.sfx('flip'); }
-      else if (e.t === 'die+') { fx.pop(die(e.i)); fx.sfx('chip'); }
-      else if (e.t === 'dieset') { fx.pop(die(e.i), 1.35); fx.sfx('chip'); }
+      if (e.t === 'dieset') { fx.pop(die(e.i), 1.35); fx.sfx('chip'); }
       else if (e.t === 'h' || e.t === 'l' || e.t === 'm') { const t = stat(e.t); if (t && e.v) { fx.float(t, `${e.v > 0 ? '+' : ''}${e.v}`, { color: e.v > 0 ? '#8be28b' : '#ff8a80', size: 26 }); fx.pop(t, 1.4); fx.sfx(e.v > 0 ? 'gain' : 'bad'); if (e.t === 'h' && e.v < 0) fx.shake(root, 5); fx.buzz(e.v < 0 ? 25 : 8); } }
       else if (e.t === 'resolve') { const t = root.querySelector('.qc-out') || root; fx.slam(t); if (e.res === 'win') { fx.sfx('win'); fx.burst(t, { color: '#ffd76a', n: 16 }); } else if (e.res === 'fail') fx.sfx('lose'); else fx.sfx('tap'); }
       else if (e.t === 'item+') { const it = items(); if (it.length) { fx.pop(it[it.length - 1]); fx.sfx('card'); } }
@@ -752,16 +819,49 @@ function mountQOC(mod, container, ctx) {
     }), n * 80));
   }
 
+  // ----- 주사위 한 개씩 공개 -----
+  const setFace = (d, v) => d.querySelectorAll('i').forEach((pp, c) => pp.classList.toggle('on', (PIPS[v] || []).includes(c)));
+  function revealIdx(evs) {
+    const set = new Set();
+    for (const e of evs) {
+      if (e.t === 'roll') (s.q ? s.q.dice : []).forEach((d, i) => set.add(i));
+      else if (e.t === 'reroll') (Array.isArray(e.idx) ? e.idx : []).forEach(i => set.add(i));
+      else if (e.t === 'die+') set.add(e.i);
+    }
+    return [...set].sort((a, b) => a - b);
+  }
+  function tumble(id) { if (id !== ui.revId || !ui.rev || !ui.rev.size) return; root.querySelectorAll('.qc-die.rolling').forEach(d => setFace(d, 1 + Math.floor(Math.random() * 6))); later(() => tumble(id), 85); }
+  function startReveal() {
+    const id = ui.revId, order = [...ui.rev];
+    safe(() => fx.sfx('deal')); tumble(id);
+    order.forEach((i, n) => later(() => revealOne(i, id), 650 + n * 500));
+  }
+  function revealOne(i, id) {
+    if (id !== ui.revId || !ui.rev) return;
+    ui.rev.delete(i); const last = !ui.rev.size; if (last) ui.rev = null;
+    draw();
+    safe(() => {
+      const d = root.querySelectorAll('.qc-die')[i]; if (d) fx.pop(d, 1.3);
+      fx.sfx('chip'); fx.buzz(10);
+      const t = root.querySelector('[data-total]'); if (t) { fx.float(t, '+' + s.q.dice[i].v, { color: '#f2c14e', size: 22 }); fx.pop(t, 1.25); }
+      if (last) { const o = outcomeOf(s), out = root.querySelector('.qc-out'); fx.slam(out); fx.sfx(o.res === 'win' ? 'win' : o.res === 'fail' ? 'lose' : 'tap'); if (o.res === 'win') fx.burst(out, { color: '#ffd76a', n: 14 }); if (o.special) fx.glow(root.querySelector('.qc-fr.x'), '#7fc4ff'); }
+    });
+  }
+  function skipReveal() { if (!ui.rev) return; ui.rev = null; ui.revId++; draw(); }
+
   // ----- 진행 -----
   function save() { try { if (!s.over && ctx.autosave) ctx.autosave(JSON.parse(JSON.stringify(s))); } catch (e) { /* 저장은 덤 */ } }
   function run(m) {
-    if (dead || !s || s.over) return;
+    if (dead || !s || s.over || (ui.rev && ui.rev.size)) return;
     const key = JSON.stringify(m);
     if (!legalMoves(s).some(x => JSON.stringify(x) === key)) { draw(); return; }
     try { mod.applyMove(s, m, rng); } catch (err) { log('(잘못된 수: ' + err.message + ')'); draw(); return; }
     const evs = s.ev.splice(0);
     ui.sel = []; ui.sheet = null;
+    const idx = fx.on ? revealIdx(evs) : [];
+    ui.rev = idx.length ? new Set(idx) : null; ui.revId++;
     draw(); animate(evs); save();
+    if (ui.rev) startReveal();
     if (s.over) later(showOver, fx.on ? 900 : 60);
   }
 
@@ -788,7 +888,7 @@ function mountQOC(mod, container, ctx) {
     if (a === 'tab') { ui.tab = t.dataset.k; draw(); return; }
     if (s.over) return;
     if (a === 'card') { if (s.pend) return; ui.sheet = { k: 'card', id: t.dataset.id }; draw(); return; }
-    if (a === 'die') { if (s.phase !== 'roll' || s.pend) return; const i = +t.dataset.i, k = ui.sel.indexOf(i); if (k >= 0) ui.sel.splice(k, 1); else ui.sel.push(i); draw(); return; }
+    if (a === 'die') { if (ui.rev) { skipReveal(); return; } if (s.phase !== 'roll' || s.pend) return; const i = +t.dataset.i, k = ui.sel.indexOf(i); if (k >= 0) ui.sel.splice(k, 1); else ui.sel.push(i); draw(); return; }
     if (a === 'mv') { try { run(JSON.parse(t.dataset.mv)); } catch (e) { /* 무시 */ } return; }
     if (a === 'reroll') { const m = maskOf(); if (m) run({ a: 'reroll', m }); return; }
     if (a === 'help') { run({ a: 'help' }); return; }
@@ -920,5 +1020,14 @@ const QC_CSS = `
 .g-qoc .qc-opt{margin:.7em 0}.g-qoc .qc-opt em{display:block;font-style:normal;color:var(--acc);margin-bottom:.25em;font-size:.9em}.g-qoc .qc-opt>div{display:flex;gap:.4em;flex-wrap:wrap}.g-qoc .qc-opt small{display:block;color:#d9c8b0;font-size:.75em;margin-top:.2em}
 .g-qoc .qc-ovl{display:flex;flex-direction:column;gap:.25em;align-items:center;margin:.5em 0}
 .g-qoc .qc-sh.ov.lose h2{color:#ff8a80}.g-qoc .qc-sh.ov.win h2{color:#8be28b}
-@media (prefers-reduced-motion:reduce){.g-qoc *{transition:none!important}}
+@keyframes qc-tumble{0%{transform:rotate(0) translateY(0)}25%{transform:rotate(-16deg) translateY(-.3em)}50%{transform:rotate(12deg) translateY(0)}75%{transform:rotate(-9deg) translateY(-.2em)}100%{transform:rotate(0)}}
+.g-qoc .qc-die.rolling{animation:qc-tumble .24s infinite;box-shadow:0 .3em 0 #0007}
+.g-qoc .qc-out.rev .qc-rs{color:#d9c8b0}
+.g-qoc .qc-an{margin-top:.6em;padding:.6em .7em;border-radius:.6em;background:#0004;text-align:left}
+.g-qoc .qc-an h4{margin:0 0 .4em;color:var(--acc)}.g-qoc .qc-an h4 small{color:#d9c8b0;font-weight:400;font-size:.72em;margin-left:.4em}
+.g-qoc .qc-ar{display:flex;justify-content:space-between;gap:.6em;padding:.2em 0;border-bottom:1px solid #fff1;font-size:.9em}.g-qoc .qc-ar em{font-style:normal;color:#b9a58a;font-size:.8em}
+.g-qoc .qc-ar.skill b{color:#7fc4ff}.g-qoc .qc-ar.luck b{color:#f2c14e}.g-qoc .qc-ar.tot{font-weight:900;border-bottom:0}
+.g-qoc .qc-av{margin:.5em 0 .2em;font-weight:700}.g-qoc .qc-an-n{color:#b9a58a;font-size:.75em;display:block}
+.g-qoc .qc-an details{margin-top:.4em;font-size:.82em}.g-qoc .qc-an summary{cursor:pointer;color:var(--acc)}.g-qoc .qc-arow{display:flex;flex-direction:column;padding:.25em 0;border-bottom:1px solid #fff1}.g-qoc .qc-arow span{color:#d9c8b0}
+@media (prefers-reduced-motion:reduce){.g-qoc *{transition:none!important}.g-qoc .qc-die.rolling{animation:none}}
 `;
