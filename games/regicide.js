@@ -797,7 +797,7 @@ const CSS = `
 /* 카드 */
 .g-regicide .rg-card{position:relative;width:var(--cw,56px);aspect-ratio:5/7;flex:none;border-radius:calc(var(--cw,56px)*.085);filter:drop-shadow(0 2px 3px #000a)}
 .g-regicide .rg-face{display:block;width:100%;height:100%;overflow:visible}
-.g-regicide .rg-ix{font:800 19px/1 var(--fd,Georgia),serif;font-family:Georgia,'Times New Roman',serif}
+.g-regicide .rg-ix{font:800 19px/1 var(--fd,Georgia),serif}
 .g-regicide .rg-big{--cw:var(--bw)}
 .g-regicide .rg-mini{--cw:25px;filter:drop-shadow(0 1px 2px #000a)}
 .g-regicide .rg-pb{--cw:34px}

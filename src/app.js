@@ -2,6 +2,7 @@ import { createIdbStorage, ensureDataSchema } from '../core/storage.js';
 import { parseCharacters, makeLookup } from '../core/characters.js';
 import { isSafePortrait } from '../core/backup.js';
 import { h, toast } from './ui.js';
+import { applyAlbumFonts } from './fontkit.js';
 import { homeView, dexView, recordsView, gameRecordsView, settingsView, setupPanel } from './views.js';
 
 const app = {
@@ -53,6 +54,7 @@ async function boot() {
     app.lookup = makeLookup(app.characters);
     app.achievementDefs = ach.achievements; app.games = games.games;
     await app.loadPortraits();
+    try { await applyAlbumFonts(app); } catch { /* 폰트 실패는 기본 서체로 */ }
     if (navigator.storage && navigator.storage.persist) { try { await navigator.storage.persist(); } catch { /* 무시 */ } }
   } catch (e) {
     app.view.replaceChildren(h('div', { class: 'banner' }, '앱을 시작하지 못했습니다: ' + e.message));

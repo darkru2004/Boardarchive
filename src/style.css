@@ -175,3 +175,4 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .recg{display:flex;flex-direction:column;gap:2px;padding:10px 12px;text-decoration:none;color:inherit;min-height:52px}
 .recg b{font-size:15px}.recg small{color:var(--ink2);font-size:11px}
 .kdthumb{width:58px;height:58px;display:grid;place-items:center;background:#00000014;border-radius:6px;flex:none;overflow:hidden}.kdthumb svg{max-width:54px;max-height:54px}
+.paper select{width:100%;max-width:100%;font:inherit;font-size:12px;padding:3px 2px;border:1px solid #00000030;border-radius:6px;background:#fffdf6;color:inherit}

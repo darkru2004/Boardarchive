@@ -665,15 +665,15 @@ const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Jua&display=swap');
 
 .g-nt,.g-nt button,.g-nt .nt-seat,.g-nt .nt-log,.g-nt .nt-rules,.g-nt .nt-hint{
- font-family:'Jua',ui-rounded,'Trebuchet MS',system-ui,sans-serif!important;
+ font-family:var(--ufk,'Jua',ui-rounded,'Trebuchet MS',system-ui,sans-serif)!important;
 }
 .g-nt .nt-deck:before,
 .g-nt .nt-card b,.g-nt .nt-card i,
 .g-nt .nt-c,.g-nt .nt-c:after{
- font-family:'Fredoka',ui-rounded,'Arial Rounded MT Bold',sans-serif!important;
+ font-family:var(--ufd,'Fredoka',ui-rounded,'Arial Rounded MT Bold',sans-serif)!important;
 }
 .g-nt .nt-nm,.g-nt .nt-st,.g-nt .nt-msg,.g-nt .nt-pot,.g-nt .nt-hint,
-.g-nt .nt-btn,.g-nt .nt-log,.g-nt .nt-rules{font-family:'Jua',ui-rounded,system-ui,sans-serif!important}
+.g-nt .nt-btn,.g-nt .nt-log,.g-nt .nt-rules{font-family:var(--ufk,'Jua',ui-rounded,system-ui,sans-serif)!important}
 
 /* Main card */
 .g-nt .nt-card{
@@ -701,14 +701,14 @@ const CSS = `
 }
 .g-nt .nt-card b{
  position:absolute;z-index:2;inset:0;display:flex;align-items:center;justify-content:center;
- padding:0 0 4px;font:700 78px/.9 'Fredoka',sans-serif!important;letter-spacing:-.065em;
+ padding:0 0 4px;font:700 78px/.9 var(--ufd,'Fredoka',sans-serif)!important;letter-spacing:-.065em;
  color:#79b9ed;-webkit-text-stroke:2.5px #fff4d9;paint-order:stroke fill;
  text-shadow:2px 2px 0 #275b98,-2px 2px 0 #275b98,2px -2px 0 #275b98,-2px -2px 0 #275b98,
  0 4px 0 #1c477e,0 6px 1px #593d24;
  transform:scaleX(.94);
 }
 .g-nt .nt-card i{
- position:absolute;z-index:3;font:700 15px/1 'Fredoka',sans-serif!important;
+ position:absolute;z-index:3;font:700 15px/1 var(--ufd,'Fredoka',sans-serif)!important;
  color:#3671aa;text-shadow:1px 1px 0 #fff8;
 }
 .g-nt .nt-card .tl{left:8px;top:7px}
@@ -719,7 +719,7 @@ const CSS = `
  position:relative;isolation:isolate;width:25px;height:35px;margin-right:-7px;
  display:inline-flex;align-items:center;justify-content:center;overflow:hidden;
  border:1px solid #e6d4a8;border-radius:3px;background:#fff2d4!important;
- color:#79b9ed!important;font:700 13px/1 'Fredoka',sans-serif!important;
+ color:#79b9ed!important;font:700 13px/1 var(--ufd,'Fredoka',sans-serif)!important;
  -webkit-text-stroke:.45px #fff4d9;paint-order:stroke fill;
  text-shadow:1px 1px 0 #24558e,-1px 1px 0 #24558e,1px -1px 0 #24558e,-1px -1px 0 #24558e,0 2px 0 #1c477e;
  box-shadow:0 2px 4px #0008, inset 0 0 0 1px #fff8;
@@ -735,11 +735,11 @@ const CSS = `
 }
 .g-nt .nt-c:after{
  content:attr(data-value);position:absolute;right:1px;bottom:0;
- color:#285b91;font:600 5px/1 'Fredoka',sans-serif!important;
+ color:#285b91;font:600 5px/1 var(--ufd,'Fredoka',sans-serif)!important;
  -webkit-text-stroke:0;text-shadow:none;opacity:.95;
 }
 .g-nt .nt-c.dim{filter:grayscale(1);opacity:.48}
-.g-nt .nt-table:before{font-family:'Jua',sans-serif!important;letter-spacing:.08em}
+.g-nt .nt-table:before{font-family:var(--ufk,'Jua',sans-serif)!important;letter-spacing:.08em}
 .g-nt .nt-btn{font-size:15px!important}
 
 /* Keep the vertical table compact without shrinking touch targets */

@@ -724,7 +724,7 @@ function mountFriday(self, container, ctx) {
 }
 
 const CSS = `
-.g-friday{--acc:#f0b24a;--tb:#14566b;--tb2:#0a2f3d;position:relative;display:flex;flex-direction:column;height:100%;min-height:560px;color:#eaf6f8;font-family:'Nanum Myeongjo',system-ui,sans-serif;background:radial-gradient(120% 80% at 50% 0%,var(--tb),var(--tb2));overflow:hidden}
+.g-friday{--acc:#f0b24a;--tb:#14566b;--tb2:#0a2f3d;position:relative;display:flex;flex-direction:column;height:100%;min-height:560px;color:#eaf6f8;font-family:var(--fk,'Nanum Myeongjo',system-ui,sans-serif);background:radial-gradient(120% 80% at 50% 0%,var(--tb),var(--tb2));overflow:hidden}
 .g-friday *{box-sizing:border-box}
 .g-friday button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .g-friday .fr-hud{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 10px;background:rgba(0,0,0,.28);border-bottom:1px solid rgba(255,255,255,.12);font-size:13px}

@@ -1,3 +1,4 @@
+import { exportFonts, importFonts } from './fonts.js';
 import { SCHEMA, APP_VERSION, validateRecord } from './schema.js';
 
 export const BACKUP_FORMAT = 'boardarchive-backup';
@@ -5,6 +6,7 @@ export const BACKUP_FORMAT = 'boardarchive-backup';
 export const isSafePortrait = u => typeof u === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(u);
 const PORTABLE_SETTINGS = ['unlocked']; // 기기마다 다른 값(마지막 백업 시각 등)은 백업에 넣지 않는다
 
+const fontPart = async storage => { const f = await exportFonts(storage); return Object.keys(f.fonts).length ? { fonts: f } : {}; };
 export async function exportBackup(storage) {
   const records = (await storage.all('records')).map(x => x.value);
   const portraits = {};
@@ -16,7 +18,7 @@ export async function exportBackup(storage) {
   return {
     format: BACKUP_FORMAT, schemaVersion: SCHEMA.backup, appVersion: APP_VERSION,
     exportedAt: new Date().toISOString(),
-    data: { records, portraits, campaigns, settings }
+    data: { records, portraits, campaigns, settings, ...(await fontPart(storage)) }
   };
 }
 
@@ -80,6 +82,7 @@ export async function importBackup(storage, input, { mode = 'merge', migrations,
     if (!(id in curU) || at < curU[id]) { if (!(id in curU)) summary.unlocked.added++; curU[id] = at; }
   }
   await storage.put('settings', 'unlocked', curU);
+  if (d.fonts) summary.fonts = await importFonts(storage, d.fonts);
   return summary;
 }
 
@@ -88,7 +91,7 @@ export const IMAGES_FORMAT = 'boardarchive-images';
 export async function exportImages(storage) {
   const portraits = {};
   for (const { key, value } of await storage.all('portraits')) portraits[key] = value;
-  return { format: IMAGES_FORMAT, schemaVersion: 1, appVersion: APP_VERSION, exportedAt: new Date().toISOString(), data: { portraits } };
+  return { format: IMAGES_FORMAT, schemaVersion: 1, appVersion: APP_VERSION, exportedAt: new Date().toISOString(), data: { portraits, ...(await fontPart(storage)) } };
 }
 export function parseImages(text) {
   let obj;
@@ -107,5 +110,6 @@ export async function importImages(storage, obj) {
     else if ((v.updatedAt || '') > (cur.updatedAt || '')) { await storage.put('portraits', key, v); sum.updated++; }
     else sum.kept++;
   }
+  if (obj.data.fonts) sum.fonts = await importFonts(storage, obj.data.fonts);
   return sum;
 }

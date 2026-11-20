@@ -1,6 +1,7 @@
 // 게임 실행기: 게임 모듈을 불러와 ctx를 만들어 주고, 끝나면 기록 저장·업적 판정·결과 화면을 처리한다.
 import { makeRng } from '../core/rng.js';
 import { artList } from './art.js';
+import { applyFonts } from './fontkit.js';
 import { buildPlayers } from '../core/runner.js';
 import { buildRecord, saveRecord, listRecords } from '../core/records.js';
 import { computeAchievements } from '../core/stats.js';
@@ -85,6 +86,7 @@ export async function launchGame(app, entry, seats, difficulty = null, resume = 
   };
   app.view.replaceChildren(root);
   document.body.classList.add('playing');
+  await applyFonts(app, entry.id, gameRoot);   // 사용자가 고른 폰트(없으면 기본)
   instance = mod.mount(gameRoot, ctx);
 }
 

@@ -7,6 +7,8 @@ import { filterByDifficulty, overall, gameStats, characterStats, botStats, coopS
 import { exportBackup, parseBackup, importBackup, migrateBackup, exportImages, parseImages, importImages } from '../core/backup.js';
 import { activeOnly } from '../core/characters.js';
 import { openArtManager } from './art.js';
+import { listFonts, saveFont, deleteFont, loadPrefs, savePref, isSafeFont, ALBUM_ID, FONT_MAX_BYTES, FONT_EXT } from '../core/fonts.js';
+import { applyAlbumFonts, forgetFace, ensureFace } from './fontkit.js';
 export { recordsView, gameRecordsView } from './recviews.js';
 import { launchGame, achCtx, AUTO_SLOT } from './host.js';
 import { makeFx, fxPrefs } from './fx.js';
@@ -245,6 +247,39 @@ export async function settingsView(app, root) {
     h('div', { class: 'muted', style: 'margin-top:10px' }, 'PC에서 만든 백업 파일을 폰에서 가져오면 기록·초상화가 그대로 옮겨져요.'),
     importBox, fileIn));
 
+  // 폰트: 파일을 올려 두고 게임·앨범마다 "본문 / 제목·숫자" 폰트를 고른다
+  const fonts = await listFonts(app.storage), fprefs = await loadPrefs(app.storage);
+  await Promise.all(fonts.map(f => ensureFace(app, f.id)));   // 목록 미리보기용
+  const b64 = buf => { let s = ''; const u = new Uint8Array(buf); for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
+  const fontIn = h('input', { type: 'file', accept: '.ttf,.otf,.woff,.woff2', multiple: true, style: 'display:none', id: 'fontFile', onchange: async e => {
+    const files = [...e.target.files]; e.target.value = ''; let ok = 0;
+    for (const f of files) {
+      const ext = (f.name.split('.').pop() || '').toLowerCase();
+      if (!FONT_EXT.includes(ext)) { toast(`${f.name}: ttf·otf·woff·woff2 파일만 돼요`); continue; }
+      if (f.size > FONT_MAX_BYTES) { toast(`${f.name}: ${(f.size / 1048576).toFixed(1)}MB — 6MB 이하만 돼요`); continue; }
+      try {
+        const buf = await f.arrayBuffer(); const test = new FontFace('baf-test', buf); await test.load();   // 읽을 수 있는 폰트인지 확인
+        const id = 'f' + Date.now().toString(36) + Math.floor(Math.random() * 36).toString(36);
+        await saveFont(app.storage, { id, name: f.name.replace(/\.[^.]+$/, ''), ext, size: f.size, dataUrl: `data:font/${ext};base64,${b64(buf)}`, updatedAt: new Date().toISOString() }); ok++;
+      } catch { toast(`${f.name}: 읽을 수 없는 폰트예요`); }
+    }
+    if (ok) toast(`폰트 ${ok}개를 저장했어요`); app.render();
+  } });
+  const fsel = (gid, slot) => h('select', { 'data-g': gid, 'data-slot': slot, onchange: async e => {
+    await savePref(app.storage, gid, slot, e.target.value || null);
+    if (gid === ALBUM_ID) await applyAlbumFonts(app); toast('폰트를 바꿨어요' + (gid === ALBUM_ID ? '' : ' (게임을 새로 열면 적용)'));
+  } }, h('option', { value: '' }, '기본'), ...fonts.map(f => h('option', { value: f.id, selected: (fprefs[gid] || {})[slot] === f.id }, f.name)));
+  root.append(h('h2', {}, 'Fonts', h('small', {}, '폰트')), h('div', { class: 'paper', id: 'fontsCard', style: '--r:-.3deg' },
+    h('div', { class: 'row wrap', style: 'gap:6px;align-items:center' }, h('button', { class: 'btn small go', id: 'btnAddFont', onclick: () => fontIn.click() }, '폰트 파일 올리기'),
+      h('small', {}, `.ttf .otf .woff .woff2 · 6MB 이하 · ${fonts.length}개 저장됨`)),
+    fonts.length ? h('div', { style: 'margin-top:6px' }, ...fonts.map(f => h('div', { class: 'row', 'data-f': f.id, style: 'gap:6px;align-items:center;padding:3px 0' },
+      h('div', { class: 'grow', style: `font-family:'baf-${f.id}'` }, f.name, h('small', { style: 'margin-left:6px;font-family:inherit' }, `${(f.size / 1048576).toFixed(1)}MB`)),
+      h('button', { class: 'btn small', onclick: async () => { await deleteFont(app.storage, f.id); forgetFace(f.id); await applyAlbumFonts(app); toast('폰트를 지웠어요'); app.render(); } }, '지우기')))) : null,
+    fonts.length ? h('div', { style: 'margin-top:10px' },
+      h('div', { class: 'row', style: 'gap:6px;font-size:11px;color:var(--ink2)' }, h('div', { class: 'grow' }), h('div', { style: 'width:34%' }, '본문(글·대사)'), h('div', { style: 'width:34%' }, '제목·숫자')),
+      ...[{ id: ALBUM_ID, name: '앨범 (홈·기록·설정)' }, ...app.games].map(g => h('div', { class: 'row', 'data-fg': g.id, style: 'gap:6px;align-items:center;padding:4px 0;border-bottom:1px dashed #00000020' },
+        h('div', { class: 'grow' }, plainName(g.name)), h('div', { style: 'width:34%' }, fsel(g.id, 'body')), h('div', { style: 'width:34%' }, fsel(g.id, 'title'))))) : h('div', { class: 'muted', style: 'margin-top:8px' }, '폰트를 올리면 게임마다 본문·제목 폰트를 고를 수 있어요. 안 고르면 기본 서체 그대로예요.'),
+    fontIn));
   // 이미지만 백업(초상화·게임 타이틀·카드 그림)
   const imgIn = h('input', { type: 'file', accept: '.json,application/json', style: 'display:none', id: 'imagesFile', onchange: async e => {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;
@@ -256,7 +291,7 @@ export async function settingsView(app, root) {
   } });
   root.append(h('div', { class: 'paper taped', id: 'imagesCard', style: '--r:.5deg' },
     h('h3', {}, '이미지만 백업'),
-    h('div', { class: 'muted', style: 'margin-bottom:10px' }, `캐릭터 초상화 · 게임 타이틀 · 카드 일러스트 ${app.portraits.size}개. 기록은 들어가지 않아요.`),
+    h('div', { class: 'muted', style: 'margin-bottom:10px' }, `캐릭터 초상화 · 게임 타이틀 · 카드 일러스트 ${app.portraits.size}개와 폰트 ${fonts.length}개. 기록은 들어가지 않아요.`),
     h('div', { class: 'row wrap' },
       h('button', { class: 'btn go', id: 'btnExportImages', onclick: async () => {
         const b = await exportImages(app.storage), d = new Date(), z = n => String(n).padStart(2, '0');

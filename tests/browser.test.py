@@ -4,6 +4,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PORT = 8123
+GAMES_N = len(json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'games', 'index.json'), encoding='utf-8'))['games'])
 BASE = f"http://localhost:{PORT}/"
 SHOTS = os.environ.get("SHOTS", "/tmp/shots"); os.makedirs(SHOTS, exist_ok=True)
 results = []
@@ -33,7 +34,7 @@ try:
         page.goto(BASE + "?fast=1"); page.wait_for_selector("#nav a")
         check("시작 화면", "앱이 열리고 하단 탭 4개(게임·도감·기록·설정)가 보인다", lambda: (
             (_ for _ in ()).throw(AssertionError("탭 수 " + str(page.locator('#nav a').count()))) if page.locator('#nav a').count() != 4 else None))
-        check("시작 화면", "게임 목록에 스톱!(시험용)은 없고 정식 게임 6개가 있다", lambda: (page.wait_for_selector(".gcard[data-id=nothanks]"), None if page.locator(".gcard").count() == 6 and page.locator(".gcard[data-id=stop-test]").count() == 0 else (_ for _ in ()).throw(AssertionError("게임 카드 수 " + str(page.locator(".gcard").count())))))
+        check("시작 화면", "게임 목록에 스톱!(시험용)은 없고 정식 게임이 목록 수만큼 있다", lambda: (page.wait_for_selector(".gcard[data-id=nothanks]"), None if page.locator(".gcard").count() == GAMES_N and page.locator(".gcard[data-id=stop-test]").count() == 0 else (_ for _ in ()).throw(AssertionError("게임 카드 수 " + str(page.locator(".gcard").count())))))
         page.screenshot(path=f"{SHOTS}/1-home.png")
 
         # ---------- 게임 한 판 ----------
@@ -602,6 +603,31 @@ try:
             p4.click("#kdBoard .kdtop >> nth=1"); p4.wait_for_selector(".modal svg"); assert "40점" in p4.inner_text(".modal"); p4.click(".modal .btn.go")
             p4.screenshot(path=f"{SHOTS}/17-kd-board.png", full_page=True)
         check("게임별 기록", "킹도미노 기록 페이지에 최고 점수 TOP10이 높은 순으로 나오고, 저장된 왕국은 그림으로 보이며 눌러서 크게 볼 수 있다", kd_board)
+        def fonts_ui():
+            ttf = "/usr/share/fonts/truetype/dejavu/DejaVuSans-ExtraLight.ttf"
+            p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#fontsCard")
+            p4.set_input_files("#fontFile", ttf); p4.wait_for_selector("#fontsCard [data-f]")
+            badf = os.path.join(tempfile.mkdtemp(), "broken.ttf"); open(badf, "wb").write(b"not a font")
+            p4.set_input_files("#fontFile", badf); p4.wait_for_selector("text=읽을 수 없는 폰트")
+            assert p4.locator("#fontsCard [data-f]").count() == 1, "깨진 폰트가 저장됨"
+            fid = p4.get_attribute("#fontsCard [data-f]", "data-f")
+            p4.select_option("#fontsCard [data-fg=splendor] select[data-slot=body]", fid)
+            p4.select_option("#fontsCard [data-fg=_album] select[data-slot=title]", fid)
+            p4.wait_for_function("getComputedStyle(document.documentElement).getPropertyValue('--fd').includes('baf-')")
+            p4.goto(BASE + "?fast=1"); p4.wait_for_selector(".gcard[data-id=splendor]"); p4.click(".gcard[data-id=splendor]")
+            p4.wait_for_selector("#setup .seat"); p4.click("#btnStart"); p4.wait_for_selector(".g-splendor .sp-dock.mine", timeout=30000)
+            v = p4.evaluate("getComputedStyle(document.querySelector('.g-splendor')).getPropertyValue('--fk')")
+            assert "baf-" + fid in v, v
+            assert p4.evaluate("document.fonts.check(\"12px 'baf-%s'\")" % fid), "폰트가 로드되지 않음"
+            assert "baf-" in p4.evaluate("getComputedStyle(document.querySelector('.g-splendor')).fontFamily"), "게임 글자에 적용 안 됨"
+            p4.click(".gamebar button"); p4.click(".gamebar button"); p4.wait_for_selector(".gcard[data-id=splendor]")
+            p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#fontsCard")
+            with p4.expect_download() as dl: p4.click("#btnExportImages")
+            o = json.loads(open(dl.value.path(), encoding="utf-8").read()); assert fid in o["data"]["fonts"]["fonts"] and o["data"]["fonts"]["prefs"]["splendor"]["body"] == fid
+            p4.click("#fontsCard [data-f] .btn"); p4.wait_for_function("!document.querySelector('#fontsCard [data-f]')")
+            prefs = p4.evaluate("window.__ba.storage.get('settings','fontPrefs')"); assert not prefs or not prefs.get("splendor"), prefs
+            assert not p4.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--fd').includes('baf-')"), "앨범 폰트가 안 풀림"
+        check("폰트", "폰트 파일을 올리면 저장되고(깨진 파일은 거부), 게임·앨범에 따로 적용되며 백업에 들어가고, 지우면 선택도 함께 풀린다", fonts_ui)
         def img_backup():
             p4.click("#nav a[data-tab=settings]"); p4.wait_for_selector("#imagesCard")
             with p4.expect_download() as dl: p4.click("#btnExportImages")

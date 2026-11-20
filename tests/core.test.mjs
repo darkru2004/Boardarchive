@@ -9,6 +9,7 @@ import { drawSeats, rivalSeatsFor } from '../core/seating.js';
 import { buildRecord, saveRecord, listRecords } from '../core/records.js';
 import { filterByDifficulty, overall, gameStats, characterStats, botStats, coopStats, computeAchievements } from '../core/stats.js';
 import { createMemoryStorage, ensureDataSchema, saveCampaign, loadCampaign } from '../core/storage.js';
+import { listFonts, saveFont, deleteFont, loadPrefs, savePref, exportFonts, importFonts, isSafeFont } from '../core/fonts.js';
 import { exportBackup, importBackup, migrateBackup, parseBackup, exportImages, parseImages, importImages } from '../core/backup.js';
 import { simulate, contractCheck, buildPlayers, runBotGame } from '../core/runner.js';
 import stopTest from './fixtures/stop-test.js';
@@ -601,11 +602,7 @@ await test('배포 파일', '모든 경로가 상대 경로다 (하위 폴더에
   }
 });
 
-const fail = report('코어·규격 자동 테스트');
-
-// ---- 참고: 시험용 게임 봇 대전 승률 (4인, 2000판) ----
-
-test('통계: 난이도 필터는 해당 난이도 판만 남기고, 기대 승률(1/인원)을 계산한다', () => {
+await test('통계', '통계: 난이도 필터는 해당 난이도 판만 남기고, 기대 승률(1/인원)을 계산한다', () => {
   const mk = (diff, rank) => ({ v: 1, id: 'x' + Math.random(), at: '2026-01-01T00:00:00Z', gameId: 'g', mode: 'solo', difficulty: diff,
     players: [{ seat: 0, human: true, characterId: null, rank, score: 0 }, { seat: 1, human: false, characterId: 'rapi', rank: rank === 1 ? 2 : 1, score: 0 }] });
   const recs = [mk('easy', 1), mk('easy', 1), mk('hard', 2), mk(undefined, 1)];
@@ -620,7 +617,7 @@ test('통계: 난이도 필터는 해당 난이도 판만 남기고, 기대 승�
 });
 
 
-test('이미지 백업: 이미지만 내보내고 가져오며 기록은 건드리지 않고, 형식이 다른 파일·이상한 이미지는 거른다', async () => {
+await test('이미지 백업', '이미지 백업: 이미지만 내보내고 가져오며 기록은 건드리지 않고, 형식이 다른 파일·이상한 이미지는 거른다', async () => {
   const A = createMemoryStorage(), B = createMemoryStorage();
   const img = 'data:image/jpeg;base64,AAAA';
   await A.put('portraits', 'rapi', { dataUrl: img, updatedAt: '2026-01-02' });
@@ -637,16 +634,39 @@ test('이미지 백업: 이미지만 내보내고 가져오며 기록은 건드�
 });
 
 
-test('기록 detail(게임 전용 요약)은 4000자 이하 객체만 허용하고, 없어도 된다', () => {
-  const base = { v: 1, id: 'abcdefgh1', at: '2026-01-01T00:00:00Z', gameId: 'g', gameVersion: '1', mode: 'solo',
+await test('기록', '기록 detail(게임 전용 요약)은 4000자 이하 객체만 허용하고, 없어도 된다', () => {
+  const base = { v: 1, id: 'abcdefgh1', at: '2026-01-01T00:00:00Z', gameId: 'game-x', gameVersion: '1', mode: 'solo',
     players: [{ seat: 0, human: true, characterId: null, rank: 1, score: 3 }, { seat: 1, human: false, characterId: 'rapi', rank: 2, score: 2 }] };
   eq(validateRecord(base).length, 0);
   eq(validateRecord({ ...base, detail: { a: 1 } }).length, 0);
   assert(validateRecord({ ...base, detail: 'x' }).length > 0 && validateRecord({ ...base, detail: [1] }).length > 0);
   assert(validateRecord({ ...base, detail: { s: 'x'.repeat(4100) } }).length > 0, '너무 큰 detail');
-  const r = buildRecord({ game: { id: 'g', version: '1' }, seats: [{ seat: 0, human: true }, { seat: 1, characterId: 'rapi' }], result: { ranking: [{ seat: 0, rank: 1, score: 3 }, { seat: 1, rank: 2, score: 2 }], summary: '', detail: { k: 1 } } });
+  const r = buildRecord({ game: { id: 'game-x', version: '1' }, seats: [{ seat: 0, human: true }, { seat: 1, characterId: 'rapi' }], result: { ranking: [{ seat: 0, rank: 1, score: 3 }, { seat: 1, rank: 2, score: 2 }], summary: '', detail: { k: 1 } } });
   eq(r.detail, { k: 1 });
 });
+
+
+await test('폰트', '폰트: 저장·선택·삭제(선택도 같이 정리)·이미지 백업 왕복·이상한 폰트 거르기', async () => {
+  const A = createMemoryStorage(), B = createMemoryStorage();
+  const mk = (id, t) => ({ id, name: id, ext: 'ttf', size: 10, dataUrl: 'data:font/ttf;base64,AAAA', updatedAt: t });
+  await saveFont(A, mk('fa1', '2026-01-01')); await saveFont(A, mk('fb2', '2026-01-02'));
+  eq((await listFonts(A)).map(f => f.id), ['fa1', 'fb2']);
+  await savePref(A, 'splendor', 'body', 'fa1'); await savePref(A, 'splendor', 'title', 'fb2'); await savePref(A, '_album', 'body', 'fb2');
+  eq((await loadPrefs(A)).splendor, { body: 'fa1', title: 'fb2' });
+  await savePref(A, 'splendor', 'title', null); eq((await loadPrefs(A)).splendor, { body: 'fa1' });
+  const img = await exportImages(A); assert(img.data.fonts && Object.keys(img.data.fonts.fonts).length === 2, '이미지 백업에 폰트');
+  const full = await exportBackup(A); assert(full.data.fonts, '전체 백업에 폰트');
+  const sum = await importImages(B, parseImages(JSON.stringify(img))); eq(sum.fonts.added, 2);
+  eq((await loadPrefs(B)).splendor, { body: 'fa1' }); eq((await loadPrefs(B))._album, { body: 'fb2' });
+  await deleteFont(A, 'fb2'); eq((await listFonts(A)).length, 1); eq(await loadPrefs(A), { splendor: { body: 'fa1' } });
+  assert(isSafeFont('data:font/woff2;base64,AAAA') && !isSafeFont('data:text/html;base64,AAAA') && !isSafeFont('javascript:1'));
+  const bad = await importFonts(B, { fonts: { 'x': mk('x', '1'), 'ok1': { ...mk('ok1', '1'), dataUrl: 'data:text/html;base64,AA' } } });
+  eq(bad.invalid, 2);
+});
+
+const fail = report('코어·규격 자동 테스트');
+
+// ---- 참고: 시험용 게임 봇 대전 승률 (4인, 2000판) ----
 
 const s4 = simulate(stopTest, REAL, { games: 2000, count: 4, seed: 99 });
 console.log('\n[참고] 시험용 게임 4인 2000판 승률 (사람 자리=기준봇)');
