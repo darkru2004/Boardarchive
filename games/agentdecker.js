@@ -1068,7 +1068,7 @@ const AD_CSS = `
 .g-ad .ad-ov h2{margin:0 0 4px;font-size:24px;letter-spacing:.08em}.g-ad .ad-ov .sub{color:#aebde6;font-size:13px}
 .g-ad .ad-ovl{display:flex;flex-direction:column;gap:3px;margin:10px 0;font-size:12.5px;color:#7a89ad}.g-ad .ad-ovl .y{color:#bfe9cc}
 .g-ad .ad-card.ob.img{background-size:100% 100%;background-color:#0e1118;aspect-ratio:63/89;min-height:0;-webkit-touch-callout:none}
-.g-ad .ad-card.hd.himg{background-size:100% auto;background-position:top;background-repeat:no-repeat;min-height:0;aspect-ratio:1.45;padding:0;box-shadow:0 0 0 1.5px #7fa2ee inset,0 3px 8px #0008}
+.g-ad .ad-card.hd.himg{background-size:100% 100%;background-repeat:no-repeat;min-height:0;aspect-ratio:63/89;padding:0;background-color:#0e1118;box-shadow:0 0 0 1.5px #7fa2ee inset,0 3px 8px #0008}
 .g-ad .ad-i{position:absolute;left:3px;top:3px;width:20px;height:20px;border:0;border-radius:50%;padding:0;font-size:12px;line-height:20px;background:#000a;color:#cfe0ff}
 .g-ad .ad-card.hd .ad-i{left:auto;right:2px;top:2px;width:16px;height:16px;font-size:10px;line-height:16px}
 .g-ad .ad-wc{position:absolute;right:5px;bottom:34%;background:#000b;border-radius:10px;padding:1px 3px;filter:drop-shadow(0 0 5px #ff6b6b)}
