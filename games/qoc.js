@@ -108,7 +108,7 @@ const BY_ID = {}; [...QUESTS, ...ITEMS, ...ENVS, ...SHOPS].forEach(c => { BY_ID[
 export const card = id => BY_ID[id];
 export const STAT_KO = { h: '체력', l: '행운', m: '돈', i: '아이템' };
 export const opsText = ops => (ops.length ? ops.map(o => (o.t === 'void' ? '이 퀘스트를 완전히 버려도 됨' : o.t === 'i' ? `아이템 ${o.v > 0 ? '+' : '−'}${Math.abs(o.v)}${o.v > 0 ? ' 획득' : ' 잃음'}` : `${STAT_KO[o.t]} ${o.v > 0 ? '+' : '−'}${Math.abs(o.v)}`)).join(', ') : '아무 일 없음');
-export const condText = c => (c.t === 'pair' ? '같은 눈 2개 (페어)' : c.t === 'straight' ? '연속된 눈 3개 (스트레이트)' : c.t === 'dice' ? `주사위에 ${c.d.join(', ')} 포함` : `${STAT_KO[c.k]} ${c.op}${c.v}`);
+export const condText = c => (c.t === 'pair' ? '같은 눈 2개 (페어)' : c.t === 'straight' ? '연속된 눈 3개 (스트레이트)' : c.t === 'dice' ? `주사위 ${c.d.join(" · ")} 모두 나옴` : `${STAT_KO[c.k]} ${c.op}${c.v}`);
 
 // ===================================================================== 엔진
 const clone = o => JSON.parse(JSON.stringify(o));
