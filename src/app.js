@@ -25,7 +25,9 @@ const app = {
   },
   async render() {
     const root = h('div', {});
-    document.body.classList.remove('playing');
+    document.body.classList.remove('playing', 'wide', 'immersive');
+    document.querySelectorAll('.gmenu').forEach(e => e.remove());
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     const [tab, sub] = (location.hash.replace('#/', '') || 'home').split('/');
     app.tab = ['home', 'dex', 'records', 'settings'].includes(tab) ? tab : 'home';
     try {

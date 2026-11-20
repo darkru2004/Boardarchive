@@ -87,6 +87,16 @@ export async function launchGame(app, entry, seats, difficulty = null, resume = 
   };
   app.view.replaceChildren(root);
   document.body.classList.add('playing');
+  if (entry.wide) document.body.classList.add('wide');            // games/index.json의 wide:true — 앱 폭 제한(600px)을 풀고 화면 전체를 쓴다
+  ctx.immersive = !!entry.immersive;
+  if (entry.immersive) {                                          // immersive:true — 제목줄·나가기를 숨기고, 작은 ☰ 버튼(전체화면·나가기)만 남긴다
+    document.body.classList.add('immersive');
+    const fsOk = !!(document.documentElement.requestFullscreen && document.fullscreenEnabled);
+    const fsBtn = h('button', { onclick: () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => {}); menu.classList.remove('open'); } }, '전체화면 켜기/끄기');
+    const outBtn = h('button', { onclick: () => { exitBtn.click(); outBtn.textContent = exitBtn.textContent; } }, '나가기');
+    const menu = h('div', { class: 'gmenu' }, h('button', { class: 'gm', 'aria-label': '메뉴', onclick: () => menu.classList.toggle('open') }, '☰'), h('div', { class: 'gp' }, ...(fsOk ? [fsBtn] : []), outBtn));
+    document.body.append(menu);
+  }
   applySkins(app, entry.id, gameRoot);   // 사용자 UI 틀(없으면 기본)
   await applyFonts(app, entry.id, gameRoot);   // 사용자가 고른 폰트(없으면 기본)
   instance = mod.mount(gameRoot, ctx);

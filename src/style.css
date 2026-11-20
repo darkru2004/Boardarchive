@@ -192,3 +192,13 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .skprev{width:150px;height:86px;box-sizing:border-box;background:#10294a;border:0 solid transparent}
 .sknum{display:flex;align-items:center;gap:6px;font-size:12px;margin:2px 0}
 .sknum input{width:58px;padding:3px}
+
+/* 게임 화면 넓게/몰입 모드 (games/index.json: wide, immersive) */
+body.wide #app{max-width:none;padding:4px 4px calc(6px + env(safe-area-inset-bottom))}
+body.immersive{background:#04070d}
+body.immersive .gamebar{display:none}
+.gmenu{position:fixed;top:calc(6px + env(safe-area-inset-top));right:6px;z-index:90}
+.gmenu .gm{width:34px;height:34px;border-radius:50%;border:1px solid #ffffff55;background:#000b;color:#e8eefc;font-size:16px;line-height:1;padding:0;cursor:pointer}
+.gmenu .gp{display:none;position:absolute;right:0;top:40px;flex-direction:column;gap:6px;min-width:150px;padding:8px;background:#0b1830;border:1px solid #ffffff33;border-radius:10px}
+.gmenu.open .gp{display:flex}
+.gmenu .gp button{border:0;border-radius:8px;padding:9px 10px;background:#26396a;color:#e8eefc;font:inherit;font-size:13px;cursor:pointer}

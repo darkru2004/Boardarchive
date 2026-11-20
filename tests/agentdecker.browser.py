@@ -33,7 +33,7 @@ try:
         check("손패·줄 카드 클릭 동작", click_play)
         def resume():
             page.evaluate(DRIVE, 6); page.wait_for_timeout(400)
-            page.click("text=나가기"); page.click("text=정말 나갈까요"); page.wait_for_selector(".gcard[data-id=agentdecker]")
+            page.click(".gmenu .gm"); page.click(".gmenu .gp button:last-child"); page.click(".gmenu .gp button:last-child"); page.wait_for_selector(".gcard[data-id=agentdecker]")
             page.click(".gcard[data-id=agentdecker]"); page.wait_for_selector("#btnResume")
             page.click("#btnResume"); page.wait_for_selector(".g-ad .ad-line .ad-card")
         check("중간에 나갔다가 이어하기", resume)

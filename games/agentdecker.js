@@ -644,22 +644,17 @@ function mountAD(self, container, ctx) {
 
   container.innerHTML = `<style>${AD_CSS}</style>
   <div class="g-ad" style="--acc:${th.accent || '#4aa3ff'};--bg1:${th.table || '#10294a'};--bg2:${th.table2 || '#060f1a'}">
-    <div class="ad-top"></div>
-    <div class="ad-goal"></div>
-    <div class="ad-linewrap"><div class="ad-line"></div></div>
-    <div class="ad-exit"></div>
-    <div class="ad-pool"></div>
-    <div class="ad-equip"></div>
-    <div class="ad-hand"></div>
-    <div class="ad-bar"></div>
-    <div data-skin="panel" class="ad-log"></div>
+    <div class="ad-l"><div class="ad-top"></div><div class="ad-goal"></div><div class="ad-equip"></div><div data-skin="panel" class="ad-log"></div></div>
+    <div class="ad-c"><div class="ad-linewrap"><div class="ad-line"></div></div><div class="ad-exit"></div><div class="ad-pool"></div><div class="ad-hand"></div><div class="ad-bar"></div></div>
+    <div class="ad-r"><div data-skin="panel" class="ad-info"></div></div>
     <div class="ad-sheet" hidden></div>
     <div class="ad-over" hidden></div>
   </div>`;
   const root = container.querySelector('.g-ad');
+  root.classList.toggle('ad-imm', !!ctx.immersive);
   if (BG) { root.style.backgroundImage = `linear-gradient(#0008,#000b),url(${BG})`; root.style.backgroundSize = 'cover'; root.style.backgroundPosition = 'center'; root.style.backgroundAttachment = 'local'; }
   const q = x => root.querySelector(x);
-  const el = { top: q('.ad-top'), goal: q('.ad-goal'), line: q('.ad-line'), exit: q('.ad-exit'), pool: q('.ad-pool'), equip: q('.ad-equip'), hand: q('.ad-hand'), bar: q('.ad-bar'), log: q('.ad-log'), sheet: q('.ad-sheet'), over: q('.ad-over') };
+  const el = { top: q('.ad-top'), goal: q('.ad-goal'), line: q('.ad-line'), exit: q('.ad-exit'), pool: q('.ad-pool'), equip: q('.ad-equip'), hand: q('.ad-hand'), bar: q('.ad-bar'), log: q('.ad-log'), info: q('.ad-info'), sheet: q('.ad-sheet'), over: q('.ad-over') };
 
   const log = (t, cls) => { logLines.push({ t, cls }); if (logLines.length > 60) logLines.shift(); };
   const nm = u => D(u).rew.ko;          // 카드 윗면 이름(내 카드로서의 이름)
@@ -691,6 +686,12 @@ function mountAD(self, container, ctx) {
   const faceMini = (uid, side = 'rew') => { const d = D(uid), r = d.rew; return side === 'rew' ? `<div class="ad-mini"><b>${esc(r.ko)}</b>${rewBadge(r)}<small>${esc(r.tx || '')}</small></div>` : `<div class="ad-mini"><b>${esc(d.ob.ko)}</b><small>${costTx(d.ob.cost)} · 경보 ${d.ob.alarm}</small></div>`; };
 
   // ----- 화면 갱신 -----
+  const isPC = () => window.matchMedia('(min-width:1000px) and (min-height:560px)').matches;
+  const infoBody = u => { const d = D(u), r = d.rew, o = d.ob; if (!o) return '';
+    const rtx = (r.res ? `얻는 자원: ${resTx(r.res)}` : '') + (r.calc ? '버린 더미 2장당 전투 1' : '') + (r.draw ? ` 카드 ${r.draw}장 뽑기` : '');
+    return `<div class="ad-shh"><b>${esc(o.ko)}</b> <em>${esc(o.en)}</em></div><p class="rwp">${TYPE_KO[o.type]} · 비용 ${costTx(o.cost)} · 경보 ${o.alarm}</p>${o.tx ? `<p class="fxp">${esc(o.tx)}</p>` : ''}
+      <div class="ad-shh" style="margin-top:12px"><b>${esc(r.ko)}</b> <em>${esc(r.en)}</em></div><p class="rwp">${esc(rtx.trim())}${r.keep ? ' · KEEP(장비)' : ''}</p>${r.tx ? `<p class="fxp">${esc(r.tx)}</p>` : ''}`; };
+  const infoDefault = () => { el.info.innerHTML = `<div class="ad-shh"><b>카드 설명</b></div><p class="hint">카드 위에 마우스를 올리면 한글 설명이 여기에 나와요.</p><p class="hint">단축키<br>E · 스페이스 — 턴 종료<br>Esc — 창 닫기</p>`; };
   let fanUnits = 4, fanGroups = 4;
   function draw() {
     const m = MISSIONS[s.mission - 1];
@@ -739,8 +740,19 @@ function mountAD(self, container, ctx) {
   }
   // 한 화면에 들어오도록 카드 크기를 맞춘다(스킨 테두리가 차지하는 만큼 포함해 실제 높이를 재서 줄임)
   function fit() {
-    if (dead || !el.line.firstElementChild || el.sheet.matches(':not([hidden])') && false) return;
+    if (dead || !el.line.firstElementChild) return;
     root.style.removeProperty('--lw'); root.style.removeProperty('--hw');
+    if (isPC()) {
+      const cs = getComputedStyle(container), top = container.getBoundingClientRect().top + (window.scrollY || 0);
+      const chrome = ['borderTopWidth', 'borderBottomWidth', 'paddingTop', 'paddingBottom'].reduce((a, k) => a + (parseFloat(cs[k]) || 0), 0);
+      root.style.height = Math.max(520, window.innerHeight - top - chrome - 8) + 'px';
+      const Wc = el.hand.clientWidth, R = Math.max(220, root.clientHeight - 230);
+      let lw = Math.floor(Math.min(R * 0.5 * 63 / 89, (Wc - 5 * 8) / 6)), hw = Math.floor(Math.min(R * 0.5 * 63 / 89, (Wc - (fanGroups - 1) * 10) / fanUnits - 2));
+      root.style.setProperty('--lw', lw + 'px'); root.style.setProperty('--hw', hw + 'px');
+      for (let n = 0; n < 6; n++) { const over = el.bar.getBoundingClientRect().bottom - root.getBoundingClientRect().bottom + 8; if (over <= 0) break; lw = Math.floor(lw * 0.94); hw = Math.floor(hw * 0.94); root.style.setProperty('--lw', lw + 'px'); root.style.setProperty('--hw', hw + 'px'); }
+      return;
+    }
+    root.style.height = '';
     const gapH = 6, availH = el.hand.clientWidth;
     let hw = Math.floor((availH - gapH * (fanGroups - 1)) / fanUnits);
     const hw4 = Math.floor((availH - gapH * 3) / 4);
@@ -944,11 +956,16 @@ function mountAD(self, container, ctx) {
   let lp = null, lpDone = false;
   const lpClear = () => { if (lp) { clearTimeout(lp); lp = null; } };
   root.addEventListener('pointerdown', ev => {
-    const c = ev.target.closest('.ad-card[data-u]'); if (!c || ev.target.closest('.ad-i')) return;
+    const c = ev.target.closest('.ad-card[data-u]'); if (!c || ev.target.closest('.ad-i') || ev.pointerType === 'mouse') return;
     lpDone = false; lpClear();
     lp = setTimeout(() => { lp = null; lpDone = true; if (!dead && !s.pend) { ui.sheet = { k: 'info', u: +c.dataset.u }; draw(); safe(() => fx.buzz(12)); } }, 450);
   });
   ['pointerup', 'pointercancel', 'pointerleave', 'pointermove'].forEach(n => root.addEventListener(n, ev => { if (n === 'pointermove' && Math.abs(ev.movementX) + Math.abs(ev.movementY) < 4) return; lpClear(); }));
+  root.addEventListener('mouseover', ev => { if (!isPC()) return; const c = ev.target.closest('.ad-card[data-u]'); if (c && !c.classList.contains('down')) { const h = infoBody(+c.dataset.u); if (h) el.info.innerHTML = h; } });
+  const onKey = ev => { if (dead || ev.target.closest && ev.target.closest('input,textarea')) return;
+    if (ev.key === 'Escape' && ui.sheet && !s.pend) { ui.sheet = null; draw(); }
+    else if ((ev.key === 'e' || ev.key === 'E' || ev.key === ' ') && s && !s.over && !s.pend && !ui.sheet && el.over.hidden) { ev.preventDefault(); run({ a: 'end' }); } };
+  document.addEventListener('keydown', onKey);
   root.addEventListener('contextmenu', ev => { if (ev.target.closest('.ad-card')) ev.preventDefault(); });
   root.addEventListener('click', ev => {
     if (lpDone) { lpDone = false; ev.stopPropagation(); return; }
@@ -1006,13 +1023,14 @@ function mountAD(self, container, ctx) {
   function begin(state) {
     s = state || self.newGame({ players: ctx.players, rng });
     s.ev = [];
+    infoDefault();
     log(state ? '작전을 이어서 진행합니다.' : '작전 개시! 은신 6을 모아 첫 미션을 완수하세요.');
     draw();
   }
   const rs = ctx.resumeState;
   if (rs && rs.v === 1 && Array.isArray(rs.line) && !rs.over) begin(rs); else begin(null);
   container._ad = { get state() { return s; }, run, draw, get ui() { return ui; } };   // 테스트용 손잡이
-  return { destroy() { dead = true; window.removeEventListener('resize', onResize); timers.forEach(clearTimeout); timers.clear(); container.querySelectorAll('.fx-layer').forEach(e => e.remove()); } };
+  return { destroy() { dead = true; window.removeEventListener('resize', onResize); document.removeEventListener('keydown', onKey); timers.forEach(clearTimeout); timers.clear(); container.querySelectorAll('.fx-layer').forEach(e => e.remove()); } };
 }
 
 const AD_CSS = `
@@ -1128,5 +1146,26 @@ const AD_CSS = `
  transform:rotate(calc((var(--k,0) - (var(--n) - 1) / 2) * 3.5deg)) translateY(calc(var(--k,0) * -1px));box-shadow:0 0 0 1.5px #7fa2ee inset,-4px 3px 8px #000b}
 .g-ad .k0{--k:0}.g-ad .k1{--k:1}.g-ad .k2{--k:2}.g-ad .k3{--k:3}.g-ad .k4{--k:4}.g-ad .k5{--k:5}.g-ad .k6{--k:6}.g-ad .k7{--k:7}
 .g-ad .ad-cnt{position:absolute;right:-2px;bottom:-5px;z-index:20;font-style:normal;font-weight:900;font-size:12px;background:#ffe27a;color:#3a2a00;border-radius:9px;padding:0 6px;box-shadow:0 2px 4px #000a}
-@media (min-width:520px){.g-ad .ad-line{grid-template-columns:repeat(6,var(--lw,1fr))}.g-ad .ad-card.ob{min-height:170px}}
+.g-ad{display:flex;flex-direction:column}
+.g-ad .ad-l,.g-ad .ad-c{display:contents}.g-ad .ad-r{display:none}
+.g-ad .ad-top{order:1}.g-ad .ad-goal{order:2}.g-ad .ad-linewrap{order:3}.g-ad .ad-exit{order:4}.g-ad .ad-pool{order:5}.g-ad .ad-equip{order:6}.g-ad .ad-hand{order:7}.g-ad .ad-bar{order:8}.g-ad .ad-log{order:9}
+.g-ad.ad-imm .ad-mn{padding-right:42px}
+.g-ad .ad-info{--sk-panel-d:12px;padding:10px 12px;min-height:200px}.g-ad .ad-info p{font-size:14px;line-height:1.6;margin:6px 0;color:#d2def8}.g-ad .ad-info .hint{color:#8da0d0;font-size:13px}
+.g-ad .ad-info .ad-shh{font-size:19px;margin-bottom:4px}.g-ad .ad-info .rwp{color:#aebde6}
+@media (min-width:1000px) and (min-height:560px){
+ .g-ad{display:grid;grid-template-columns:minmax(260px,21%) minmax(0,1fr) minmax(280px,23%);gap:16px;padding:12px;align-items:stretch}
+ .g-ad .ad-l,.g-ad .ad-c,.g-ad .ad-r{display:flex;flex-direction:column;gap:8px;min-height:0;min-width:0}
+ .g-ad .ad-l>*,.g-ad .ad-c>*{order:0}
+ .g-ad .ad-log{flex:1;min-height:0;max-height:none;margin:0;overflow:auto;font-size:13px}
+ .g-ad .ad-linewrap{margin:0}.g-ad .ad-line{gap:8px;grid-template-columns:repeat(6,var(--lw,1fr))}
+ .g-ad .ad-c{justify-content:space-between}
+ .g-ad .ad-hs{gap:10px}
+ .g-ad .ad-bar{margin-top:0}.g-ad .ad-end{padding:12px;font-size:17px}
+ .g-ad .ad-r{display:flex}.g-ad.ad-imm .ad-r{padding-top:44px}
+ .g-ad .ad-mn{font-size:14px}.g-ad .ad-mn b{font-size:19px}
+ .g-ad .ad-gm{font-size:14px;padding:4px 8px}.g-ad .ad-gr{display:block;font-size:12px}
+ .g-ad .ad-ex{font-size:13px}.g-ad .ad-pl{font-size:14px}.g-ad .ad-pl b{font-size:22px}
+ .g-ad .ad-sheet{align-items:center}.g-ad .ad-sh{border-radius:16px;max-width:560px;max-height:86vh}
+}
+
 `;
