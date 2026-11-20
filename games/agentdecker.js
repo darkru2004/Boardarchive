@@ -674,7 +674,7 @@ function mountAD(self, container, ctx) {
     const watch = cost && cost.n !== o.cost.n;
     const img = e.down ? null : artOf(e.u);
     if (img) return `<div class="ad-card ob img ${blocked ? 'blk' : ''} ${ui.sheet && ui.sheet.k === 'line' && ui.sheet.l === l ? 'sel' : ''}" data-act="line" data-l="${l}" data-u="${e.u}" style="background-image:url(${img})">
-      ${watch ? `<span class="ad-wc">${symSvg(o.cost.k, cost.n)}</span>` : ''}${last ? '<i class="ad-exm">출구</i>' : ''}${blocked ? '<i class="ad-lock">🔒</i>' : ''}<button class="ad-i" data-act="info" data-u="${e.u}">ⓘ</button></div>`;
+      ${watch ? `<span class="ad-wc">${symSvg(o.cost.k, cost.n)}</span>` : ''}${last ? '<i class="ad-exm">출구</i>' : ''}${blocked ? '<i class="ad-lock">🔒</i>' : ''}</div>`;
     if (e.down) return `<div class="ad-card ob down" data-u="${e.u}"><div class="ad-dn"><b>기절</b><small>${esc(o.ko)}</small></div>${last ? '<i class="ad-exm">출구</i>' : ''}</div>`;
     return `<div class="ad-card ob ${blocked ? 'blk' : ''} ${ui.sheet && ui.sheet.k === 'line' && ui.sheet.l === l ? 'sel' : ''}" data-act="line" data-l="${l}" data-u="${e.u}">
       <div class="ad-rw"><span class="t">${esc(r.ko)}</span>${rewBadge(r)}</div>
@@ -685,7 +685,7 @@ function mountAD(self, container, ctx) {
   }
   function handCard(uid, i, extra = '') {
     const r = D(uid).rew, img = artOf(uid);
-    if (img) return `<div class="ad-card hd himg ${extra}" data-act="hand" data-i="${i}" data-u="${uid}" style="background-image:url(${img})"><button class="ad-i" data-act="info" data-u="${uid}">ⓘ</button></div>`;
+    if (img) return `<div class="ad-card hd himg ${extra}" data-act="hand" data-i="${i}" data-u="${uid}" style="background-image:url(${img})"></div>`;
     return `<div class="ad-card hd ${extra}" data-act="hand" data-i="${i}" data-u="${uid}"><div class="ad-hn">${esc(r.ko)}</div><div class="ad-hb">${rewBadge(r)}</div><div class="ad-ht">${esc(r.tx || '')}</div></div>`;
   }
   const faceMini = (uid, side = 'rew') => { const d = D(uid), r = d.rew; return side === 'rew' ? `<div class="ad-mini"><b>${esc(r.ko)}</b>${rewBadge(r)}<small>${esc(r.tx || '')}</small></div>` : `<div class="ad-mini"><b>${esc(d.ob.ko)}</b><small>${costTx(d.ob.cost)} · 경보 ${d.ob.alarm}</small></div>`; };
