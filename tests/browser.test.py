@@ -650,15 +650,15 @@ try:
         def skin_ad():
             p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#skinCard")
             p4.select_option("#skinScope", "agentdecker")
-            for sl in ("panel", "button", "card", "button-down"): p4.set_input_files(f"#skinCard [data-f={sl}]", "/tmp/frame-test.png"); p4.wait_for_selector(f"#skinCard [data-slot={sl}] .skprev")
+            for sl in ("panel", "button", "card", "bar", "button-down"): p4.set_input_files(f"#skinCard [data-f={sl}]", "/tmp/frame-test.png"); p4.wait_for_selector(f"#skinCard [data-slot={sl}] .skprev")
             p4.goto(BASE + "?fast=1"); p4.wait_for_selector(".gcard[data-id=agentdecker]"); p4.click(".gcard[data-id=agentdecker]")
             p4.wait_for_selector("#setup"); p4.click("#btnStart"); p4.wait_for_selector(".g-ad .ad-end", timeout=30000)
-            r = p4.evaluate("(()=>{const q=s=>getComputedStyle(document.querySelector(s)).borderImageSource.startsWith('url(');return [q('.g-ad .ad-end'),q('.g-ad .ad-gm'),q('.g-ad .ad-hs .ad-card')]})()")
+            r = p4.evaluate("(()=>{const q=s=>getComputedStyle(document.querySelector(s)).borderImageSource.startsWith('url(');const pq=s=>getComputedStyle(document.querySelector(s),'::after').borderImageSource.startsWith('url(');return [q('.g-ad .ad-end'),q('.g-ad .ad-gm'),pq('.g-ad .ad-hs .ad-card'),pq('.g-ad .ad-gauge')]})()")
             assert all(r), r
             assert 'button-down' in p4.evaluate("document.querySelector('.g-ad').parentElement.getAttribute('data-skins')") and p4.evaluate("getComputedStyle(document.querySelector('.g-ad .ad-end')).backgroundColor") == 'rgba(0, 0, 0, 0)', '버튼 배경이 안 꺼짐'
             p4.click(".gamebar button"); p4.click(".gamebar button"); p4.wait_for_selector(".gcard[data-id=agentdecker]")
             p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#skinCard"); p4.select_option("#skinScope", "agentdecker")
-            for sl in ("button-down", "panel", "button", "card"): p4.click(f"#skinCard [data-slot={sl}] .btn:has-text('지우기')"); p4.wait_for_selector(f"#skinCard [data-slot={sl}] .skprev", state="detached")
+            for sl in ("button-down", "panel", "button", "card", "bar"): p4.click(f"#skinCard [data-slot={sl}] .btn:has-text('지우기')"); p4.wait_for_selector(f"#skinCard [data-slot={sl}] .skprev", state="detached")
             p4.goto(BASE + "?fast=1"); p4.click(".gcard[data-id=agentdecker]"); p4.wait_for_selector("#setup"); p4.click("#btnStart"); p4.wait_for_selector(".g-ad .ad-end", timeout=30000)
             assert not p4.evaluate("getComputedStyle(document.querySelector('.g-ad .ad-gm')).borderImageSource.startsWith('url(')"), "지웠는데 틀이 남음"
             p4.click(".gamebar button"); p4.click(".gamebar button")

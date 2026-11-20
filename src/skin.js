@@ -7,11 +7,12 @@ import { h, toast } from './ui.js';
 
 export const SKIN_SLOTS = [
   { id: 'screen', label: '게임 화면 전체', hint: '게임 화면 바깥을 두르는 큰 틀', d: 22, slice: 18 },
-  { id: 'panel', label: '패널·상자', hint: '게임 안의 정보창·상자', d: 16, slice: 18 },
+  { id: 'panel', label: '패널·상자·메시지창', hint: '게임 안의 정보창·상자. 가운데 색은 아래에서 정해요(그림 가운데가 비어 있어도 채워져요)', d: 16, slice: 18, bg: '#0b1830' },
   { id: 'button', label: '버튼 (그림 전체가 버튼 몸통)', hint: '가로로 긴 그림 권장. 글자는 앱이 위에 올려요. 아래 눌림·비활성이 없으면 자동으로 어둡게·흐리게 보여줘요', d: 10, slice: 30 },
   { id: 'button-down', label: '버튼 눌림 (선택)', hint: '눌렀을 때 쓸 그림. 없으면 평소 그림을 어둡게', sub: 'button' },
   { id: 'button-off', label: '버튼 비활성 (선택)', hint: '누를 수 없을 때 쓸 그림. 없으면 평소 그림을 흐리게', sub: 'button' },
-  { id: 'card', label: '카드 테두리', hint: '카드 그림 위에 얹는 틀', d: 8, slice: 14 },
+  { id: 'card', label: '카드 테두리', hint: '카드 모양·크기는 그대로, 가장자리 위에 얹는 틀(가운데는 비워 둔 그림)', d: 8, slice: 14 },
+  { id: 'bar', label: '게이지 바 틀', hint: '경보 같은 가로 바 위에 얹는 틀(크기 그대로, 가운데는 비워 둔 그림)', d: 6, slice: 30 },
 ];
 export const SKIN_MAX_PX = 800;
 export const skinKey = (scope, slot) => `skin:${scope}:${slot}`;
@@ -27,7 +28,7 @@ export function findSkin(app, scope, slot) {
   }
   for (const sc of [scope, 'all']) {
     const r = app.skinRecs && app.skinRecs.get(skinKey(sc, slot));
-    if (r && r.dataUrl) return { dataUrl: r.dataUrl, slice: clamp(r.slice, 5, 45, def.slice), d: clamp(r.d, 2, 60, def.d) };
+    if (r && r.dataUrl) return { dataUrl: r.dataUrl, slice: clamp(r.slice, 5, 45, def.slice), d: clamp(r.d, 2, 60, def.d), bg: /^#[0-9a-f]{6}$/i.test(r.bg || '') ? r.bg : def.bg };
   }
   return null;
 }
@@ -36,8 +37,8 @@ export function applySkins(app, gameId, el) {
   const on = [];
   for (const s of SKIN_SLOTS) {
     const k = findSkin(app, gameId, s.id);
-    if (k) { el.style.setProperty(`--sk-${s.id}`, `url("${k.dataUrl}")`); el.style.setProperty(`--sk-${s.id}-s`, `${k.slice}%`); el.style.setProperty(`--sk-${s.id}-d`, `${k.d}px`); on.push(s.id); }
-    else for (const v of ['', '-s', '-d']) el.style.removeProperty(`--sk-${s.id}${v}`);
+    if (k) { el.style.setProperty(`--sk-${s.id}`, `url("${k.dataUrl}")`); el.style.setProperty(`--sk-${s.id}-s`, `${k.slice}%`); el.style.setProperty(`--sk-${s.id}-d`, `${k.d}px`); if (k.bg) el.style.setProperty(`--sk-${s.id}-bg`, k.bg); else el.style.removeProperty(`--sk-${s.id}-bg`); on.push(s.id); }
+    else for (const v of ['', '-s', '-d', '-bg']) el.style.removeProperty(`--sk-${s.id}${v}`);
   }
   if (on.length) el.setAttribute('data-skins', on.join(' ')); else el.removeAttribute('data-skins');
   if (on.includes('screen')) el.setAttribute('data-skin', 'screen'); else if (el.getAttribute('data-skin') === 'screen') el.removeAttribute('data-skin');
@@ -45,7 +46,28 @@ export function applySkins(app, gameId, el) {
 }
 export async function loadSkins(app) {
   app.skinRecs = new Map();
-  for (const { key, value } of await app.storage.all('portraits')) if (key.startsWith('skin:') && value && value.dataUrl) app.skinRecs.set(key, value);
+  for (const { key, value } of await app.storage.all('portraits')) {
+    if (!(key.startsWith('skin:') && value && value.dataUrl)) continue;
+    let v = value;
+    if (!v.trimmed) {   // 예전에 올린 그림: 투명한 바깥 여백을 한 번 잘라 틀이 가장자리에 딱 붙게 한다
+      try { v = { ...v, dataUrl: await trimDataUrl(v.dataUrl), trimmed: true }; await app.storage.put('portraits', key, v); app.portraits.set(key, v.dataUrl); } catch { v = value; }
+    }
+    app.skinRecs.set(key, v);
+  }
+}
+// 투명한 바깥 여백을 잘라낸다(틀이 그림 가장자리에 딱 붙도록)
+function trimCanvas(cv) {
+  const w = cv.width, h = cv.height, d = cv.getContext('2d').getImageData(0, 0, w, h).data;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 12) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  if (x1 < 0 || (x0 === 0 && y0 === 0 && x1 === w - 1 && y1 === h - 1)) return cv;
+  const o = document.createElement('canvas'); o.width = x1 - x0 + 1; o.height = y1 - y0 + 1;
+  o.getContext('2d').drawImage(cv, x0, y0, o.width, o.height, 0, 0, o.width, o.height); return o;
+}
+async function trimDataUrl(url) {
+  const img = new Image(); img.src = url; await img.decode();
+  const cv = document.createElement('canvas'); cv.width = img.naturalWidth; cv.height = img.naturalHeight; cv.getContext('2d').drawImage(img, 0, 0);
+  return trimCanvas(cv).toDataURL('image/png');
 }
 
 // 올린 그림을 투명도를 유지한 채 긴 변 800px 이하로 줄여 PNG로 저장
@@ -54,12 +76,12 @@ export async function fileToSkin(file) {
   const k = Math.min(1, SKIN_MAX_PX / Math.max(bmp.width, bmp.height));
   const cv = document.createElement('canvas'); cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
   cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
-  return cv.toDataURL('image/png');
+  return trimCanvas(cv).toDataURL('image/png');
 }
 async function putSkin(app, scope, slot, patch) {
   const key = skinKey(scope, slot), cur = app.skinRecs.get(key) || {};
   const def = SKIN_SLOTS.find(s => s.id === slot);
-  const rec = { dataUrl: cur.dataUrl, slice: def.slice, d: def.d, ...cur, ...patch, updatedAt: new Date().toISOString() };
+  const rec = { dataUrl: cur.dataUrl, slice: def.slice, d: def.d, ...cur, ...patch, trimmed: true, updatedAt: new Date().toISOString() };
   await app.storage.put('portraits', key, rec); app.portraits.set(key, rec.dataUrl); app.skinRecs.set(key, rec);
   return rec;
 }
@@ -87,11 +109,12 @@ export function skinCard(app, games, plainName = n => n) {
         const num = (name, lbl, a, b, val) => h('label', { class: 'sknum' }, lbl, h('input', { type: 'number', min: a, max: b, step: 1, value: val, 'data-n': name, disabled: !own, onchange: async e => {
           const v = clamp(e.target.value, a, b, val); e.target.value = v; paint(await putSkin(app, scope, s.id, { [name]: v }));
         } }));
+        const bgIn = s.bg && own ? h('label', { class: 'sknum' }, '가운데 색', h('input', { type: 'color', 'data-n': 'bg', value: /^#[0-9a-f]{6}$/i.test(own.bg || '') ? own.bg : s.bg, onchange: async e => { await putSkin(app, scope, s.id, { bg: e.target.value }); } })) : null;
         return h('div', { class: 'skslot', 'data-slot': s.id },
           h('div', { class: 'row', style: 'gap:6px;align-items:center' }, h('b', { class: 'grow' }, s.label), h('small', {}, own ? '이 범위에 저장됨' : eff ? '공용 사용 중' : '없음 (기본 모양)'),
             h('button', { class: 'btn small', onclick: () => file.click() }, own ? '바꾸기' : '올리기'), own ? h('button', { class: 'btn small', onclick: async () => { await delSkin(app, scope, s.id); draw(); } }, '지우기') : null, file),
           h('div', { class: 'muted', style: 'font-size:11px' }, s.hint),
-          eff ? h('div', { class: 'row', style: 'gap:10px;align-items:center;margin-top:6px' }, prev, own && !s.sub ? h('div', {}, num('slice', '모서리 %', 5, 45, own.slice ?? s.slice), num('d', '화면 두께 px', 2, 60, own.d ?? s.d)) : null) : null);
+          eff ? h('div', { class: 'row', style: 'gap:10px;align-items:center;margin-top:6px' }, prev, own && !s.sub ? h('div', {}, num('slice', '모서리 %', 5, 45, own.slice ?? s.slice), num('d', '화면 두께 px', 2, 60, own.d ?? s.d), bgIn) : null) : null);
       }));
   };
   draw();
