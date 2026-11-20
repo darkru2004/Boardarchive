@@ -493,6 +493,33 @@
       "group": "게임별",
       "n": 3,
       "gameId": "friday"
+    },
+    {
+      "id": "maquis-first",
+      "name": "마키 입문",
+      "desc": "마키 한 판 끝내기",
+      "type": "coop_played",
+      "group": "게임별",
+      "n": 1,
+      "gameId": "maquis"
+    },
+    {
+      "id": "maquis-win",
+      "name": "마을을 지켜내다",
+      "desc": "마키에서 목표 2개를 달성하고 승리",
+      "type": "coop_wins",
+      "group": "게임별",
+      "n": 1,
+      "gameId": "maquis"
+    },
+    {
+      "id": "maquis-win-5",
+      "name": "저항군 지도자",
+      "desc": "마키에서 5번 승리",
+      "type": "coop_wins",
+      "group": "게임별",
+      "n": 5,
+      "gameId": "maquis"
     }
   ]
 }
