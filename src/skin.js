@@ -32,6 +32,7 @@ export function applySkins(app, gameId, el) {
     if (k) { el.style.setProperty(`--sk-${s.id}`, `url("${k.dataUrl}")`); el.style.setProperty(`--sk-${s.id}-s`, `${k.slice}%`); el.style.setProperty(`--sk-${s.id}-d`, `${k.d}px`); on.push(s.id); }
     else for (const v of ['', '-s', '-d']) el.style.removeProperty(`--sk-${s.id}${v}`);
   }
+  if (on.length) el.setAttribute('data-skins', on.join(' ')); else el.removeAttribute('data-skins');
   if (on.includes('screen')) el.setAttribute('data-skin', 'screen'); else if (el.getAttribute('data-skin') === 'screen') el.removeAttribute('data-skin');
   return on;
 }

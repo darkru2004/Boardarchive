@@ -647,6 +647,21 @@ try:
             for sl in ("screen", "panel"): p4.click(f"#skinCard [data-slot={sl}] .btn:has-text('지우기')"); p4.wait_for_selector(f"#skinCard [data-slot={sl}] .skprev", state="detached")
             p4.select_option("#skinScope", "splendor"); p4.click("#skinCard [data-slot=button] .btn:has-text('지우기')"); p4.wait_for_function("!window.__ba.skinRecs.has('skin:splendor:button')")
         check("UI 틀", "틀 그림을 올리면 공용·게임별로 저장되고 게임 화면에 씌워지며 백업에 들어가고, 지우면 원래 모양으로 돌아간다", skin_ui)
+        def skin_ad():
+            p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#skinCard")
+            p4.select_option("#skinScope", "agentdecker")
+            for sl in ("panel", "button", "card"): p4.set_input_files(f"#skinCard [data-f={sl}]", "/tmp/frame-test.png"); p4.wait_for_selector(f"#skinCard [data-slot={sl}] input[data-n=slice]")
+            p4.goto(BASE + "?fast=1"); p4.wait_for_selector(".gcard[data-id=agentdecker]"); p4.click(".gcard[data-id=agentdecker]")
+            p4.wait_for_selector("#setup"); p4.click("#btnStart"); p4.wait_for_selector(".g-ad .ad-end", timeout=30000)
+            r = p4.evaluate("(()=>{const q=s=>getComputedStyle(document.querySelector(s)).borderImageSource.startsWith('url(');return [q('.g-ad .ad-end'),q('.g-ad .ad-gm'),q('.g-ad .ad-hs .ad-card')]})()")
+            assert all(r), r
+            p4.click(".gamebar button"); p4.click(".gamebar button"); p4.wait_for_selector(".gcard[data-id=agentdecker]")
+            p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#skinCard"); p4.select_option("#skinScope", "agentdecker")
+            for sl in ("panel", "button", "card"): p4.click(f"#skinCard [data-slot={sl}] .btn:has-text('지우기')"); p4.wait_for_selector(f"#skinCard [data-slot={sl}] .skprev", state="detached")
+            p4.goto(BASE + "?fast=1"); p4.click(".gcard[data-id=agentdecker]"); p4.wait_for_selector("#setup"); p4.click("#btnStart"); p4.wait_for_selector(".g-ad .ad-end", timeout=30000)
+            assert not p4.evaluate("getComputedStyle(document.querySelector('.g-ad .ad-gm')).borderImageSource.startsWith('url(')"), "지웠는데 틀이 남음"
+            p4.click(".gamebar button"); p4.click(".gamebar button")
+        check("UI 틀", "에이전트 데커의 패널·버튼·카드에 틀이 씌워지고 지우면 원래 모양으로 돌아간다", skin_ad)
         def img_backup():
             p4.click("#nav a[data-tab=settings]"); p4.wait_for_selector("#imagesCard")
             with p4.expect_download() as dl: p4.click("#btnExportImages")

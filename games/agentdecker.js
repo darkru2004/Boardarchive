@@ -652,7 +652,7 @@ function mountAD(self, container, ctx) {
     <div class="ad-equip"></div>
     <div class="ad-hand"></div>
     <div class="ad-bar"></div>
-    <div class="ad-log"></div>
+    <div data-skin="panel" class="ad-log"></div>
     <div class="ad-sheet" hidden></div>
     <div class="ad-over" hidden></div>
   </div>`;
@@ -673,10 +673,10 @@ function mountAD(self, container, ctx) {
     const cost = e.down ? null : effCost(s, l);
     const watch = cost && cost.n !== o.cost.n;
     const img = e.down ? null : artOf(e.u);
-    if (img) return `<div class="ad-card ob img ${blocked ? 'blk' : ''} ${ui.sheet && ui.sheet.k === 'line' && ui.sheet.l === l ? 'sel' : ''}" data-act="line" data-l="${l}" data-u="${e.u}" style="background-image:url(${img})">
+    if (img) return `<div data-skin="card" class="ad-card ob img ${blocked ? 'blk' : ''} ${ui.sheet && ui.sheet.k === 'line' && ui.sheet.l === l ? 'sel' : ''}" data-act="line" data-l="${l}" data-u="${e.u}" style="background-image:url(${img})">
       ${watch ? `<span class="ad-wc">${symSvg(o.cost.k, cost.n)}</span>` : ''}${last ? '<i class="ad-exm">출구</i>' : ''}${blocked ? '<i class="ad-lock">🔒</i>' : ''}</div>`;
-    if (e.down) return `<div class="ad-card ob down" data-u="${e.u}"><div class="ad-dn"><b>기절</b><small>${esc(o.ko)}</small></div>${last ? '<i class="ad-exm">출구</i>' : ''}</div>`;
-    return `<div class="ad-card ob ${blocked ? 'blk' : ''} ${ui.sheet && ui.sheet.k === 'line' && ui.sheet.l === l ? 'sel' : ''}" data-act="line" data-l="${l}" data-u="${e.u}">
+    if (e.down) return `<div data-skin="card" class="ad-card ob down" data-u="${e.u}"><div class="ad-dn"><b>기절</b><small>${esc(o.ko)}</small></div>${last ? '<i class="ad-exm">출구</i>' : ''}</div>`;
+    return `<div data-skin="card" class="ad-card ob ${blocked ? 'blk' : ''} ${ui.sheet && ui.sheet.k === 'line' && ui.sheet.l === l ? 'sel' : ''}" data-act="line" data-l="${l}" data-u="${e.u}">
       <div class="ad-rw"><span class="t">${esc(r.ko)}</span>${rewBadge(r)}</div>
       <div class="ad-ob"><div class="ad-nm">${esc(o.ko)}</div><div class="ad-en">${esc(o.en)}</div>
         <div class="ad-row">${TYPE_SVG[o.type]}<span class="ad-cs ${watch ? 'up' : ''}">${symSvg(o.cost.k, cost.n)}</span>${alarmSvg(o.alarm)}</div>
@@ -685,8 +685,8 @@ function mountAD(self, container, ctx) {
   }
   function handCard(uid, i, extra = '') {
     const r = D(uid).rew, img = artOf(uid);
-    if (img) return `<div class="ad-card hd himg ${extra}" data-act="hand" data-i="${i}" data-u="${uid}" style="background-image:url(${img})"></div>`;
-    return `<div class="ad-card hd ${extra}" data-act="hand" data-i="${i}" data-u="${uid}"><div class="ad-hn">${esc(r.ko)}</div><div class="ad-hb">${rewBadge(r)}</div><div class="ad-ht">${esc(r.tx || '')}</div></div>`;
+    if (img) return `<div data-skin="card" class="ad-card hd himg ${extra}" data-act="hand" data-i="${i}" data-u="${uid}" style="background-image:url(${img})"></div>`;
+    return `<div data-skin="card" class="ad-card hd ${extra}" data-act="hand" data-i="${i}" data-u="${uid}"><div class="ad-hn">${esc(r.ko)}</div><div class="ad-hb">${rewBadge(r)}</div><div class="ad-ht">${esc(r.tx || '')}</div></div>`;
   }
   const faceMini = (uid, side = 'rew') => { const d = D(uid), r = d.rew; return side === 'rew' ? `<div class="ad-mini"><b>${esc(r.ko)}</b>${rewBadge(r)}<small>${esc(r.tx || '')}</small></div>` : `<div class="ad-mini"><b>${esc(d.ob.ko)}</b><small>${costTx(d.ob.cost)} · 경보 ${d.ob.alarm}</small></div>`; };
 
@@ -696,18 +696,18 @@ function mountAD(self, container, ctx) {
     // 상단
     const pct = Math.min(100, s.alarm / MAX_ALARM * 100);
     const done = s.alarmLog.map((a, i) => `<i>M${i + 1} ${a}</i>`).join('');
-    el.top.innerHTML = `<div class="ad-mn"><b>미션 ${s.mission}/5</b><span>턴 ${s.turn}</span><button class="ad-ib" data-act="rules">규칙</button><button class="ad-ib" data-act="cards">내 카드</button></div>
+    el.top.innerHTML = `<div class="ad-mn"><b>미션 ${s.mission}/5</b><span>턴 ${s.turn}</span><button data-skin="button" class="ad-ib" data-act="rules">규칙</button><button data-skin="button" class="ad-ib" data-act="cards">내 카드</button></div>
       <div class="ad-gauge"><div class="ad-gf ${pct > 70 ? 'hot' : ''}" style="width:${pct}%"></div><span>경보 ${s.alarm} / ${MAX_ALARM}</span></div>${done ? `<div class="ad-done">${done}</div>` : ''}`;
     // 미션 카드
     const gp = goalProgress(s), ok = goalMet(s);
-    el.goal.innerHTML = `<div class="ad-gm ${ok ? 'ok' : ''}"><div class="ad-gt"><b>${m.ko} 목표</b> ${esc(m.goalTx)}</div>
+    el.goal.innerHTML = `<div data-skin="panel" class="ad-gm ${ok ? 'ok' : ''}"><div class="ad-gt"><b>${m.ko} 목표</b> ${esc(m.goalTx)}</div>
       <div class="ad-gp">${gp.map(([t, k]) => `<span class="${k ? 'y' : ''}">${k ? '✓' : '·'} ${esc(t)}</span>`).join('')}</div><div class="ad-gr">보상: ${esc(m.rewTx)}</div></div>`;
     // 줄
     el.line.innerHTML = s.line.map((e, l) => lineCard(e, l)).join('');
     const ex = s.line[5];
     el.exit.innerHTML = `<div class="ad-ex">출구 ▶ ${ex ? (ex.down ? '기절한 카드가 나갑니다 (경보 +0)' : `${esc(on(ex.u))} 이(가) 나가면 <b>경보 +${D(ex.u).ob.alarm}</b>`) : '출구 칸이 비어 있어 이번 턴은 아무도 나가지 않습니다'}</div>`;
     // 자원
-    el.pool.innerHTML = `<div class="ad-pl"><span class="ps">${symSvg('s', null, 'sm')}<b>${s.pool.s}</b></span><span class="pf">${symSvg('f', null, 'sm')}<b>${s.pool.f}</b></span>
+    el.pool.innerHTML = `<div data-skin="panel" class="ad-pl"><span class="ps">${symSvg('s', null, 'sm')}<b>${s.pool.s}</b></span><span class="pf">${symSvg('f', null, 'sm')}<b>${s.pool.f}</b></span>
       <span class="pi">상호작용 <b>${s.used}/${s.maxInt}</b></span><span class="pd" data-act="cards">덱 ${s.deck.length} · 버림 ${s.discard.length}</span></div>`;
     // 장비
     el.equip.innerHTML = s.equip.length ? `<div class="ad-eq"><small>장비</small>${s.equip.map((en, i) => {
@@ -720,7 +720,7 @@ function mountAD(self, container, ctx) {
     const lock = !!s.pend;
     el.hand.innerHTML = `<div class="ad-hl">손패 ${s.hand.length}장${s.saved.length ? ` · 남겨 둔 카드 ${s.saved.length}` : ''}</div><div class="ad-hs ${lock ? 'lock' : ''}">${s.hand.map((u, i) => handCard(u, i)).join('') || '<span class="ad-none">손패 없음</span>'}</div>`;
     // 하단 버튼
-    el.bar.innerHTML = `<button class="ad-end ${ok ? 'go' : ''}" data-act="end" ${s.pend || s.over ? 'disabled' : ''}>${ok ? '미션 완료하기 (턴 종료)' : '턴 종료'}</button>`;
+    el.bar.innerHTML = `<button data-skin="button" class="ad-end ${ok ? 'go' : ''}" data-act="end" ${s.pend || s.over ? 'disabled' : ''}>${ok ? '미션 완료하기 (턴 종료)' : '턴 종료'}</button>`;
     el.log.innerHTML = logLines.slice(-14).reverse().map(l => `<div class="${l.cls || ''}">${esc(l.t)}</div>`).join('');
     drawSheet();
   }
@@ -733,7 +733,7 @@ function mountAD(self, container, ctx) {
     const sh = ui.sheet; if (!sh) return '';
     if (sh.k === 'line') return lineSheet(sh);
     if (sh.k === 'hand') return handSheet(sh);
-    if (sh.k === 'equip') { const en = s.equip[sh.i]; if (!en) return ''; const t = en.m ? MISSIONS[en.m - 1].rewTx : D(en.u).rew.tx; const nmx = en.m ? MISSIONS[en.m - 1].ko + ' 보상' : nm(en.u); return `<div class="ad-sh"><b>${esc(nmx)}</b><p>${esc(t)}</p>${!en.m && D(en.u).rew.free ? `<p class="hint">${TYPE_KO[D(en.u).rew.free]} 장애물을 고르면 "${esc(nm(en.u))} 사용" 지불 방법이 나옵니다.</p>` : ''}<div class="ad-sb"><button data-act="close">닫기</button></div></div>`; }
+    if (sh.k === 'equip') { const en = s.equip[sh.i]; if (!en) return ''; const t = en.m ? MISSIONS[en.m - 1].rewTx : D(en.u).rew.tx; const nmx = en.m ? MISSIONS[en.m - 1].ko + ' 보상' : nm(en.u); return `<div data-skin="panel" class="ad-sh"><b>${esc(nmx)}</b><p>${esc(t)}</p>${!en.m && D(en.u).rew.free ? `<p class="hint">${TYPE_KO[D(en.u).rew.free]} 장애물을 고르면 "${esc(nm(en.u))} 사용" 지불 방법이 나옵니다.</p>` : ''}<div class="ad-sb"><button data-act="close">닫기</button></div></div>`; }
     if (sh.k === 'info') return infoHtml(sh.u);
     if (sh.k === 'rules') return rulesHtml();
     if (sh.k === 'cards') return cardsHtml(sh);
@@ -763,7 +763,7 @@ function mountAD(self, container, ctx) {
       if (o.fx === 'clumsy') { const adj = [sh.l - 1, sh.l + 1].filter(j => s.line[j] && !s.line[j].down); adj.forEach(j => { btns += `<button data-act="int" data-o="a" data-adj="${j}">대신 ${j < sh.l ? '왼쪽' : '오른쪽'} ${esc(on(s.line[j].u))} 기절</button>`; }); }
     }
     const why = blocked ? `<p class="warn">🔒 ${esc(blocked)}</p>` : (!cands.length ? `<p class="warn">자원이 모자랍니다 (필요: ${costTx(cost)}${cost.n !== o.cost.n ? ` · 감시탑 효과 +${cost.n - o.cost.n}` : ''})</p>` : '');
-    return `<div class="ad-sh"><div class="ad-shh"><b>${esc(o.ko)}</b> <em>${esc(o.en)}</em></div>
+    return `<div data-skin="panel" class="ad-sh"><div class="ad-shh"><b>${esc(o.ko)}</b> <em>${esc(o.en)}</em></div>
       <div class="ad-shrow">${TYPE_SVG[o.type]}<span>${TYPE_KO[o.type]}</span>${symSvg(o.cost.k, cost.n)}<span>${costTx(cost)}</span>${alarmSvg(o.alarm)}<span>경보 ${o.alarm}</span></div>
       ${o.tx ? `<p class="fxp">${esc(o.tx)}</p>` : ''}<p class="rwp">무력화하면 얻는 것: <b>${esc(r.ko)}</b> — ${esc(r.tx || '')}</p>
       ${why}${s.used >= s.maxInt ? '<p class="warn">이번 턴 상호작용 횟수를 다 썼어요.</p>' : ''}${payHtml}<div class="ad-sb vert">${btns}<button data-act="close">닫기</button></div></div>`;
@@ -772,7 +772,7 @@ function mountAD(self, container, ctx) {
     const uid = s.hand[sh.i]; if (uid == null) return '';
     const r = D(uid).rew, mv = legalMoves(s).filter(m => m.c === sh.i);
     const lab = m => (m.a === 'equip' ? '장비하기 (장비 칸에 두고 매 턴 사용)' : m.a === 'res' ? (r.draw && !r.or ? `사용: ${r.res ? resTx(r.res) : ''} + 카드 ${r.draw}장 뽑기` : r.calc ? '사용: 버린 더미 2장당 전투 1' : `사용: ${resTx(r.res)}`) : (r.draw ? `카드 ${r.draw}장 뽑기` : '효과 사용'));
-    return `<div class="ad-sh"><div class="ad-shh"><b>${esc(r.ko)}</b> <em>${esc(r.en)}</em></div><p class="fxp">${esc(r.tx || '')}</p>
+    return `<div data-skin="panel" class="ad-sh"><div class="ad-shh"><b>${esc(r.ko)}</b> <em>${esc(r.en)}</em></div><p class="fxp">${esc(r.tx || '')}</p>
       <div class="ad-sb vert">${mv.map(m => `<button class="go" data-act="hmove" data-a="${m.a}">${lab(m)}</button>`).join('')}<button data-act="close">닫기</button></div></div>`;
   }
   // 선택 대기 창들
@@ -780,24 +780,24 @@ function mountAD(self, container, ctx) {
     const pk = (uid, i, on_, mode = 'rew') => `<span class="ad-pk ${on_ ? 'on' : ''}" data-act="tog" data-i="${i}">${faceMini(uid, mode)}</span>`;
     const sel = ui.sel || [];
     switch (p.k) {
-      case 'bin': return `<div class="ad-sh"><div class="ad-shh"><b>휴지통</b></div><p>게임에서 영구 제거할 손패를 고르세요(0장도 가능).</p><div class="ad-pks">${s.hand.map((u, i) => pk(u, i, sel.includes(i))).join('')}</div><div class="ad-sb"><button class="go" data-act="pend" data-a="bin">${sel.length}장 제거</button></div></div>`;
-      case 'mis': return `<div class="ad-sh"><div class="ad-shh"><b>시선 돌리기</b></div><p>내려놓을 손패를 고르세요. 한 장마다 은신 2를 얻습니다.</p><div class="ad-pks">${s.hand.map((u, i) => pk(u, i, sel.includes(i))).join('')}</div><div class="ad-sb"><button class="go" data-act="pend" data-a="mis">${sel.length}장 내려놓기 (은신 +${sel.length * 2})</button></div></div>`;
-      case 'burn': return `<div class="ad-sh"><div class="ad-shh"><b>소각</b></div><p>버린 더미에서 최대 2장을 게임에서 제거합니다.</p><div class="ad-pks">${s.discard.map((u, i) => pk(u, i, sel.includes(i))).join('')}</div><div class="ad-sb"><button class="go" data-act="pend" data-a="burn">${sel.length}장 제거</button></div></div>`;
-      case 'rec': { const m = legalMoves(s); return `<div class="ad-sh"><div class="ad-shh"><b>회수</b></div><p>버린 더미에서 손으로 가져올 카드를 고르세요.</p><div class="ad-pks">${m.map(x => `<span class="ad-pk" data-act="pend" data-a="rec" data-i="${x.i}">${faceMini(s.discard[x.i])}</span>`).join('')}</div></div>`; }
-      case 'just': { const m = legalMoves(s); return `<div class="ad-sh"><div class="ad-shh"><b>딱 맞는 물건</b></div><p>덱에서 카드 1장을 찾습니다. 덱을 섞은 뒤 맨 위에 올립니다.</p><div class="ad-pks">${m.map(x => `<span class="ad-pk" data-act="pend" data-a="just" data-i="${x.i}">${faceMini(s.deck[x.i])}</span>`).join('')}</div></div>`; }
-      case 'dis': return `<div class="ad-sh"><div class="ad-shh"><b>교란</b></div><p>줄 맨 앞(출구 반대편)으로 끌어당길 카드를 고르세요.</p><div class="ad-pks">${legalMoves(s).map(x => `<span class="ad-pk" data-act="pend" data-a="dis" data-l="${x.l}">${faceMini(s.line[x.l].u, 'ob')}</span>`).join('')}</div></div>`;
-      case 'save': return `<div class="ad-sh"><div class="ad-shh"><b>탄약 아끼기</b></div><p>다음 턴을 위해 남겨 둘 카드를 고르세요.</p><div class="ad-pks">${legalMoves(s).filter(x => x.i >= 0).map(x => `<span class="ad-pk" data-act="pend" data-a="save" data-i="${x.i}">${faceMini(s.hand[x.i])}</span>`).join('')}</div><div class="ad-sb"><button data-act="pend" data-a="save" data-i="-1">남기지 않음</button></div></div>`;
+      case 'bin': return `<div data-skin="panel" class="ad-sh"><div class="ad-shh"><b>휴지통</b></div><p>게임에서 영구 제거할 손패를 고르세요(0장도 가능).</p><div class="ad-pks">${s.hand.map((u, i) => pk(u, i, sel.includes(i))).join('')}</div><div class="ad-sb"><button class="go" data-act="pend" data-a="bin">${sel.length}장 제거</button></div></div>`;
+      case 'mis': return `<div data-skin="panel" class="ad-sh"><div class="ad-shh"><b>시선 돌리기</b></div><p>내려놓을 손패를 고르세요. 한 장마다 은신 2를 얻습니다.</p><div class="ad-pks">${s.hand.map((u, i) => pk(u, i, sel.includes(i))).join('')}</div><div class="ad-sb"><button class="go" data-act="pend" data-a="mis">${sel.length}장 내려놓기 (은신 +${sel.length * 2})</button></div></div>`;
+      case 'burn': return `<div data-skin="panel" class="ad-sh"><div class="ad-shh"><b>소각</b></div><p>버린 더미에서 최대 2장을 게임에서 제거합니다.</p><div class="ad-pks">${s.discard.map((u, i) => pk(u, i, sel.includes(i))).join('')}</div><div class="ad-sb"><button class="go" data-act="pend" data-a="burn">${sel.length}장 제거</button></div></div>`;
+      case 'rec': { const m = legalMoves(s); return `<div data-skin="panel" class="ad-sh"><div class="ad-shh"><b>회수</b></div><p>버린 더미에서 손으로 가져올 카드를 고르세요.</p><div class="ad-pks">${m.map(x => `<span class="ad-pk" data-act="pend" data-a="rec" data-i="${x.i}">${faceMini(s.discard[x.i])}</span>`).join('')}</div></div>`; }
+      case 'just': { const m = legalMoves(s); return `<div data-skin="panel" class="ad-sh"><div class="ad-shh"><b>딱 맞는 물건</b></div><p>덱에서 카드 1장을 찾습니다. 덱을 섞은 뒤 맨 위에 올립니다.</p><div class="ad-pks">${m.map(x => `<span class="ad-pk" data-act="pend" data-a="just" data-i="${x.i}">${faceMini(s.deck[x.i])}</span>`).join('')}</div></div>`; }
+      case 'dis': return `<div data-skin="panel" class="ad-sh"><div class="ad-shh"><b>교란</b></div><p>줄 맨 앞(출구 반대편)으로 끌어당길 카드를 고르세요.</p><div class="ad-pks">${legalMoves(s).map(x => `<span class="ad-pk" data-act="pend" data-a="dis" data-l="${x.l}">${faceMini(s.line[x.l].u, 'ob')}</span>`).join('')}</div></div>`;
+      case 'save': return `<div data-skin="panel" class="ad-sh"><div class="ad-shh"><b>탄약 아끼기</b></div><p>다음 턴을 위해 남겨 둘 카드를 고르세요.</p><div class="ad-pks">${legalMoves(s).filter(x => x.i >= 0).map(x => `<span class="ad-pk" data-act="pend" data-a="save" data-i="${x.i}">${faceMini(s.hand[x.i])}</span>`).join('')}</div><div class="ad-sb"><button data-act="pend" data-a="save" data-i="-1">남기지 않음</button></div></div>`;
       case 'plan': {
         const v = topOf(s, 3);
-        if (ui.keep == null) return `<div class="ad-sh"><div class="ad-shh"><b>계획</b></div><p>덱 맨 위 ${v.length}장입니다. <b>손에 넣을 1장</b>을 고르세요.</p><div class="ad-pks">${v.map((u, i) => `<span class="ad-pk" data-act="keep" data-i="${i}">${faceMini(u)}</span>`).join('')}</div></div>`;
+        if (ui.keep == null) return `<div data-skin="panel" class="ad-sh"><div class="ad-shh"><b>계획</b></div><p>덱 맨 위 ${v.length}장입니다. <b>손에 넣을 1장</b>을 고르세요.</p><div class="ad-pks">${v.map((u, i) => `<span class="ad-pk" data-act="keep" data-i="${i}">${faceMini(u)}</span>`).join('')}</div></div>`;
         const rest = v.map((_, i) => i).filter(i => i !== ui.keep);
-        if (rest.length === 2 && ui.top == null) return `<div class="ad-sh"><div class="ad-shh"><b>계획</b></div><p>남은 2장 중 <b>맨 위에 둘 카드</b>를 고르세요.</p><div class="ad-pks">${rest.map(i => `<span class="ad-pk" data-act="ptop" data-i="${i}">${faceMini(v[i])}</span>`).join('')}</div></div>`;
+        if (rest.length === 2 && ui.top == null) return `<div data-skin="panel" class="ad-sh"><div class="ad-shh"><b>계획</b></div><p>남은 2장 중 <b>맨 위에 둘 카드</b>를 고르세요.</p><div class="ad-pks">${rest.map(i => `<span class="ad-pk" data-act="ptop" data-i="${i}">${faceMini(v[i])}</span>`).join('')}</div></div>`;
         return '';
       }
       case 'fore': {
         const v = topOf(s, 5), ord = ui.ord || [];
         const left = v.map((_, i) => i).filter(i => !ord.includes(i));
-        return `<div class="ad-sh"><div class="ad-shh"><b>선견</b></div><p>덱 맨 위 ${v.length}장입니다. <b>위에서부터 놓을 순서</b>대로 눌러 주세요 (${ord.length}/${v.length}).</p>
+        return `<div data-skin="panel" class="ad-sh"><div class="ad-shh"><b>선견</b></div><p>덱 맨 위 ${v.length}장입니다. <b>위에서부터 놓을 순서</b>대로 눌러 주세요 (${ord.length}/${v.length}).</p>
           <div class="ad-ord">${ord.map((i, k) => `<span>${k + 1}. ${esc(nm(v[i]))}</span>`).join('')}</div><div class="ad-pks">${left.map(i => `<span class="ad-pk" data-act="ford" data-i="${i}">${faceMini(v[i])}</span>`).join('')}</div>
           <div class="ad-sb"><button data-act="fclr">순서 다시</button></div></div>`;
       }
@@ -807,14 +807,14 @@ function mountAD(self, container, ctx) {
   function infoHtml(u) {
     const d = D(u), r = d.rew, o = d.ob; if (!o) return '';
     const rtx = (r.res ? `얻는 자원: ${resTx(r.res)}` : '') + (r.calc ? '버린 더미 2장당 전투 1' : '') + (r.draw ? ` 카드 ${r.draw}장 뽑기` : '');
-    return `<div class="ad-sh"><div class="ad-shh"><b>${esc(o.ko)}</b> <em>${esc(o.en)}</em></div>
+    return `<div data-skin="panel" class="ad-sh"><div class="ad-shh"><b>${esc(o.ko)}</b> <em>${esc(o.en)}</em></div>
       <p class="rwp">${TYPE_KO[o.type]} · 비용 ${costTx(o.cost)} · 경보 ${o.alarm}</p>${o.tx ? `<p class="fxp">${esc(o.tx)}</p>` : ''}
       <div class="ad-shh" style="margin-top:10px"><b>${esc(r.ko)}</b> <em>${esc(r.en)}</em></div>
       <p class="rwp">${esc(rtx.trim())}${r.keep ? ' · KEEP(장비)' : ''}</p>${r.tx ? `<p class="fxp">${esc(r.tx)}</p>` : ''}
       <div class="ad-sb"><button class="go" data-act="close">닫기</button></div></div>`;
   }
   function rulesHtml() {
-    return `<div class="ad-sh rules"><div class="ad-shh"><b>규칙 요약</b></div><ul>
+    return `<div data-skin="panel" class="ad-sh rules"><div class="ad-shh"><b>규칙 요약</b></div><ul>
       <li>손패로 <b>은신 △ / 전투 ○</b> 자원을 만들어 줄의 장애물과 <b>상호작용</b>합니다. 한 턴에 하는 상호작용 수는 처음엔 1장(미션을 깨면 늘어요).</li>
       <li><b>무력화</b>: 카드가 내 것이 됩니다(내 덱에 들어와 다음에 쓸 수 있음). <b>기절</b>: 줄에 뒤집어 둡니다. 기절한 카드는 효과가 사라지고, 줄 밖으로 나가도 경보가 오르지 않아요.</li>
       <li>상호작용한 카드는 줄에서 빠지거나 기절하므로 <b>출구 칸(맨 오른쪽)</b> 카드를 처리하면 이번 턴 그 카드는 경보를 올리지 못합니다.</li>
@@ -829,7 +829,7 @@ function mountAD(self, container, ctx) {
     const known = [...s.deck, ...s.discard];
     const body = tab === 'deck' ? `<p class="hint">덱의 순서는 모르지만 구성은 압니다 (손패 제외, 버린 더미 포함 전체 ${known.length}장).</p><div class="ad-tls">${tally(s.deck)}</div>`
       : tab === 'disc' ? `<div class="ad-tls">${tally(s.discard)}</div>` : tab === 'oth' ? `<p class="hint">장애물 덱 ${s.oDeck.length}장 · 장애물 버린 더미 ${s.oDiscard.length}장</p><div class="ad-tls">${tally(s.oDiscard)}</div>` : `<div class="ad-tls">${tally(s.removed)}</div>`;
-    return `<div class="ad-sh"><div class="ad-tabs">${[['deck', `내 덱 ${s.deck.length}`], ['disc', `버린 더미 ${s.discard.length}`], ['oth', '장애물 더미'], ['rem', `제거됨 ${s.removed.length}`]].map(([k, t]) => `<button class="${k === tab ? 'on' : ''}" data-act="tab" data-k="${k}">${t}</button>`).join('')}</div>${body}<div class="ad-sb"><button data-act="close">닫기</button></div></div>`;
+    return `<div data-skin="panel" class="ad-sh"><div class="ad-tabs">${[['deck', `내 덱 ${s.deck.length}`], ['disc', `버린 더미 ${s.discard.length}`], ['oth', '장애물 더미'], ['rem', `제거됨 ${s.removed.length}`]].map(([k, t]) => `<button class="${k === tab ? 'on' : ''}" data-act="tab" data-k="${k}">${t}</button>`).join('')}</div>${body}<div class="ad-sb"><button data-act="close">닫기</button></div></div>`;
   }
 
   // ----- 연출 -----
@@ -897,11 +897,11 @@ function mountAD(self, container, ctx) {
     const res = self.result(s);
     const total = res.coop.score;
     el.over.hidden = false;
-    el.over.innerHTML = `<div class="ad-ov ${s.won ? 'win' : 'lose'}"><h2>${s.won ? '임무 완수' : '작전 실패'}</h2>
+    el.over.innerHTML = `<div data-skin="panel" class="ad-ov ${s.won ? 'win' : 'lose'}"><h2>${s.won ? '임무 완수' : '작전 실패'}</h2>
       <p class="sub">${esc(res.summary)}</p>
       <div class="ad-ovl">${MISSIONS.map((m, i) => `<span class="${i < s.alarmLog.length ? 'y' : ''}">미션 ${i + 1}: ${i < s.alarmLog.length ? '경보 ' + s.alarmLog[i] : (i === s.mission - 1 && !s.won ? '실패 (경보 ' + s.alarm + ')' : '—')}</span>`).join('')}</div>
       <p>경보 합계 <b>${total}</b> · 무력화 ${s.stat.disarm}장 · 기절 ${s.stat.ko}장 · ${s.turn}턴</p>
-      <button class="ad-end go" data-act="finish">결과 저장하고 나가기</button></div>`;
+      <button data-skin="button" class="ad-end go" data-act="finish">결과 저장하고 나가기</button></div>`;
   }
 
   // ----- 입력 -----
