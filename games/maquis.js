@@ -534,6 +534,27 @@ const TILE_DESC = {
   propagandist: '사기 +1 (체포돼도 효과 유지).', chemist: '의약품 1 → 폭약 1.', safehouse: '행동은 없지만, 두 번째 안가로 쓸 수 있어요.'
 };
 const GOAL_STAR = { newspaper: [[28.5, 61.6], [49.4, 61.6], [70.2, 61.6]], train: [[50.8, 62.1]], spy: [[39.2, 52.8], [61.4, 52.8]], sabotage: [[32.8, 55.1], [53.3, 55.1], [74.3, 55.1]] };
+const GOAL_TR = {
+  newspaper: { q: '이런 시국에는 소식을 퍼뜨리는 일이 중요합니다. 지금 무슨 일이 벌어지고 있는지 주민들에게 알리고, 점령군과 그 앞잡이들의 선전에 맞서세요.', c: '지하 신문을 찍으려면, 이 장소에서 아래 행동을 세 번 수행하세요. 성공할 때마다 표식을 하나씩 올려 둡니다.', a: '일꾼 1명 + 정보 2 → 성공 ★ (3번)' },
+  train: { q: '점령군이 열흘 뒤 마을 근처 철로로 판저(전차)를 수송한다는 첩보를 입수했습니다. 열차가 지나갈 때 폭탄을 설치해 폭파해야 합니다.', c: '이 목표를 달성하려면, 턴 트랙에 열차 그림이 있는 턴에 아래 행동을 수행하세요. 성공하면 표식을 올립니다.', a: '일꾼 1명 + 폭약 3 → 성공 ★' },
+  spy: { q: '며칠 전 영국 스파이가 낙하산으로 침투했습니다. 그가 임무를 수행하려면 장비와 물자가 필요하고, 당신의 도움을 기다리고 있습니다.', c: '이 목표를 달성하려면, 아래 두 행동을 모두 수행하세요. 성공할 때마다 표식을 올립니다.', a: '① 일꾼 1명 + 무기 2 → 성공 1\n② 일꾼 1명 + 자금 1 + 식량 2 → 성공 2' },
+  sabotage: { q: '점령군이 마을 변두리에서 군수공장을 돌리고 있습니다. 공장에 잠입해서 어떻게든 작전을 방해해야 합니다.', c: '이 목표를 달성하려면, 소동(첫 번째 행동)을 두 번 한 뒤 마지막으로 두 번째 행동으로 공장을 폭파하세요. 성공할 때마다 표식을 올립니다.', a: '① 일꾼 1명 → 성공 1 (2번)\n② 일꾼 1명 + 폭약 1 → 성공 2' },
+  liberate: { q: '연합군이 마을을 향해 진격해 오고 있습니다. 때맞춰 봉기하면 마을을 전쟁의 상처 없이 지켜 낼 수 있겠지만, 그러려면 무기와 용기가 필요합니다!', c: '이 목표를 달성하려면, 게임이 끝날 때 무기 3개와 사기 4 이상을 갖고 있어야 합니다.', a: '' },
+  assassinate: { q: '점령군 아래서 사는 것만도 괴로운데, 동포 일부가 준군사 경찰 "밀리스"와 결탁하고 있습니다. 본때를 보여 이 더러운 협력자들에게 경고를 보내야 합니다.', c: '이 목표를 달성하려면, 먼저 다른 목표를 완료하고 경찰을 충분히 처치해서 마을 순찰이 군인으로만 채워지게 해야 합니다.', a: '' }
+};
+const TILE_FR = { counterfeiter: 'Faussaire', smuggler: 'Contrebandier', informant: 'Informateur', propagandist: 'Propagandiste', chemist: 'Laboratoire du Chimiste', safehouse: 'Planque' };
+const TILE_ACT = {
+  counterfeiter: '일꾼 1명 → 자금 1', smuggler: '일꾼 1명 → 식량 3 또는 의약품 3 (택1)', informant: '일꾼 1명 → 정보 1',
+  propagandist: '일꾼 1명 → 사기 +1 (빨간 화살표: 체포돼도 유지)', chemist: '일꾼 1명 + 의약품 1 → 폭약 1', safehouse: '행동 없음 (두 번째 안가)'
+};
+const RES_DESC = {
+  food: '스파이 지원 ②에 2개 써요. 밀수업자·식료품점에서 얻어요.',
+  medicine: '화학자의 실험실에서 폭약 1로 바꿀 수 있어요. 밀수업자·의사에서 얻어요.',
+  intel: '지하 신문을 찍을 때마다 2개씩 써요. 정보원·무전기 쪽에서 얻어요.',
+  money: '빈 방 설치에 2, 스파이 지원 ②에 1 써요. 위조범·암시장 등에서 얻어요.',
+  weapon: '사격에 1, 스파이 지원 ①에 2 써요. 마을 해방은 끝까지 3개를 들고 있어야 해요.',
+  explosive: '열차 폭파에 3, 파괴 공작 ②에 1 써요. 화학자의 실험실에서 만들어요.'
+};
 const GOAL_ORDER = ['newspaper', 'train', 'spy', 'sabotage', 'liberate', 'assassinate'];
 const RULES_KO = `
 <h4>목표</h4><p>15일 안에 목표 2개를 달성하면 <b>승리</b>, 1개면 <b>무승부</b>, 0개이거나 사기가 0이 되면 <b>패배</b>예요.</p>
@@ -666,7 +687,7 @@ const CSS = `
 .g-maquis .mq-ov{position:absolute;inset:0;z-index:40;background:rgba(10,10,6,.72);display:flex;align-items:center;justify-content:center;padding:calc(10px / var(--sc,1))}
 .g-maquis .mq-card{position:relative;max-width:96%;max-height:94%;overflow:auto;width:var(--ovw,640px);font-size:var(--pf,14px);line-height:1.5;padding:16px 20px}
 .g-maquis .mq-card h3{margin:0 0 8px;font-size:calc(var(--pf,14px) + 7px)}.g-maquis .mq-card h4{margin:12px 0 4px;font-size:calc(var(--pf,14px) + 1px);border-bottom:1px solid #b3a578;padding-bottom:2px}
-.g-maquis .mq-card p{margin:4px 0}.g-maquis .mq-sm{font-size:calc(var(--pf,14px) - 2px);color:#5a4d2e}
+.g-maquis .mq-tr{margin:6px 0;padding:8px 12px;border-left:3px solid #8c7d52;background:rgba(255,250,232,.55);border-radius:0 5px 5px 0;font-style:italic}.g-maquis .mq-tr.act{font-style:normal;white-space:pre-line;font-weight:700;color:#27468a}.g-maquis .mq-resrow>div{cursor:pointer}.g-maquis .mq-card p{margin:4px 0}.g-maquis .mq-sm{font-size:calc(var(--pf,14px) - 2px);color:#5a4d2e}
 .g-maquis .mq-dif{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:8px 0}
 .g-maquis .mq-dif button{padding:8px 4px;flex-direction:column}.g-maquis .mq-dif button.sel{background:linear-gradient(180deg,#3d63b4,#27468a);color:#fff}
 .g-maquis .mq-ck{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:var(--pf,14px)}.g-maquis .mq-ck input{width:18px;height:18px}
@@ -771,7 +792,7 @@ function mountMQ(self, container, ctx) {
   }
   function resP() {
     const sup = r => supplyOf(s, r);
-    return `<h5>보유 자원 <small>종류별 최대 4개</small></h5><div class="mq-resrow">${RES.map(r => `<div data-res="${r}">${tok(r, L.mode === 'wide' ? 54 : L.mode === 'land' ? 30 : 38, s.hand[r], s.hand[r] === 0)}<span>${RES_KO[r]}</span></div>`).join('')}</div>${L.mode === 'wide' ? `<div class="mq-sm" style="margin-top:12px;padding-top:8px;border-top:1px dashed #a89a6e">공급 남음: ${RES.map(r => `${RES_KO[r]} ${sup(r)}`).join(' · ')}</div>` : ''}`;
+    return `<h5>보유 자원 <small>종류별 최대 4개</small></h5><div class="mq-resrow">${RES.map(r => `<div data-res="${r}" data-do="res:${r}">${tok(r, L.mode === 'wide' ? 54 : L.mode === 'land' ? 30 : 38, s.hand[r], s.hand[r] === 0)}<span>${RES_KO[r]}</span></div>`).join('')}</div>${L.mode === 'wide' ? `<div class="mq-sm" style="margin-top:12px;padding-top:8px;border-top:1px dashed #a89a6e">공급 남음: ${RES.map(r => `${RES_KO[r]} ${sup(r)}`).join(' · ')}</div>` : ''}`;
   }
   function workP() {
     const onb = Object.values(s.occ).filter(o => o.t === 'r').length;
@@ -797,6 +818,13 @@ function mountMQ(self, container, ctx) {
       return `<button class="mq-gc${g.done ? ' done' : ''}" data-do="goal:${g.id}"><img src="${u}" alt="${info.ko}">${cubes}${nd ? '' : stars}</button>`;
     }
     return `<button class="mq-gc mq-gcf${g.done ? ' done' : ''}" data-do="goal:${g.id}"><h6>${info.ko}</h6><div class="en">${info.en}${GOALS[g.id].loc ? ` · ${g.slot === 0 ? '왼쪽' : '오른쪽'} 출구` : ''}</div>${esc(GOAL_INFO[g.id])}${stars}</button>`;
+  }
+  function goalProg(g) {
+    if (!g) return '';
+    const pr = goalProgress(s, g);
+    if (pr) return `${pr.a[0] + pr.b[0]} / ${pr.a[1] + pr.b[1]}`;
+    if (g.id === 'liberate') return `무기 ${Math.min(3, s.hand.weapon)}/3 · 사기 ${s.morale}/4`;
+    return `군인 ${Math.min(s.soldier, patrolCount(s))}/${patrolCount(s)}`;
   }
   function goalsP() { return s.goals.map(g => goalCard(g)).join(''); }
   function progP() {
@@ -968,8 +996,12 @@ function mountMQ(self, container, ctx) {
       b = `<h3>옵션</h3><label class="mq-ck"><input type="checkbox" data-opt="warn" ${opts.warn ? 'checked' : ''}>귀환 경로 안내·경고 보기</label><label class="mq-ck"><input type="checkbox" data-opt="heat" ${opts.heat ? 'checked' : ''}>배치 때 순찰 위험 숫자 보기</label><p class="mq-sm">난이도: ${DIFFS[s.diff].ko} (진행 중에는 바꿀 수 없어요)</p>${close}`;
     } else if (ov.k === 'rules') b = `<h3>규칙 안내</h3>${RULES_KO}${close}`;
     else if (ov.k === 'goals') b = `<h3>목표</h3><div style="display:grid;grid-template-columns:${L.mode === 'port' ? '1fr' : '1fr 1fr'};gap:10px">${s.goals.map(g => goalCard(g)).join('')}</div>${progP()}${close}`;
-    else if (ov.k === 'goal') { const g = s.goals.find(x => x.id === ov.id); b = `<h3>${GOALS[ov.id].ko} <small class="mq-sm">${GOALS[ov.id].en}</small></h3><p>${GOAL_INFO[ov.id]}</p>${g && g.done ? '<p class="mq-st ok">달성했어요!</p>' : ''}${close}`; }
-    else if (ov.k === 'tile') b = `<h3>${TILES[ov.id].ko} <small class="mq-sm">${TILES[ov.id].en}</small></h3><p>${TILE_DESC[ov.id]}</p><p class="mq-sm">${SPARES.find(l => s.tiles[l] === ov.id) ? `설치됨: ${LOC_KO[SPARES.find(l => s.tiles[l] === ov.id)]}` : '아직 설치하지 않았어요. 빈 방에서 자금 2를 내고 고를 수 있어요.'}</p>${close}`;
+    else if (ov.k === 'goal') {
+      const g = s.goals.find(x => x.id === ov.id), tr = GOAL_TR[ov.id], pr = goalProg(g);
+      b = `<h3>${GOALS[ov.id].ko} <small class="mq-sm">${GOALS[ov.id].en}</small></h3><h4>카드 번역</h4><p class="mq-tr">${esc(tr.q)}</p><p>${esc(tr.c)}</p>${tr.a ? `<p class="mq-tr act">${esc(tr.a)}</p>` : ''}<h4>이 앱에서는</h4><p>${GOAL_INFO[ov.id]}</p>${g && g.done ? '<p class="mq-st ok">달성했어요!</p>' : `<p class="mq-sm">지금 진행: <b>${pr}</b></p>`}${close}`;
+    }
+    else if (ov.k === 'tile') b = `<h3>${TILES[ov.id].ko} <small class="mq-sm">${TILES[ov.id].en}</small></h3><p class="mq-sm">${TILE_FR[ov.id]}</p><p class="mq-tr act">${TILE_ACT[ov.id]}</p><p>${TILE_DESC[ov.id]}</p><p class="mq-sm">${SPARES.find(l => s.tiles[l] === ov.id) ? `설치됨: ${LOC_KO[SPARES.find(l => s.tiles[l] === ov.id)]}` : '아직 설치하지 않았어요. 빈 방에서 자금 2를 내고 고를 수 있어요.'}</p>${close}`;
+    else if (ov.k === 'res') b = `<h3>${RES_KO[ov.id]} <small class="mq-sm">${ov.id}</small></h3><p>${RES_DESC[ov.id]}</p><p class="mq-sm">지금 손에 <b>${s.hand[ov.id]}</b>개 · 공급 ${supplyOf(s, ov.id)}개 남음 (종류별 최대 4개)</p>${close}`;
     else if (ov.k === 'tiles') b = `<h3>빈 방 타일</h3>${tilesP()}${close}`;
     else if (ov.k === 'log') b = `<h3>일지</h3>${logP().replace('<h5>일지</h5>', '')}${close}`;
     else if (ov.k === 'patrol') {
@@ -1112,6 +1144,7 @@ function mountMQ(self, container, ctx) {
     if (a === 'closeov') { ov = null; return draw(); }
     if (a === 'close') { sel = null; return draw(); }
     if (a === 'goal') { ov = { k: 'goal', id: x }; return draw(); }
+    if (a === 'res') { ov = { k: 'res', id: x }; return draw(); }
     if (a === 'tile') { ov = { k: 'tile', id: x }; return draw(); }
     if (a === 'place') return run({ a: 'place', loc: x });
     if (a === 'act') return run({ a: 'act', loc: x, o: y });
