@@ -691,6 +691,7 @@ function mountAD(self, container, ctx) {
   const faceMini = (uid, side = 'rew') => { const d = D(uid), r = d.rew; return side === 'rew' ? `<div class="ad-mini"><b>${esc(r.ko)}</b>${rewBadge(r)}<small>${esc(r.tx || '')}</small></div>` : `<div class="ad-mini"><b>${esc(d.ob.ko)}</b><small>${costTx(d.ob.cost)} · 경보 ${d.ob.alarm}</small></div>`; };
 
   // ----- 화면 갱신 -----
+  let fanUnits = 4, fanGroups = 4;
   function draw() {
     const m = MISSIONS[s.mission - 1];
     // 상단
@@ -718,12 +719,47 @@ function mountAD(self, container, ctx) {
     }).join('')}</div>` : '';
     // 손패
     const lock = !!s.pend;
-    el.hand.innerHTML = `<div class="ad-hl">손패 ${s.hand.length}장${s.saved.length ? ` · 남겨 둔 카드 ${s.saved.length}` : ''}</div><div class="ad-hs ${lock ? 'lock' : ''}">${s.hand.map((u, i) => handCard(u, i)).join('') || '<span class="ad-none">손패 없음</span>'}</div>`;
+    const fan = s.hand.length >= 5;
+    let handHtml;
+    if (!s.hand.length) handHtml = '<span class="ad-none">손패 없음</span>';
+    else if (!fan) handHtml = s.hand.map((u, i) => handCard(u, i)).join('');
+    else {
+      const groups = [];
+      s.hand.forEach((u, i) => { const k = INST[u].key; let g = groups.find(x => x.k === k); if (!g) groups.push(g = { k, a: [] }); g.a.push([u, i]); });
+      handHtml = groups.map(g => `<div class="ad-stk" style="--n:${g.a.length}">${g.a.map(([u, i], k) => handCard(u, i, 'k' + Math.min(k, 7))).join('')}${g.a.length > 1 ? `<i class="ad-cnt">×${g.a.length}</i>` : ''}</div>`).join('');
+      fanUnits = groups.reduce((a, g) => a + 1 + 0.3 * (g.a.length - 1), 0); fanGroups = groups.length;
+    }
+    if (!fan) { fanUnits = 4; fanGroups = 4; }
+    el.hand.innerHTML = `<div class="ad-hl">손패 ${s.hand.length}장${s.saved.length ? ` · 남겨 둔 카드 ${s.saved.length}` : ''}${fan ? ' · 같은 카드는 겹쳐 놓았어요' : ''}</div><div class="ad-hs ${fan ? 'fan' : ''} ${lock ? 'lock' : ''}">${handHtml}</div>`;
     // 하단 버튼
     el.bar.innerHTML = `<button data-skin="button" class="ad-end ${ok ? 'go' : ''}" data-act="end" ${s.pend || s.over ? 'disabled' : ''}>${ok ? '미션 완료하기 (턴 종료)' : '턴 종료'}</button>`;
     el.log.innerHTML = logLines.slice(-14).reverse().map(l => `<div class="${l.cls || ''}">${esc(l.t)}</div>`).join('');
     drawSheet();
+    fit();
   }
+  // 한 화면에 들어오도록 카드 크기를 맞춘다(스킨 테두리가 차지하는 만큼 포함해 실제 높이를 재서 줄임)
+  function fit() {
+    if (dead || !el.line.firstElementChild || el.sheet.matches(':not([hidden])') && false) return;
+    root.style.removeProperty('--lw'); root.style.removeProperty('--hw');
+    const gapH = 6, availH = el.hand.clientWidth;
+    let hw = Math.floor((availH - gapH * (fanGroups - 1)) / fanUnits);
+    const hw4 = Math.floor((availH - gapH * 3) / 4);
+    hw = Math.min(hw, hw4);
+    let lw = el.line.firstElementChild.getBoundingClientRect().width;
+    root.style.setProperty('--hw', hw + 'px');
+    const limit = window.innerHeight - 6;
+    for (let n = 0; n < 3; n++) {
+      const bottom = el.bar.getBoundingClientRect().bottom + (window.scrollY || 0) - (window.scrollY || 0);
+      const over = bottom - limit; if (over <= 0) break;
+      const k = 2.83 * lw + 1.41 * hw, f = Math.max(0.62, 1 - over / k);
+      if (f >= 0.999) break;
+      lw = Math.floor(lw * f); hw = Math.max(40, Math.floor(hw * f));
+      root.style.setProperty('--lw', lw + 'px'); root.style.setProperty('--hw', hw + 'px');
+    }
+  }
+  const onResize = () => fit();
+  window.addEventListener('resize', onResize);
+
 
   // ----- 시트(선택 창) -----
   function sheetHtml() {
@@ -976,7 +1012,7 @@ function mountAD(self, container, ctx) {
   const rs = ctx.resumeState;
   if (rs && rs.v === 1 && Array.isArray(rs.line) && !rs.over) begin(rs); else begin(null);
   container._ad = { get state() { return s; }, run, draw, get ui() { return ui; } };   // 테스트용 손잡이
-  return { destroy() { dead = true; timers.forEach(clearTimeout); timers.clear(); container.querySelectorAll('.fx-layer').forEach(e => e.remove()); } };
+  return { destroy() { dead = true; window.removeEventListener('resize', onResize); timers.forEach(clearTimeout); timers.clear(); container.querySelectorAll('.fx-layer').forEach(e => e.remove()); } };
 }
 
 const AD_CSS = `
@@ -1072,5 +1108,25 @@ const AD_CSS = `
 .g-ad .ad-i{position:absolute;left:3px;top:3px;width:20px;height:20px;border:0;border-radius:50%;padding:0;font-size:12px;line-height:20px;background:#000a;color:#cfe0ff}
 .g-ad .ad-card.hd .ad-i{left:auto;right:2px;top:2px;width:16px;height:16px;font-size:10px;line-height:16px}
 .g-ad .ad-wc{position:absolute;right:5px;bottom:34%;background:#000b;border-radius:10px;padding:1px 3px;filter:drop-shadow(0 0 5px #ff6b6b)}
-@media (min-width:520px){.g-ad .ad-line{grid-template-columns:repeat(6,1fr)}.g-ad .ad-hs{grid-template-columns:repeat(6,1fr)}.g-ad .ad-card.ob{min-height:170px}}
+.g-ad{padding:4px 4px 8px}
+.g-ad .ad-gm,.g-ad .ad-pl,.g-ad .ad-ex,.g-ad .ad-log{--sk-panel-d:9px}
+.g-ad .ad-top .ad-mn{font-size:12px}.g-ad .ad-mn b{font-size:15px}
+.g-ad .ad-gauge{margin-top:3px;height:24px}
+.g-ad .ad-gm{margin-top:4px;padding:2px 6px;font-size:12px;line-height:1.35}
+.g-ad .ad-gp{margin-top:1px}.g-ad .ad-gr{display:none}
+.g-ad .ad-linewrap{margin-top:5px}
+.g-ad .ad-line{grid-template-columns:repeat(3,var(--lw,1fr));justify-content:center;gap:6px}
+.g-ad .ad-exit{margin:3px 0 0}.g-ad .ad-ex{padding:2px 6px;font-size:11.5px}
+.g-ad .ad-pool{margin-top:3px}.g-ad .ad-pl{padding:1px 6px;gap:10px}.g-ad .ad-pl b{font-size:17px}
+.g-ad .ad-eq{margin-top:3px}
+.g-ad .ad-hl{margin:4px 2px 2px;font-size:11px}
+.g-ad .ad-bar{margin-top:5px}.g-ad .ad-end{padding:6px;margin-top:0;font-size:14px}
+.g-ad .ad-hs{display:flex;justify-content:center;gap:6px;flex-wrap:nowrap}
+.g-ad .ad-hs .ad-card.hd{width:var(--hw,22%);flex:none}
+.g-ad .ad-stk{position:relative;flex:none;width:calc(var(--hw) * (1 + .3 * (var(--n) - 1)));height:calc(var(--hw) * 1.413)}
+.g-ad .ad-stk .ad-card.hd{position:absolute;top:0;left:calc(var(--k,0) * var(--hw) * .3);width:var(--hw);z-index:calc(var(--k,0) + 1);transform-origin:50% 100%;
+ transform:rotate(calc((var(--k,0) - (var(--n) - 1) / 2) * 3.5deg)) translateY(calc(var(--k,0) * -1px));box-shadow:0 0 0 1.5px #7fa2ee inset,-4px 3px 8px #000b}
+.g-ad .k0{--k:0}.g-ad .k1{--k:1}.g-ad .k2{--k:2}.g-ad .k3{--k:3}.g-ad .k4{--k:4}.g-ad .k5{--k:5}.g-ad .k6{--k:6}.g-ad .k7{--k:7}
+.g-ad .ad-cnt{position:absolute;right:-2px;bottom:-5px;z-index:20;font-style:normal;font-weight:900;font-size:12px;background:#ffe27a;color:#3a2a00;border-radius:9px;padding:0 6px;box-shadow:0 2px 4px #000a}
+@media (min-width:520px){.g-ad .ad-line{grid-template-columns:repeat(6,var(--lw,1fr))}.g-ad .ad-card.ob{min-height:170px}}
 `;
