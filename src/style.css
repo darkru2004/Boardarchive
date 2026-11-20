@@ -180,8 +180,12 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 /* UI 틀(스킨): 변수(--sk-*)는 src/skin.js가 게임 루트에 넣는다. 변수가 없으면 border-image가 무효가 되어 원래 모양 그대로. */
 [data-skin="screen"]{box-sizing:border-box;border:var(--sk-screen-d,0) solid transparent;border-image:var(--sk-screen) var(--sk-screen-s) fill/var(--sk-screen-d) stretch}
 [data-skins~="panel"] [data-skin="panel"]:not(#_){box-sizing:border-box;border:var(--sk-panel-d,0) solid transparent;border-image:var(--sk-panel) var(--sk-panel-s) fill/var(--sk-panel-d) stretch}
-[data-skins~="button"] [data-skin="button"]:not(#_){box-sizing:border-box;border:var(--sk-button-d,0) solid transparent;border-image:var(--sk-button) var(--sk-button-s) fill/var(--sk-button-d) stretch}
+[data-skins~="button"] [data-skin="button"]:not(#_){box-sizing:border-box;background:transparent;box-shadow:none;transition:filter .08s,transform .08s;border:var(--sk-button-d,0) solid transparent;border-image:var(--sk-button) var(--sk-button-s) fill/var(--sk-button-d) stretch}
 [data-skins~="card"] [data-skin="card"]:not(#_){box-sizing:border-box;border:var(--sk-card-d,0) solid transparent;border-image:var(--sk-card) var(--sk-card-s) fill/var(--sk-card-d) stretch}
+[data-skins~="button"] [data-skin="button"]:not(#_):active:not(:disabled){filter:brightness(.7);transform:translateY(2px)}
+[data-skins~="button"] [data-skin="button"]:not(#_):disabled{filter:grayscale(.9) brightness(.65)}
+[data-skins~="button-down"] [data-skin="button"]:not(#_):active:not(:disabled){border-image-source:var(--sk-button-down);filter:none}
+[data-skins~="button-off"] [data-skin="button"]:not(#_):disabled{border-image-source:var(--sk-button-off);filter:none}
 .skslot{padding:8px 0;border-bottom:1px dashed #00000020}
 .skprev{width:150px;height:86px;box-sizing:border-box;background:#10294a;border:0 solid transparent}
 .sknum{display:flex;align-items:center;gap:6px;font-size:12px;margin:2px 0}

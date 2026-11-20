@@ -8,7 +8,9 @@ import { h, toast } from './ui.js';
 export const SKIN_SLOTS = [
   { id: 'screen', label: '게임 화면 전체', hint: '게임 화면 바깥을 두르는 큰 틀', d: 22, slice: 18 },
   { id: 'panel', label: '패널·상자', hint: '게임 안의 정보창·상자', d: 16, slice: 18 },
-  { id: 'button', label: '버튼', hint: '가로로 긴 모양 권장', d: 10, slice: 30 },
+  { id: 'button', label: '버튼 (그림 전체가 버튼 몸통)', hint: '가로로 긴 그림 권장. 글자는 앱이 위에 올려요. 아래 눌림·비활성이 없으면 자동으로 어둡게·흐리게 보여줘요', d: 10, slice: 30 },
+  { id: 'button-down', label: '버튼 눌림 (선택)', hint: '눌렀을 때 쓸 그림. 없으면 평소 그림을 어둡게', sub: 'button' },
+  { id: 'button-off', label: '버튼 비활성 (선택)', hint: '누를 수 없을 때 쓸 그림. 없으면 평소 그림을 흐리게', sub: 'button' },
   { id: 'card', label: '카드 테두리', hint: '카드 그림 위에 얹는 틀', d: 8, slice: 14 },
 ];
 export const SKIN_MAX_PX = 800;
@@ -18,6 +20,11 @@ const clamp = (v, a, b, dflt) => { v = Number(v); return Number.isFinite(v) ? Ma
 // 저장된 스킨(없으면 공용). 반환 {dataUrl, slice, d} 또는 null
 export function findSkin(app, scope, slot) {
   const def = SKIN_SLOTS.find(s => s.id === slot); if (!def) return null;
+  if (def.sub) {   // 눌림·비활성: 그림만 따로, 모서리·두께는 버튼 것을 따른다
+    const par = findSkin(app, scope, def.sub);
+    for (const sc of [scope, 'all']) { const r = app.skinRecs && app.skinRecs.get(skinKey(sc, slot)); if (r && r.dataUrl && par) return { dataUrl: r.dataUrl, slice: par.slice, d: par.d }; }
+    return null;
+  }
   for (const sc of [scope, 'all']) {
     const r = app.skinRecs && app.skinRecs.get(skinKey(sc, slot));
     if (r && r.dataUrl) return { dataUrl: r.dataUrl, slice: clamp(r.slice, 5, 45, def.slice), d: clamp(r.d, 2, 60, def.d) };
@@ -84,7 +91,7 @@ export function skinCard(app, games, plainName = n => n) {
           h('div', { class: 'row', style: 'gap:6px;align-items:center' }, h('b', { class: 'grow' }, s.label), h('small', {}, own ? '이 범위에 저장됨' : eff ? '공용 사용 중' : '없음 (기본 모양)'),
             h('button', { class: 'btn small', onclick: () => file.click() }, own ? '바꾸기' : '올리기'), own ? h('button', { class: 'btn small', onclick: async () => { await delSkin(app, scope, s.id); draw(); } }, '지우기') : null, file),
           h('div', { class: 'muted', style: 'font-size:11px' }, s.hint),
-          eff ? h('div', { class: 'row', style: 'gap:10px;align-items:center;margin-top:6px' }, prev, own ? h('div', {}, num('slice', '모서리 %', 5, 45, own.slice ?? s.slice), num('d', '화면 두께 px', 2, 60, own.d ?? s.d)) : null) : null);
+          eff ? h('div', { class: 'row', style: 'gap:10px;align-items:center;margin-top:6px' }, prev, own && !s.sub ? h('div', {}, num('slice', '모서리 %', 5, 45, own.slice ?? s.slice), num('d', '화면 두께 px', 2, 60, own.d ?? s.d)) : null) : null);
       }));
   };
   draw();
