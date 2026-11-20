@@ -34,6 +34,7 @@
   "src/fx.js",
   "src/host.js",
   "src/recviews.js",
+  "src/skin.js",
   "src/style.css",
   "src/ui.js",
   "src/views.js"

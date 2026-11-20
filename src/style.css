@@ -176,3 +176,14 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .recg b{font-size:15px}.recg small{color:var(--ink2);font-size:11px}
 .kdthumb{width:58px;height:58px;display:grid;place-items:center;background:#00000014;border-radius:6px;flex:none;overflow:hidden}.kdthumb svg{max-width:54px;max-height:54px}
 .paper select{width:100%;max-width:100%;font:inherit;font-size:12px;padding:3px 2px;border:1px solid #00000030;border-radius:6px;background:#fffdf6;color:inherit}
+
+/* UI 틀(스킨): 변수(--sk-*)는 src/skin.js가 게임 루트에 넣는다. 변수가 없으면 border-image가 무효가 되어 원래 모양 그대로. */
+[data-skin]{box-sizing:border-box}
+[data-skin="screen"]{border:var(--sk-screen-d,0) solid transparent;border-image:var(--sk-screen) var(--sk-screen-s) fill/var(--sk-screen-d) stretch}
+[data-skin="panel"]{border:var(--sk-panel-d,0) solid transparent;border-image:var(--sk-panel) var(--sk-panel-s) fill/var(--sk-panel-d) stretch}
+[data-skin="button"]{border:var(--sk-button-d,0) solid transparent;border-image:var(--sk-button) var(--sk-button-s) fill/var(--sk-button-d) stretch}
+[data-skin="card"]{border:var(--sk-card-d,0) solid transparent;border-image:var(--sk-card) var(--sk-card-s) fill/var(--sk-card-d) stretch}
+.skslot{padding:8px 0;border-bottom:1px dashed #00000020}
+.skprev{width:150px;height:86px;box-sizing:border-box;background:#10294a;border:0 solid transparent}
+.sknum{display:flex;align-items:center;gap:6px;font-size:12px;margin:2px 0}
+.sknum input{width:58px;padding:3px}

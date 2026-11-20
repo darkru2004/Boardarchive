@@ -7,6 +7,7 @@ import { filterByDifficulty, overall, gameStats, characterStats, botStats, coopS
 import { exportBackup, parseBackup, importBackup, migrateBackup, exportImages, parseImages, importImages } from '../core/backup.js';
 import { activeOnly } from '../core/characters.js';
 import { openArtManager } from './art.js';
+import { skinCard } from './skin.js';
 import { listFonts, saveFont, deleteFont, loadPrefs, savePref, isSafeFont, ALBUM_ID, FONT_MAX_BYTES, FONT_EXT } from '../core/fonts.js';
 import { applyAlbumFonts, forgetFace, ensureFace } from './fontkit.js';
 export { recordsView, gameRecordsView } from './recviews.js';
@@ -280,6 +281,7 @@ export async function settingsView(app, root) {
       ...[{ id: ALBUM_ID, name: '앨범 (홈·기록·설정)' }, ...app.games].map(g => h('div', { class: 'row', 'data-fg': g.id, style: 'gap:6px;align-items:center;padding:4px 0;border-bottom:1px dashed #00000020' },
         h('div', { class: 'grow' }, plainName(g.name)), h('div', { style: 'width:34%' }, fsel(g.id, 'body')), h('div', { style: 'width:34%' }, fsel(g.id, 'title'))))) : h('div', { class: 'muted', style: 'margin-top:8px' }, '폰트를 올리면 게임마다 본문·제목 폰트를 고를 수 있어요. 안 고르면 기본 서체 그대로예요.'),
     fontIn));
+  root.append(h('h2', {}, 'Frames', h('small', {}, 'UI 틀')), skinCard(app, app.games, plainName));
   // 이미지만 백업(초상화·게임 타이틀·카드 그림)
   const imgIn = h('input', { type: 'file', accept: '.json,application/json', style: 'display:none', id: 'imagesFile', onchange: async e => {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;

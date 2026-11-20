@@ -1,6 +1,7 @@
 import { createIdbStorage, ensureDataSchema } from '../core/storage.js';
 import { parseCharacters, makeLookup } from '../core/characters.js';
 import { isSafePortrait } from '../core/backup.js';
+import { loadSkins } from './skin.js';
 import { h, toast } from './ui.js';
 import { applyAlbumFonts } from './fontkit.js';
 import { homeView, dexView, recordsView, gameRecordsView, settingsView, setupPanel } from './views.js';
@@ -12,6 +13,7 @@ const app = {
   async loadPortraits() {
     app.portraits.clear();
     for (const { key, value } of await app.storage.all('portraits')) if (value && isSafePortrait(value.dataUrl)) app.portraits.set(key, value.dataUrl);
+    await loadSkins(app);
   },
   goHome() { location.hash = '#/'; return app.render(); },
   startSetup(entry, count, holder) {

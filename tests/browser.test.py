@@ -628,6 +628,25 @@ try:
             prefs = p4.evaluate("window.__ba.storage.get('settings','fontPrefs')"); assert not prefs or not prefs.get("splendor"), prefs
             assert not p4.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--fd').includes('baf-')"), "앨범 폰트가 안 풀림"
         check("폰트", "폰트 파일을 올리면 저장되고(깨진 파일은 거부), 게임·앨범에 따로 적용되며 백업에 들어가고, 지우면 선택도 함께 풀린다", fonts_ui)
+        def skin_ui():
+            p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#skinCard")
+            p4.set_input_files("#skinCard [data-f=screen]", "/tmp/frame-test.png"); p4.wait_for_selector("#skinCard [data-slot=screen] .skprev")
+            p4.set_input_files("#skinCard [data-f=panel]", "/tmp/frame-test.png"); p4.wait_for_selector("#skinCard [data-slot=panel] .skprev")
+            p4.fill("#skinCard [data-slot=screen] input[data-n=d]", "30"); p4.dispatch_event("#skinCard [data-slot=screen] input[data-n=d]", "change")
+            p4.wait_for_function("window.__ba.skinRecs.get('skin:all:screen').d === 30")
+            p4.select_option("#skinScope", "splendor"); p4.set_input_files("#skinCard [data-f=button]", "/tmp/frame-test.png"); p4.wait_for_selector("#skinCard [data-slot=button] input[data-n=slice]")
+            p4.goto(BASE + "?fast=1"); p4.wait_for_selector(".gcard[data-id=splendor]"); p4.click(".gcard[data-id=splendor]")
+            p4.wait_for_selector("#setup .seat"); p4.click("#btnStart"); p4.wait_for_selector(".g-splendor .sp-dock.mine", timeout=30000)
+            r = p4.evaluate("(()=>{const e=document.querySelector('.g-splendor').parentElement;const c=getComputedStyle(e);return [e.getAttribute('data-skin'),c.borderImageSource.slice(0,20),c.borderTopWidth,e.style.getPropertyValue('--sk-button')?'btn':'no',e.style.getPropertyValue('--sk-panel')?'panel':'no']})()")
+            assert r[0] == "screen" and r[1].startswith("url(") and r[2] == "30px" and r[3] == "btn" and r[4] == "panel", r
+            p4.click(".gamebar button"); p4.click(".gamebar button"); p4.wait_for_selector(".gcard[data-id=splendor]")
+            p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#skinCard")
+            with p4.expect_download() as dl: p4.click("#btnExportImages")
+            o = json.loads(open(dl.value.path(), encoding="utf-8").read()); assert "skin:all:screen" in o["data"]["portraits"] and o["data"]["portraits"]["skin:all:screen"]["d"] == 30
+            p4.select_option("#skinScope", "all")
+            for sl in ("screen", "panel"): p4.click(f"#skinCard [data-slot={sl}] .btn:has-text('지우기')"); p4.wait_for_selector(f"#skinCard [data-slot={sl}] .skprev", state="detached")
+            p4.select_option("#skinScope", "splendor"); p4.click("#skinCard [data-slot=button] .btn:has-text('지우기')"); p4.wait_for_function("!window.__ba.skinRecs.has('skin:splendor:button')")
+        check("UI 틀", "틀 그림을 올리면 공용·게임별로 저장되고 게임 화면에 씌워지며 백업에 들어가고, 지우면 원래 모양으로 돌아간다", skin_ui)
         def img_backup():
             p4.click("#nav a[data-tab=settings]"); p4.wait_for_selector("#imagesCard")
             with p4.expect_download() as dl: p4.click("#btnExportImages")

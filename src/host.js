@@ -2,6 +2,7 @@
 import { makeRng } from '../core/rng.js';
 import { artList } from './art.js';
 import { applyFonts } from './fontkit.js';
+import { applySkins } from './skin.js';
 import { buildPlayers } from '../core/runner.js';
 import { buildRecord, saveRecord, listRecords } from '../core/records.js';
 import { computeAchievements } from '../core/stats.js';
@@ -86,6 +87,7 @@ export async function launchGame(app, entry, seats, difficulty = null, resume = 
   };
   app.view.replaceChildren(root);
   document.body.classList.add('playing');
+  applySkins(app, entry.id, gameRoot);   // 사용자 UI 틀(없으면 기본)
   await applyFonts(app, entry.id, gameRoot);   // 사용자가 고른 폰트(없으면 기본)
   instance = mod.mount(gameRoot, ctx);
 }
