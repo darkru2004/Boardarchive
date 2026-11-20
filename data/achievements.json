@@ -520,6 +520,33 @@
       "group": "게임별",
       "n": 5,
       "gameId": "maquis"
+    },
+    {
+      "id": "qoc-first",
+      "name": "첫 한 잔",
+      "desc": "Quests Over Coffee 한 판 끝내기",
+      "type": "coop_played",
+      "group": "게임별",
+      "n": 1,
+      "gameId": "qoc"
+    },
+    {
+      "id": "qoc-win",
+      "name": "잘 마셨어요!",
+      "desc": "Quests Over Coffee에서 좋은 등급으로 클리어",
+      "type": "coop_wins",
+      "group": "게임별",
+      "n": 1,
+      "gameId": "qoc"
+    },
+    {
+      "id": "qoc-win-5",
+      "name": "단골 모험가",
+      "desc": "Quests Over Coffee에서 5번 클리어",
+      "type": "coop_wins",
+      "group": "게임별",
+      "n": 5,
+      "gameId": "qoc"
     }
   ]
 }

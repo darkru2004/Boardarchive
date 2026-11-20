@@ -477,6 +477,63 @@
       },
       "wide": true,
       "immersive": true
+    },
+    {
+      "id": "qoc",
+      "file": "qoc.js",
+      "name": "Quests Over Coffee",
+      "version": "1.0.0",
+      "mode": "coop",
+      "players": {
+        "min": 1,
+        "max": 1
+      },
+      "minutes": 15,
+      "desc": "커피 한 잔 마실 시간에 즐기는 1인용 주사위 퀘스트. 퀘스트 5장을 골라 3개의 주사위를 굴리고, 돈·행운·아이템으로 결과를 다듬어 별을 모으세요.",
+      "theme": {
+        "accent": "#e0a53a",
+        "table": "#4a3426",
+        "table2": "#2a1d15",
+        "glyph": "☕"
+      },
+      "art": {
+        "groups": [
+          {
+            "id": "c-base",
+            "label": "기본 카드 20장",
+            "w": 360,
+            "h": 504,
+            "max": 20,
+            "hint": "이미지 JSON으로 불러오기. 퀘스트 10·아이템 6·상점 2·플레이어 2 (순서 중요, 20장 모두 필요)"
+          },
+          {
+            "id": "c-sci",
+            "label": "03 Science Shmience 카드 28장",
+            "w": 360,
+            "h": 504,
+            "max": 28,
+            "hint": "퀘스트 11·아이템 6·상점 2·환경 9 (28장 모두 필요)"
+          },
+          {
+            "id": "c-nc",
+            "label": "01 Night Carnival 카드 9장",
+            "w": 360,
+            "h": 504,
+            "max": 9,
+            "hint": "퀘스트 5·아이템 4 (9장 모두 필요)"
+          },
+          {
+            "id": "back",
+            "label": "카드 뒷면 3장",
+            "w": 360,
+            "h": 504,
+            "max": 3,
+            "hint": "선택 사항"
+          }
+        ]
+      },
+      "wide": true,
+      "immersive": true
     }
   ]
 }
