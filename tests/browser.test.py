@@ -351,12 +351,13 @@ try:
           for (const c of 'wugrk') for (let n = 1; n <= 18; n++) await put(`art:splendor:card-${c}:${String(n).padStart(2, '0')}`);
           for (let n = 1; n <= 10; n++) await put(`art:splendor:noble:${String(n).padStart(2, '0')}`);
           for (const c of 'wugrky') await put(`art:splendor:token-${c}:01`);
-          await put('art:splendor:skin:01');
+          await put('art:splendor:skin:01'); await put('art:splendor:bg:01');
         }""", TINY)
         p2.goto(BASE + "?fast=1"); p2.wait_for_selector("#nav a")
         p2.click(".gcard[data-id=splendor]"); p2.wait_for_selector("#setup .seat"); p2.click("button[data-n='4']"); p2.click("#btnStart")
         p2.wait_for_selector(".g-splendor .sp-dock.mine", timeout=30000)
         check("스플렌더", "스킨이 있으면 카드·귀족·보석이 그림으로 바뀌고 앱이 따로 그리는 점수·비용 표시는 사라진다", lambda: (None if p2.locator(".g-splendor .sp-row .sp-card.baked").count() == 12 and p2.locator(".g-splendor .sp-nb.baked").count() == 5 and p2.locator(".g-splendor .sp-tok.baked").count() == 6 and p2.locator(".g-splendor .sp-card.baked .sp-pip:visible").count() == 0 and p2.locator(".g-splendor .sp-card.baked .sp-pt:visible").count() == 0 and p2.locator(".g-splendor .sp-nb.baked .sp-req:visible").count() == 0 else (_ for _ in ()).throw(AssertionError("스킨 적용 안 됨"))))
+        check("스플렌더", "배경 그림을 올리면 게임판 배경으로 깔린다", lambda: (None if p2.evaluate("getComputedStyle(document.querySelector('.g-splendor')).backgroundImage.includes('data:image')") else (_ for _ in ()).throw(AssertionError("배경 없음"))))
         p2.screenshot(path=f"{SHOTS}/13b-splendor-skin.png")
         p2.evaluate("""async () => { for (const { key } of await window.__ba.storage.all('portraits')) if (key.startsWith('art:splendor:')) await window.__ba.storage.del('portraits', key); }""")
         p2.goto(BASE + "?fast=1"); p2.wait_for_selector("#nav a")

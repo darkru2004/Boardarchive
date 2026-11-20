@@ -366,6 +366,8 @@ function mountSplendor(self, container, ctx) {
   const colorOf = seat => ctx.players[seat].color || '#888';
   const fillAv = box => box.querySelectorAll('[data-av]').forEach(e => { if (!e.firstChild) e.append(ctx.avatar(+e.dataset.av, 'css')); });
   root.classList.toggle('sp-imm', !!ctx.immersive);
+  const bgArr = ctx.art ? ctx.art('bg') : [];   // 게임판 배경 그림(없으면 기본 배경)
+  if (bgArr && bgArr.length) { root.classList.add('sp-bg'); root.style.backgroundImage = `linear-gradient(#0005,#000a),url("${bgArr[0]}")`; root.style.backgroundSize = 'cover'; root.style.backgroundPosition = 'center'; root.style.backgroundAttachment = 'local'; }
   // PC(큰 화면): 카드·패널·글자를 화면 크기에 비례해 함께 키운다(--k)
   const fit = () => { const k = Math.max(0.85, Math.min(3, Math.min(innerHeight / 780, innerWidth / 1300))); root.style.setProperty('--k', k.toFixed(3)); };
   fit(); window.addEventListener('resize', fit);
