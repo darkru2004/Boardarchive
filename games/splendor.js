@@ -863,7 +863,9 @@ const CSS = `
 .g-splendor .sp-nb.has-art>*{z-index:1}
 .g-splendor .sp-tok.has-art{box-shadow:0 2px 5px #000a,inset 0 0 0 2px #fff4}
 .g-splendor .sp-card.baked .sp-hd,.g-splendor .sp-card.baked .sp-cost,.g-splendor .sp-card.baked .sp-img:after{display:none}
+.g-splendor .sp-card.baked{height:calc(var(--cw)*1.4)}
 .g-splendor .sp-card.baked .sp-img{background-size:100% 100%}
+.g-splendor .sp-row:has(.sp-card.baked) .sp-slot,.g-splendor .sp-row:has(.sp-card.baked) .sp-back{height:calc(var(--cw)*1.4)}
 .g-splendor .sp-nb.baked{background-size:100% 100%;box-shadow:0 2px 5px #0009}
 .g-splendor .sp-nb.baked>*,.g-splendor .sp-nb.baked:after{display:none}
 .g-splendor .sp-tok.baked{background-size:contain;background-color:transparent;border:0;border-radius:0;box-shadow:none;filter:drop-shadow(0 2px 3px #000a)}
