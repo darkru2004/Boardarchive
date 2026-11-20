@@ -366,6 +366,9 @@ function mountSplendor(self, container, ctx) {
   const colorOf = seat => ctx.players[seat].color || '#888';
   const fillAv = box => box.querySelectorAll('[data-av]').forEach(e => { if (!e.firstChild) e.append(ctx.avatar(+e.dataset.av, 'css')); });
   root.classList.toggle('sp-imm', !!ctx.immersive);
+  // PC(큰 화면): 카드·패널·글자를 화면 크기에 비례해 함께 키운다(--k)
+  const fit = () => { const k = Math.max(0.85, Math.min(3, Math.min(innerHeight / 780, innerWidth / 1300))); root.style.setProperty('--k', k.toFixed(3)); };
+  fit(); window.addEventListener('resize', fit);
   const myTurn = () => !s.over && s.turn === hs;
   const P = seat => s.players[seat];
 
@@ -415,7 +418,9 @@ function mountSplendor(self, container, ctx) {
     return [0, 1, 2, 3, 4, 5].map(c => {
       const t = p.tok[c], bn = c < 5 ? b[c] : null;
       const tag = disc && t > 0 ? 'button' : 'span';
-      return `<${tag} class="sp-cc sp-k${c}${disc && t > 0 ? ' sp-dc' : ''}${!t && !bn ? ' zero' : ''}"${disc && t > 0 ? ` data-dc="${c}"` : ''}>${c < 5 ? `<b class="sp-cb">${bn}</b>` : `<b class="sp-cb sp-gold">★</b>`}<span class="sp-ct">${gem(c)}${t}</span></${tag}>`;
+      const tc = artCls('token-' + (c < 5 ? ART_COL[c] : 'y'), 0);   // 스킨의 6각 토큰 그림이 있으면 숫자 칸·보석 아이콘을 그걸로
+      const cb = tc ? `<b class="sp-cb hx ${tc}">${c < 5 ? bn : '★'}</b>` : c < 5 ? `<b class="sp-cb">${bn}</b>` : `<b class="sp-cb sp-gold">★</b>`;
+      return `<${tag} class="sp-cc sp-k${c}${disc && t > 0 ? ' sp-dc' : ''}${!t && !bn ? ' zero' : ''}"${disc && t > 0 ? ` data-dc="${c}"` : ''}>${cb}<span class="sp-ct">${tc ? `<i class="sp-hxm ${tc}"></i>` : gem(c)}${t}</span></${tag}>`;
     }).join('');
   }
   function drawOpps() {
@@ -447,7 +452,8 @@ function mountSplendor(self, container, ctx) {
         const fresh = !prevTable.has(id);
         return cardHTML(id, { bonus: b, cls: (can ? ' can' : '') + (isSel ? ' sel' : '') + (fresh ? ' deal' : ''), attr: ` data-t="${lv}:${i}" data-id="${id}"` });
       }).join('');
-      return `<div class="sp-row">${cards}</div>`;
+      const dk = s.decks[l].length ? backHTML(lv, s.decks[l].length, { cls: ' sp-deck' + (sel.card && sel.card.k === 'd' && sel.card.lv === lv ? ' sel' : ''), attr: ` data-d="${lv}"` }) : `<div class="sp-back sp-empty"><b>빈 덱</b></div>`;
+      return `<div class="sp-row">${dk}${cards}</div>`;
     }).join('') + `<div class="sp-decks">${[3, 2, 1].map(lv => { const d = s.decks[lv - 1].length;
       return d ? backHTML(lv, d, { cls: ' sp-deck' + (sel.card && sel.card.k === 'd' && sel.card.lv === lv ? ' sel' : ''), attr: ` data-d="${lv}"` }) : `<div class="sp-back sp-empty"><span class="sp-bk">${'◆'.repeat(lv)}</span><b>빈 덱</b></div>`; }).join('')}</div>`;
     prevTable = new Set(s.table.flat());
@@ -567,7 +573,7 @@ function mountSplendor(self, container, ctx) {
   }
 
   // ----- 진행 -----
-  function rectSel(sel2) { const e = root.querySelector(sel2); return e ? e.getBoundingClientRect() : null; }
+  function rectSel(sel2) { for (const e of root.querySelectorAll(sel2)) { const r = e.getBoundingClientRect(); if (r.width > 0) return r; } return null; }   // 모바일/PC에서 서로 다른 덱 표시 중 보이는 쪽
   function step(seat, move, reason) {
     if (s.over) return;
     // 연출용: 수를 두기 전 위치를 기억
@@ -728,7 +734,7 @@ function mountSplendor(self, container, ctx) {
   if (!resumed) ctx.players.forEach((p, i) => { if (!p.human) later(() => say(i, 'start'), ctx.delay(300 + i * 500)); });
   if (!resumed && ctx.autosave) ctx.autosave(JSON.parse(JSON.stringify(s)));
   loop(true);
-  return { destroy() { dead = true; timers.forEach(clearTimeout); timers.clear(); } };
+  return { destroy() { dead = true; window.removeEventListener('resize', fit); timers.forEach(clearTimeout); timers.clear(); } };
 }
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -763,6 +769,33 @@ const DEFS = GEMDEF.map(([hi, mid, dk], i) => `<symbol id="sp-g${i}" viewBox="0 
   <path d="M23 44 h54 l-5 8 h-44z" fill="#fff" opacity=".55"/><path d="M30 44 l-2 8 M40 44 l-1 8 M50 44 v8 M60 44 l1 8 M70 44 l2 8" stroke="#000" stroke-opacity=".3" stroke-width="2"/>
   <path d="M43 72 v-12 a7 7 0 0 1 14 0 v12z M32 27 h8 v11 h-8z M60 27 h8 v11 h-8z" fill="#000" opacity=".38"/><path d="M74 25 h16 l-5 6 5 6 h-16z" fill="#fff" opacity=".7"/><path d="M50 4 V-2" stroke="currentColor" stroke-width="2"/></symbol>`;
 
+const PC_BODY = `
+.g-splendor{display:grid;grid-template-columns:270px auto 330px;justify-content:center;grid-template-rows:auto 1fr;gap:8px 18px;padding:10px 16px 14px;min-height:100dvh;align-content:start;--cw:118px}
+.g-splendor .sp-top{grid-column:1/-1;font-size:14px}
+.g-splendor .sp-tb button{font-size:13px;padding:4px 14px;min-height:30px}
+.g-splendor .sp-flag{font-size:13px;padding:2px 10px}
+.g-splendor .sp-l,.g-splendor .sp-c,.g-splendor .sp-r{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0}
+.g-splendor .sp-c{align-items:center;width:calc(var(--cw)*5 + 32px)}
+.g-splendor .sp-opps,.g-splendor .sp-opps.n1,.g-splendor .sp-opps.n2,.g-splendor .sp-opps.n3{grid-template-columns:1fr;gap:10px;margin:0}
+.g-splendor .sp-opp{padding:8px 10px}.g-splendor .sp-on{font-size:15px}.g-splendor .sp-op{font-size:26px}.g-splendor .sp-av{width:30px;height:30px}
+.g-splendor .sp-cb{height:20px;font-size:14px}.g-splendor .sp-ct{font-size:14px}.g-splendor .sp-ct .sp-gem{width:12px;height:12px}.g-splendor .sp-of{font-size:12px}
+.g-splendor .sp-cb.hx{width:30px;height:34px;font-size:15px}.g-splendor .sp-hxm{width:14px;height:16px}
+.g-splendor .sp-opps.n3 .sp-of span:last-child{display:inline}
+.g-splendor .sp-nobles{flex-wrap:wrap;margin:0;gap:8px;--cw:176px}
+.g-splendor .sp-board{gap:8px;margin:0}.g-splendor .sp-row{gap:8px}
+.g-splendor .sp-decks{display:none}
+.g-splendor .sp-row>.sp-back{display:flex;width:var(--cw);height:calc(var(--cw)*1.4);border-radius:calc(var(--cw)*.09)}
+.g-splendor .sp-row>.sp-back>b{font-size:15px}.g-splendor .sp-row>.sp-back small{font-size:20px;font-weight:800}
+.g-splendor .sp-bank{gap:12px;margin:0}.g-splendor .sp-tok{width:62px;height:62px}.g-splendor .sp-tok>b{min-width:24px;height:24px;font-size:15px;line-height:21px;right:-6px;bottom:-5px}
+.g-splendor .sp-dock{flex-wrap:wrap;margin:0;padding:8px 10px;min-height:64px;gap:8px}.g-splendor .sp-msg b{font-size:16px;white-space:normal}.g-splendor .sp-msg small{font-size:13px;white-space:normal}
+.g-splendor .sp-btn{font-size:15px;min-height:44px;padding:10px 16px}
+.g-splendor .sp-me{padding:10px 12px}.g-splendor .sp-mh{font-size:14px}.g-splendor .sp-mh>b{font-size:16px}.g-splendor .sp-mp{font-size:32px}.g-splendor .sp-mi{font-size:13px}
+.g-splendor .sp-cols.big .sp-cb{height:30px;font-size:19px}.g-splendor .sp-cols.big .sp-cb.hx{width:34px;height:38px;font-size:16px}.g-splendor .sp-cols.big .sp-hxm{width:16px;height:18px}.g-splendor .sp-rslot{width:50px;height:68px}
+.g-splendor .sp-mres,.g-splendor .sp-mini{--cw:80px}
+.g-splendor .sp-sheet{max-width:560px;font-size:15px}
+.g-splendor .sp-zoom{--cw:330px}
+`;
+const PC_CSS = `@media (min-width:1000px) and (min-height:560px){${PC_BODY.replace(/(-?\d+(?:\.\d+)?)px/g, 'calc(var(--k)*$1px)')}}`;
 const CSS = `
 .g-splendor{position:relative;container-type:inline-size;padding:5px 3px 9px;border-radius:18px;color:#f3ecda;font-family:var(--fk);user-select:none;-webkit-user-select:none;
  --cw:min(calc(25cqw - 3px),150px,calc((100dvh - 410px) / 4.8));
@@ -978,27 +1011,22 @@ const CSS = `
 .g-splendor .sp-zoom{display:flex;justify-content:center;--cw:min(72cqw,300px);padding:6px 0}
 .g-splendor .sp-zoom .sp-card{cursor:default;pointer-events:none}
 .g-splendor .sp-opp{--sk-panel-d:7px}.g-splendor .sp-me{--sk-panel-d:9px}.g-splendor .sp-msg{--sk-panel-d:6px}.g-splendor .sp-sheet{--sk-panel-d:14px}
-@media (min-width:1000px) and (min-height:560px){
- .g-splendor{display:grid;grid-template-columns:minmax(250px,1fr) auto minmax(300px,1fr);grid-template-rows:auto 1fr;gap:6px 18px;padding:10px 16px 14px;min-height:calc(100dvh - 12px);align-content:start;
-  --cw:min(12.4cqw,170px,calc((100dvh - 250px) / 4.5))}
- .g-splendor .sp-c{width:calc(var(--cw)*4 + 24px)}
- .g-splendor .sp-top{grid-column:1/-1;font-size:14px}
- .g-splendor .sp-tb button{font-size:13px;padding:4px 14px;min-height:30px}
- .g-splendor .sp-l,.g-splendor .sp-c,.g-splendor .sp-r{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0}
- .g-splendor .sp-c{justify-content:flex-start;align-items:center}
- .g-splendor .sp-opps,.g-splendor .sp-opps.n1,.g-splendor .sp-opps.n2,.g-splendor .sp-opps.n3{grid-template-columns:1fr;gap:10px;margin:0}
- .g-splendor .sp-opp{padding:8px 10px}.g-splendor .sp-on{font-size:15px}.g-splendor .sp-op{font-size:26px}.g-splendor .sp-av{width:30px;height:30px}
- .g-splendor .sp-cb{height:20px;font-size:14px}.g-splendor .sp-ct{font-size:14px}.g-splendor .sp-ct .sp-gem{width:12px;height:12px}.g-splendor .sp-of{font-size:12px}
- .g-splendor .sp-opps.n3 .sp-of span:last-child{display:inline}
- .g-splendor .sp-nobles{flex-wrap:wrap;margin:0;gap:8px;--cw:176px}
- .g-splendor .sp-board{gap:8px;margin:0}.g-splendor .sp-row{gap:8px}.g-splendor .sp-decks{gap:8px}.g-splendor .sp-decks .sp-back{height:38px;font-size:14px}
- .g-splendor .sp-bank{gap:12px;margin:0}.g-splendor .sp-tok{width:62px;height:62px}
- .g-splendor .sp-dock{flex-wrap:wrap;margin:0;padding:8px 10px;min-height:64px}.g-splendor .sp-msg b{font-size:16px;white-space:normal}.g-splendor .sp-msg small{font-size:13px;white-space:normal}
- .g-splendor .sp-btn{font-size:15px;min-height:44px;padding:10px 16px}
- .g-splendor .sp-me{padding:10px 12px}.g-splendor .sp-mh{font-size:14px}.g-splendor .sp-mh>b{font-size:16px}.g-splendor .sp-mp{font-size:32px}
- .g-splendor .sp-cols.big .sp-cb{height:30px;font-size:19px}
- .g-splendor .sp-mres,.g-splendor .sp-mini{--cw:min(7cqw,92px)}
- .g-splendor .sp-sheet{max-width:560px}
- .g-splendor .sp-zoom{--cw:min(26cqw,340px)}
-}
+/* 기본 테두리 제거(사용자 UI 틀과 겹치지 않게) · 6각 토큰 숫자칸 · 덱 표시 */
+.g-splendor{box-sizing:border-box;border-radius:0;box-shadow:none;overflow:hidden}
+.g-splendor .sp-tb button,.g-splendor .sp-btn,.g-splendor .sp-dock,.g-splendor .sp-opp,.g-splendor .sp-me,.g-splendor .sp-toast,.g-splendor .sp-slot,.g-splendor .sp-rslot{border:0}
+.g-splendor .sp-opp.turn,.g-splendor .sp-me.turn{box-shadow:0 0 16px 2px #e7c15d99}
+.g-splendor .sp-dock.mine{background:#2a1f0a66}
+.g-splendor .sp-slot,.g-splendor .sp-rslot{background:#ffffff0d}
+.g-splendor .sp-sheet{box-shadow:0 12px 30px #000c}
+.g-splendor .sp-nb{box-shadow:0 2px 5px #0009}
+.g-splendor .sp-card.baked{box-shadow:0 3px 6px #000a}
+.g-splendor .sp-card.baked.can{box-shadow:0 0 0 2px #8affbc,0 0 12px 3px #3fe08acc}
+.g-splendor .sp-card.baked.sel{box-shadow:0 0 0 2.5px var(--acc),0 6px 14px #000c}
+.g-splendor .sp-decks .sp-back.has-art{box-shadow:inset 0 0 0 99px #0008}
+.g-splendor .sp-bk,.g-splendor .sp-decks .sp-back>.sp-bk{display:none!important}
+.g-splendor .sp-row>.sp-back{display:none}
+.g-splendor .sp-cb.hx{background-color:transparent;background-size:contain;background-position:center;background-repeat:no-repeat;box-shadow:none;height:auto;width:min(100%,32px);aspect-ratio:1/1.12;color:#fff;font-size:13px;text-shadow:0 0 3px #000,0 1px 2px #000;filter:drop-shadow(0 1px 2px #0008)}
+.g-splendor .sp-cols.big .sp-cb.hx{width:calc(var(--cw)*.4);height:auto;font-size:calc(var(--cw)*.2)}
+.g-splendor .sp-hxm{display:inline-block;width:11px;height:12px;background-size:contain;background-position:center;background-repeat:no-repeat}
+${PC_CSS}
 `;
