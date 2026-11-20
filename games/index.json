@@ -203,7 +203,9 @@
             "hint": "스킨 JSON을 가져오면 자동으로 생겨요. 지우면 앱이 점수·비용을 다시 그려요"
           }
         ]
-      }
+      },
+      "wide": true,
+      "immersive": true
     },
     {
       "id": "regicide",

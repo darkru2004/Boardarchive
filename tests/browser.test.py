@@ -318,7 +318,7 @@ try:
             p2.locator(".g-splendor .sp-row .sp-card").first.click(); p2.click(".g-splendor [data-a=res]")
             p2.wait_for_selector(".g-splendor .sp-mres .sp-card")
             p2.wait_for_selector(".g-splendor .sp-dock.mine", timeout=30000)
-            p2.click(".gamebar button"); p2.click(".gamebar button"); p2.wait_for_selector(".gcard[data-id=splendor]")
+            p2.click(".gmenu .gm"); p2.click(".gmenu .gp button:last-child"); p2.click(".gmenu .gp button:last-child"); p2.wait_for_selector(".gcard[data-id=splendor]")
             p2.click(".gcard[data-id=splendor]"); p2.wait_for_selector("#resume #btnResume", timeout=5000)
             p2.click("#btnResume"); p2.wait_for_selector(".g-splendor .sp-mres .sp-card", timeout=5000)
         check("스플렌더", "중간에 나가도 '이어하기'로 같은 판(예약 카드 포함)에 돌아온다", sp_reserve_then_exit)
@@ -636,7 +636,7 @@ try:
             assert "baf-" + fid in v, v
             assert p4.evaluate("document.fonts.check(\"12px 'baf-%s'\")" % fid), "폰트가 로드되지 않음"
             assert "baf-" in p4.evaluate("getComputedStyle(document.querySelector('.g-splendor')).fontFamily"), "게임 글자에 적용 안 됨"
-            p4.click(".gamebar button"); p4.click(".gamebar button"); p4.wait_for_selector(".gcard[data-id=splendor]")
+            p4.click(".gmenu .gm"); p4.click(".gmenu .gp button:last-child"); p4.click(".gmenu .gp button:last-child"); p4.wait_for_selector(".gcard[data-id=splendor]")
             p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#fontsCard")
             with p4.expect_download() as dl: p4.click("#btnExportImages")
             o = json.loads(open(dl.value.path(), encoding="utf-8").read()); assert fid in o["data"]["fonts"]["fonts"] and o["data"]["fonts"]["prefs"]["splendor"]["body"] == fid
@@ -655,7 +655,7 @@ try:
             p4.wait_for_selector("#setup .seat"); p4.click("#btnStart"); p4.wait_for_selector(".g-splendor .sp-dock.mine", timeout=30000)
             r = p4.evaluate("(()=>{const e=document.querySelector('.g-splendor').parentElement;const c=getComputedStyle(e);return [e.getAttribute('data-skin'),c.borderImageSource.slice(0,20),c.borderTopWidth,e.style.getPropertyValue('--sk-button')?'btn':'no',e.style.getPropertyValue('--sk-panel')?'panel':'no']})()")
             assert r[0] == "screen" and r[1].startswith("url(") and r[2] == "30px" and r[3] == "btn" and r[4] == "panel", r
-            p4.click(".gamebar button"); p4.click(".gamebar button"); p4.wait_for_selector(".gcard[data-id=splendor]")
+            p4.click(".gmenu .gm"); p4.click(".gmenu .gp button:last-child"); p4.click(".gmenu .gp button:last-child"); p4.wait_for_selector(".gcard[data-id=splendor]")
             p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#skinCard")
             with p4.expect_download() as dl: p4.click("#btnExportImages")
             o = json.loads(open(dl.value.path(), encoding="utf-8").read()); assert "skin:all:screen" in o["data"]["portraits"] and o["data"]["portraits"]["skin:all:screen"]["d"] == 30
@@ -712,7 +712,7 @@ try:
             assert n_art == n_all and n_all >= 6, f"그림이 카드에 안 들어감 {n_art}/{n_all}"
             assert p4.locator(".g-splendor .sp-back.has-art").count() >= 1 and p4.locator(".g-splendor .sp-tok.has-art").count() >= 1, "뒷면/토큰 그림 없음"
             p4.screenshot(path=f"{SHOTS}/16-splendor-art.png")
-            p4.click(".gamebar button"); p4.click(".gamebar button"); p4.wait_for_selector(".gcard[data-id=splendor]")
+            p4.click(".gmenu .gm"); p4.click(".gmenu .gp button:last-child"); p4.click(".gmenu .gp button:last-child"); p4.wait_for_selector(".gcard[data-id=splendor]")
         check("카드 일러스트", "스플렌더 그림을 한꺼번에 올리면 이름으로 분류되고, 판에서 카드·뒷면·토큰에 적용된다(모르는 이름은 건너뜀)", art_slot)
         ctx4.close()
         ctx2.close()

@@ -351,13 +351,10 @@ function mountSplendor(self, container, ctx) {
     <div class="g-splendor" style="--acc:${th.accent || '#e7c15d'};--tb:${th.table || '#1b2547'};--tb2:${th.table2 || '#0b1026'}">
       <svg class="sp-defs" width="0" height="0" aria-hidden="true">${DEFS}</svg>
       <div class="sp-top"><span class="sp-rd"></span><span class="sp-flag" hidden>마지막 라운드</span>
-        <span class="sp-tb"><button data-a="log" title="진행 기록">기록</button><button data-a="rules" title="규칙">규칙</button></span></div>
-      <div class="sp-opps"></div>
-      <div class="sp-nobles"></div>
-      <div class="sp-board"></div>
-      <div class="sp-bank"></div>
-      <div class="sp-dock"></div>
-      <div class="sp-me"></div>
+        <span class="sp-tb"><button data-skin="button" data-a="log" title="진행 기록">기록</button><button data-skin="button" data-a="rules" title="규칙">규칙</button></span></div>
+      <div class="sp-l"><div class="sp-opps"></div><div class="sp-nobles"></div></div>
+      <div class="sp-c"><div class="sp-board"></div><div class="sp-bank"></div></div>
+      <div class="sp-r"><div class="sp-dock"></div><div class="sp-me"></div></div>
       <div class="sp-ov" hidden></div>
       <div class="sp-toasts"></div>
     </div>`;
@@ -368,6 +365,7 @@ function mountSplendor(self, container, ctx) {
   const nameOf = seat => (ctx.players[seat].human ? '나' : ctx.players[seat].name.split(' ').pop());
   const colorOf = seat => ctx.players[seat].color || '#888';
   const fillAv = box => box.querySelectorAll('[data-av]').forEach(e => { if (!e.firstChild) e.append(ctx.avatar(+e.dataset.av, 'css')); });
+  root.classList.toggle('sp-imm', !!ctx.immersive);
   const myTurn = () => !s.over && s.turn === hs;
   const P = seat => s.players[seat];
 
@@ -399,7 +397,7 @@ function mountSplendor(self, container, ctx) {
     const c = CARDS[id], b = o.bonus;
     const pips = c.cost.map((v, i) => (v ? `<i class="sp-pip sp-k${i}${b && b[i] >= v ? ' ok' : ''}">${v}</i>` : '')).join('');
     const ac = artCls('card-' + ART_COL[c.col], c.id % 18);
-    return `<div class="sp-card sp-k${c.col} sp-l${c.lv}${ac ? ' has-art' : ''}${ac && BAKED ? ' baked' : ''}${o.cls || ''}"${o.attr || ''}>
+    return `<div data-skin="card" class="sp-card sp-k${c.col} sp-l${c.lv}${ac ? ' has-art' : ''}${ac && BAKED ? ' baked' : ''}${o.cls || ''}"${o.attr || ''}>
       ${ac ? `<div class="sp-img ${ac}"></div>` : `<svg class="sp-art" viewBox="0 0 100 70" preserveAspectRatio="xMidYMid slice"><use href="#sp-a${c.lv}${c.id % 2}"/></svg>`}
       <div class="sp-hd"><b class="sp-pt">${c.pts || ''}</b><span class="sp-lvd">${'◆'.repeat(c.lv)}</span>${gem(c.col, 'sp-bn')}</div>
       <div class="sp-cost">${pips}</div></div>`;
@@ -425,7 +423,7 @@ function mountSplendor(self, container, ctx) {
     oppBox.className = 'sp-opps n' + opp.length;
     oppBox.innerHTML = opp.map(pl => {
       const i = pl.seat, p = P(i), sp = speech[i];
-      return `<div class="sp-opp${!s.over && s.turn === i ? ' turn' : ''}" data-seat="${i}" style="--pc:${colorOf(i)}">
+      return `<div data-skin="panel" class="sp-opp${!s.over && s.turn === i ? ' turn' : ''}" data-seat="${i}" style="--pc:${colorOf(i)}">
         <div class="sp-oh"><span class="sp-av" data-av="${i}"></span><b class="sp-on">${nameOf(i)}</b><span class="sp-op">${pointsOf(p)}</span></div>
         <div class="sp-cols">${cellsHTML(i)}</div>
         <div class="sp-of"><span>카드 ${p.cards.length}</span><span>예약 ${p.res.length}</span><span>귀족 ${p.nobles.length}</span><span>보석 ${tokTotal(p)}</span></div>
@@ -442,7 +440,6 @@ function mountSplendor(self, container, ctx) {
     const me = P(hs), b = bonusOf(me), mine = myTurn() && s.phase === 'act';
     board.innerHTML = [2, 1, 0].map(l => {
       const lv = l + 1, d = s.decks[l].length;
-      const deck = d ? backHTML(lv, d, { cls: ' sp-deck' + (sel.card && sel.card.k === 'd' && sel.card.lv === lv ? ' sel' : ''), attr: ` data-d="${lv}"` }) : `<div class="sp-back sp-empty"><b>빈 덱</b></div>`;
       const cards = s.table[l].map((id, i) => {
         if (id == null) return '<div class="sp-slot"></div>';
         const isSel = sel.card && sel.card.k === 't' && sel.card.lv === lv && sel.card.i === i;
@@ -450,8 +447,9 @@ function mountSplendor(self, container, ctx) {
         const fresh = !prevTable.has(id);
         return cardHTML(id, { bonus: b, cls: (can ? ' can' : '') + (isSel ? ' sel' : '') + (fresh ? ' deal' : ''), attr: ` data-t="${lv}:${i}" data-id="${id}"` });
       }).join('');
-      return `<div class="sp-row">${deck}${cards}</div>`;
-    }).join('');
+      return `<div class="sp-row">${cards}</div>`;
+    }).join('') + `<div class="sp-decks">${[3, 2, 1].map(lv => { const d = s.decks[lv - 1].length;
+      return d ? backHTML(lv, d, { cls: ' sp-deck' + (sel.card && sel.card.k === 'd' && sel.card.lv === lv ? ' sel' : ''), attr: ` data-d="${lv}"` }) : `<div class="sp-back sp-empty"><span class="sp-bk">${'◆'.repeat(lv)}</span><b>빈 덱</b></div>`; }).join('')}</div>`;
     prevTable = new Set(s.table.flat());
   }
   function selGemCount(c) { return sel.gems.filter(x => x === c).length; }
@@ -478,8 +476,8 @@ function mountSplendor(self, container, ctx) {
   const isLegal = m => self.legalMoves(s).some(x => JSON.stringify(x) === JSON.stringify(m));
   function drawDock() {
     const parts = [];
-    const msg = (b, sm) => `<div class="sp-msg"><b>${b}</b>${sm ? `<small>${sm}</small>` : ''}</div>`;
-    const btn = (a, label, on = true, cls = '') => `<button class="sp-btn ${cls}" data-a="${a}"${on ? '' : ' disabled'}>${label}</button>`;
+    const msg = (b, sm) => `<div data-skin="panel" class="sp-msg"><b>${b}</b>${sm ? `<small>${sm}</small>` : ''}</div>`;
+    const btn = (a, label, on = true, cls = '') => `<button data-skin="button" class="sp-btn ${cls}" data-a="${a}"${on ? '' : ' disabled'}>${label}</button>`;
     if (s.over) parts.push(msg('게임이 끝났어요'));
     else if (!myTurn()) parts.push(msg(`${nameOf(s.turn)} ${s.phase === 'discard' ? '보석 반납 중…' : '생각 중…'}`, s.last && s.last.seat !== hs ? lastText(s.last) : ''));
     else if (s.phase === 'discard') parts.push(msg(`보석이 10개를 넘었어요 · ${tokTotal(P(hs)) - 10}개 반납`, '아래 내 보석을 눌러 돌려주세요'));
@@ -499,6 +497,7 @@ function mountSplendor(self, container, ctx) {
         const need = sh.miss.map((v, i) => (v ? `<i class="sp-pip sp-k${i}">${v}</i>` : '')).join('');
         const info = afford ? (sh.tot ? `금 ${sh.tot}개를 섞어서 살 수 있어요` : '바로 살 수 있어요') : `<span class="sp-need">부족 ${need}${me.tok[5] ? ` <small>(금 ${me.tok[5]})</small>` : ''}</span>`;
         parts.push(msg(`레벨 ${c.lv} · ${c.pts ? c.pts + '점' : '0점'} · ${GNAME[c.col]} 보너스`, info), btn('cancel', '취소'));
+        parts.push(btn('zoom', '확대'));
         if (sc.k === 't') parts.push(btn('res', s.supply[5] ? '예약 +금' : '예약', me.res.length < 3, 'res'));
         parts.push(btn('buy', '구매', afford, 'go'));
       }
@@ -519,6 +518,7 @@ function mountSplendor(self, container, ctx) {
       return cardHTML(x.id, { bonus: bonusOf(p), cls: ' sp-mini' + (can ? ' can' : '') + (sel.card && sel.card.k === 'r' && sel.card.r === r ? ' sel' : ''), attr: ` data-r="${r}"` });
     }).join('');
     meBox.className = 'sp-me' + (myTurn() ? ' turn' : '');
+    meBox.setAttribute("data-skin", "panel");
     meBox.innerHTML = `<div class="sp-mh"><span class="sp-av" data-av="${hs}"></span><b>나</b><span class="sp-mp">${pointsOf(p)}<small>점</small></span>
         <span class="sp-mi">${p.nobles.length ? `귀족 ${p.nobles.length}` : ''}</span><span class="sp-mi">카드 ${p.cards.length}</span><span class="sp-mi${tokTotal(p) > 10 ? ' bad' : ''}">보석 ${tokTotal(p)}/10</span></div>
       <div class="sp-mrow"><div class="sp-cols big">${cellsHTML(hs, true)}</div><div class="sp-mres">${res}</div></div>`;
@@ -575,7 +575,7 @@ function mountSplendor(self, container, ctx) {
     if (move.t === 'take' || move.t === 'take2') gemRects = (move.t === 'take' ? move.g : [move.c, move.c]).map(c => rectSel(`.sp-tok[data-g="${c}"]`));
     if (move.t === 'buy' || move.t === 'res') { from = rectSel(`[data-t="${move.lv}:${move.i}"]`); html = cardHTML(s.table[move.lv - 1][move.i]); }
     if (move.t === 'buyr') { from = seat === hs ? rectSel(`[data-r="${move.r}"]`) : rectSel(`.sp-opp[data-seat="${seat}"]`); html = cardHTML(P(seat).res[move.r].id); }
-    if (move.t === 'resd') { from = rectSel(`[data-d="${move.lv}"]`); html = backHTML(move.lv); }
+    if (move.t === 'resd') { const r = rectSel(`[data-d="${move.lv}"]`); from = r ? new DOMRect(r.x + r.width / 2 - 30, r.y + r.height / 2 - 42, 60, 84) : null; html = backHTML(move.lv); }
     const goldRect = rectSel('.sp-tok[data-g="5"]');
     const before = s.players.map(pointsOf), leader = before.indexOf(Math.max(...before));
     const phase = s.phase, wasEnding = s.ending;
@@ -629,13 +629,13 @@ function mountSplendor(self, container, ctx) {
         return `<div class="sp-fr${r.rank === 1 ? ' first' : ''}" style="--pc:${colorOf(r.seat)}"><i>${r.rank}위</i><span class="sp-av" data-av="${r.seat}"></span>
           <div class="sp-fi"><b>${r.seat === hs ? '나' : nameOf(r.seat)}</b><small>카드 ${p.cards.length} · 귀족 ${p.nobles.length} · 보너스 ${b.map((v, i) => `<em class="sp-k${i}">${v}</em>`).join('')}</small></div><span class="sp-fp">${r.score}<small>점</small></span></div>`;
       }).join('');
-      openOv(`<h3 class="sp-ft">${meRank === 1 ? '승리!' : `${meRank}위`}</h3><p class="sp-fs">${s.round}라운드 · 점수가 같으면 카드가 적은 쪽이 앞</p>${rows}<button class="sp-btn go wide" data-a="finish">기록 저장하고 마치기</button>`, true);
+      openOv(`<h3 class="sp-ft">${meRank === 1 ? '승리!' : `${meRank}위`}</h3><p class="sp-fs">${s.round}라운드 · 점수가 같으면 카드가 적은 쪽이 앞</p>${rows}<button data-skin="button" class="sp-btn go wide" data-a="finish">기록 저장하고 마치기</button>`, true);
       ov._res = res;
     }, ctx.delay(1500));
   }
 
   // ----- 겹쳐 뜨는 창 -----
-  function openOv(html, keep) { ov.innerHTML = `<div class="sp-sheet">${html}${keep ? '' : '<button class="sp-btn wide" data-a="close">닫기</button>'}</div>`; ov.hidden = false; fillAv(ov); }
+  function openOv(html, keep) { ov.innerHTML = `<div data-skin="panel" class="sp-sheet">${html}${keep ? '' : '<button data-skin="button" class="sp-btn wide" data-a="close">닫기</button>'}</div>`; ov.hidden = false; fillAv(ov); }
   function openNoble() {
     openOv(`<h3 class="sp-ft">귀족 고르기</h3><p class="sp-fs">조건을 채운 귀족 중 한 명만 이번 차례에 방문해요.</p><div class="sp-nbpick">${s.pend.map(k => `<button data-nk="${k}">${nobleHTML(k, ' big')}</button>`).join('')}</div>`, true);
   }
@@ -690,6 +690,7 @@ function mountSplendor(self, container, ctx) {
       if (k === 'close') { ov.hidden = true; ov.innerHTML = ''; return; }
       if (k === 'finish') { a.disabled = true; ov.hidden = true; ctx.finish(ov._res); return; }
       if (k === 'noble') return openNoble();
+      if (k === 'zoom' && sel.card && sel.card.k !== 'd') return openOv(`<div class="sp-zoom">${cardHTML(srcCard(sel.card), { bonus: bonusOf(P(hs)) })}</div>`);
       if (k === 'cancel') { sel = { gems: [], card: null }; return draw(); }
       if (k === 'take') return humanMove(gemsMove());
       if (k === 'pass') return humanMove({ t: 'pass' });
@@ -763,8 +764,8 @@ const DEFS = GEMDEF.map(([hi, mid, dk], i) => `<symbol id="sp-g${i}" viewBox="0 
   <path d="M43 72 v-12 a7 7 0 0 1 14 0 v12z M32 27 h8 v11 h-8z M60 27 h8 v11 h-8z" fill="#000" opacity=".38"/><path d="M74 25 h16 l-5 6 5 6 h-16z" fill="#fff" opacity=".7"/><path d="M50 4 V-2" stroke="currentColor" stroke-width="2"/></symbol>`;
 
 const CSS = `
-.g-splendor{position:relative;container-type:inline-size;padding:7px 6px 9px;border-radius:18px;color:#f3ecda;font-family:var(--fk);user-select:none;-webkit-user-select:none;
- --cw:min(19.8cqw,104px,calc((100dvh - 462px) / 3.95));
+.g-splendor{position:relative;container-type:inline-size;padding:5px 3px 9px;border-radius:18px;color:#f3ecda;font-family:var(--fk);user-select:none;-webkit-user-select:none;
+ --cw:min(calc(25cqw - 3px),150px,calc((100dvh - 410px) / 4.8));
  background:radial-gradient(90% 40% at 50% 0%,#ffffff18,transparent 70%),repeating-linear-gradient(45deg,#ffffff05 0 2px,#0000 2px 6px),radial-gradient(130% 90% at 50% 35%,var(--tb),var(--tb2));
  box-shadow:inset 0 0 0 3px #3a2a10,inset 0 0 0 5px #b48a3a,inset 0 0 50px #000a,0 10px 24px #0006}
 .g-splendor *{box-sizing:border-box}
@@ -963,4 +964,41 @@ const CSS = `
 @keyframes sptoast{0%{opacity:0;transform:translateY(8px) scale(.95)}12%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}
 @keyframes spfall{to{transform:translateY(105vh) rotate(540deg)}}
 @media (min-width:560px){.g-splendor .sp-on{font-size:13px}.g-splendor .sp-cb{height:17px;font-size:12px}}
+
+/* 전체화면(몰입) 모드 · 덱 줄 · 확대 · PC 3열 */
+.g-splendor .sp-l,.g-splendor .sp-c,.g-splendor .sp-r{display:contents}
+.g-splendor.sp-imm .sp-top{padding-right:42px}
+.g-splendor .sp-row{gap:3px}
+.g-splendor .sp-decks{display:flex;gap:4px;width:100%;margin-top:1px}
+.g-splendor .sp-decks .sp-back{flex:1;width:auto;height:30px;flex-direction:row;gap:5px;border-radius:8px;padding:0 6px;font-size:12px}
+.g-splendor .sp-decks .sp-back>*{display:inline!important;position:static!important;font-size:12px}
+.g-splendor .sp-decks .sp-back small{margin-left:auto;font-size:13px;font-weight:800}
+.g-splendor .sp-decks .sp-back.has-art{background-size:cover;background-position:center 40%;box-shadow:inset 0 0 0 1.5px var(--fr),inset 0 0 0 99px #0008}
+.g-splendor .sp-decks .sp-back.sel{transform:none;box-shadow:inset 0 0 0 2.5px var(--acc),0 0 10px #e7c15d99}
+.g-splendor .sp-zoom{display:flex;justify-content:center;--cw:min(72cqw,300px);padding:6px 0}
+.g-splendor .sp-zoom .sp-card{cursor:default;pointer-events:none}
+.g-splendor .sp-opp{--sk-panel-d:7px}.g-splendor .sp-me{--sk-panel-d:9px}.g-splendor .sp-msg{--sk-panel-d:6px}.g-splendor .sp-sheet{--sk-panel-d:14px}
+@media (min-width:1000px) and (min-height:560px){
+ .g-splendor{display:grid;grid-template-columns:minmax(250px,1fr) auto minmax(300px,1fr);grid-template-rows:auto 1fr;gap:6px 18px;padding:10px 16px 14px;min-height:calc(100dvh - 12px);align-content:start;
+  --cw:min(12.4cqw,170px,calc((100dvh - 250px) / 4.5))}
+ .g-splendor .sp-c{width:calc(var(--cw)*4 + 24px)}
+ .g-splendor .sp-top{grid-column:1/-1;font-size:14px}
+ .g-splendor .sp-tb button{font-size:13px;padding:4px 14px;min-height:30px}
+ .g-splendor .sp-l,.g-splendor .sp-c,.g-splendor .sp-r{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0}
+ .g-splendor .sp-c{justify-content:flex-start;align-items:center}
+ .g-splendor .sp-opps,.g-splendor .sp-opps.n1,.g-splendor .sp-opps.n2,.g-splendor .sp-opps.n3{grid-template-columns:1fr;gap:10px;margin:0}
+ .g-splendor .sp-opp{padding:8px 10px}.g-splendor .sp-on{font-size:15px}.g-splendor .sp-op{font-size:26px}.g-splendor .sp-av{width:30px;height:30px}
+ .g-splendor .sp-cb{height:20px;font-size:14px}.g-splendor .sp-ct{font-size:14px}.g-splendor .sp-ct .sp-gem{width:12px;height:12px}.g-splendor .sp-of{font-size:12px}
+ .g-splendor .sp-opps.n3 .sp-of span:last-child{display:inline}
+ .g-splendor .sp-nobles{flex-wrap:wrap;margin:0;gap:8px;--cw:176px}
+ .g-splendor .sp-board{gap:8px;margin:0}.g-splendor .sp-row{gap:8px}.g-splendor .sp-decks{gap:8px}.g-splendor .sp-decks .sp-back{height:38px;font-size:14px}
+ .g-splendor .sp-bank{gap:12px;margin:0}.g-splendor .sp-tok{width:62px;height:62px}
+ .g-splendor .sp-dock{flex-wrap:wrap;margin:0;padding:8px 10px;min-height:64px}.g-splendor .sp-msg b{font-size:16px;white-space:normal}.g-splendor .sp-msg small{font-size:13px;white-space:normal}
+ .g-splendor .sp-btn{font-size:15px;min-height:44px;padding:10px 16px}
+ .g-splendor .sp-me{padding:10px 12px}.g-splendor .sp-mh{font-size:14px}.g-splendor .sp-mh>b{font-size:16px}.g-splendor .sp-mp{font-size:32px}
+ .g-splendor .sp-cols.big .sp-cb{height:30px;font-size:19px}
+ .g-splendor .sp-mres,.g-splendor .sp-mini{--cw:min(7cqw,92px)}
+ .g-splendor .sp-sheet{max-width:560px}
+ .g-splendor .sp-zoom{--cw:min(26cqw,340px)}
+}
 `;
