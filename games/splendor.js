@@ -391,19 +391,21 @@ function mountSplendor(self, container, ctx) {
     if (!artSeen.has(cls)) { artSeen.add(cls); artStyle.append(`.g-splendor .${cls}{background-image:url("${list[i]}")}\n`); }
     return cls;
   }
+  // 스킨 그림에 점수·비용이 이미 그려져 있으면(그룹 'skin' 표식) 앱이 따로 그리는 점수·비용·귀족 조건은 끈다.
+  const BAKED = !!(ctx.art && ctx.art('skin').length);
   // ----- 그림 조각 -----
   const gem = (c, cls = '') => `<svg class="sp-gem ${cls}" viewBox="0 0 40 40"><use href="#sp-g${c}"/></svg>`;
   function cardHTML(id, o = {}) {
     const c = CARDS[id], b = o.bonus;
     const pips = c.cost.map((v, i) => (v ? `<i class="sp-pip sp-k${i}${b && b[i] >= v ? ' ok' : ''}">${v}</i>` : '')).join('');
     const ac = artCls('card-' + ART_COL[c.col], c.id % 18);
-    return `<div class="sp-card sp-k${c.col} sp-l${c.lv}${ac ? ' has-art' : ''}${o.cls || ''}"${o.attr || ''}>
+    return `<div class="sp-card sp-k${c.col} sp-l${c.lv}${ac ? ' has-art' : ''}${ac && BAKED ? ' baked' : ''}${o.cls || ''}"${o.attr || ''}>
       ${ac ? `<div class="sp-img ${ac}"></div>` : `<svg class="sp-art" viewBox="0 0 100 70" preserveAspectRatio="xMidYMid slice"><use href="#sp-a${c.lv}${c.id % 2}"/></svg>`}
       <div class="sp-hd"><b class="sp-pt">${c.pts || ''}</b><span class="sp-lvd">${'◆'.repeat(c.lv)}</span>${gem(c.col, 'sp-bn')}</div>
       <div class="sp-cost">${pips}</div></div>`;
   }
   const backHTML = (lv, cnt, o = {}) => `<div class="sp-back sp-l${lv}${artCls('back-' + lv, 0) ? ' has-art ' + artCls('back-' + lv, 0) : ''}${o.cls || ''}"${o.attr || ''}><span class="sp-bk">${'◆'.repeat(lv)}</span><b>${LVNAME[lv]}</b>${cnt != null ? `<small>${cnt}</small>` : ''}</div>`;
-  const nobleHTML = (k, cls = '') => `<div class="sp-nb${artCls('noble', k) ? ' has-art ' + artCls('noble', k) : ''}${cls}"><svg class="sp-crown" viewBox="0 0 40 30"><use href="#sp-crown"/></svg><b>3</b><div class="sp-req">${NOBLES[k].map((r, i) => (r ? `<i class="sp-k${i}">${r}</i>` : '')).join('')}</div></div>`;
+  const nobleHTML = (k, cls = '') => `<div class="sp-nb${artCls('noble', k) ? ' has-art ' + artCls('noble', k) + (BAKED ? ' baked' : '') : ''}${cls}"><svg class="sp-crown" viewBox="0 0 40 30"><use href="#sp-crown"/></svg><b>3</b><div class="sp-req">${NOBLES[k].map((r, i) => (r ? `<i class="sp-k${i}">${r}</i>` : '')).join('')}</div></div>`;
 
   // ----- 그리기 -----
   function drawTop() {
@@ -458,7 +460,7 @@ function mountSplendor(self, container, ctx) {
     bank.innerHTML = [0, 1, 2, 3, 4, 5].map(c => {
       const k = selGemCount(c);
       const tc = artCls('token-' + (c < 5 ? ART_COL[c] : 'y'), 0);
-      return `<button class="sp-tok sp-k${c}${tc ? ' has-art ' + tc : ''}${k ? ' on' : ''}${s.supply[c] ? '' : ' none'}" data-g="${c}"${can ? '' : ' tabindex="-1"'}>${tc ? '' : gem(c)}<b>${s.supply[c] - k}</b>${k ? `<i class="sp-plus">+${k}</i>` : ''}</button>`;
+      return `<button class="sp-tok sp-k${c}${tc ? ' has-art ' + tc + (BAKED ? ' baked' : '') : ''}${k ? ' on' : ''}${s.supply[c] ? '' : ' none'}" data-g="${c}"${can ? '' : ' tabindex="-1"'}>${tc ? '' : gem(c)}<b>${s.supply[c] - k}</b>${k ? `<i class="sp-plus">+${k}</i>` : ''}</button>`;
     }).join('');
     bank.classList.toggle('live', can);
   }
@@ -860,6 +862,13 @@ const CSS = `
 .g-splendor .sp-nb.has-art:after{content:"";position:absolute;inset:0;border-radius:7px;background:linear-gradient(#0000 40%,#000b);pointer-events:none}
 .g-splendor .sp-nb.has-art>*{z-index:1}
 .g-splendor .sp-tok.has-art{box-shadow:0 2px 5px #000a,inset 0 0 0 2px #fff4}
+.g-splendor .sp-card.baked .sp-hd,.g-splendor .sp-card.baked .sp-cost,.g-splendor .sp-card.baked .sp-img:after{display:none}
+.g-splendor .sp-card.baked .sp-img{background-size:100% 100%}
+.g-splendor .sp-nb.baked{background-size:100% 100%;box-shadow:0 2px 5px #0009}
+.g-splendor .sp-nb.baked>*,.g-splendor .sp-nb.baked:after{display:none}
+.g-splendor .sp-tok.baked{background-size:contain;background-color:transparent;border:0;border-radius:0;box-shadow:none;filter:drop-shadow(0 2px 3px #000a)}
+.g-splendor .sp-tok.baked.on{box-shadow:none;filter:drop-shadow(0 0 5px var(--acc)) drop-shadow(0 0 2px var(--acc))}
+.g-splendor .sp-tok.baked>b{text-shadow:0 0 3px #000,0 0 3px #000}
 
 /* 보석 창고 */
 .g-splendor .sp-bank{display:flex;justify-content:center;gap:6px;margin-bottom:5px}

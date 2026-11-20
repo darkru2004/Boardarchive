@@ -344,6 +344,22 @@ try:
         left = p2.evaluate("window.__ba.storage.all('campaigns').then(a => a.filter(x => x.key.startsWith('splendor:')).length)")
         check("스플렌더", "기록에 스플렌더·버전 1.0.0·4명이 저장되고, 이어하기 저장은 지워진다", lambda: (None if rec5 and rec5["gameVersion"] == "1.0.0" and len(rec5["players"]) == 4 and left == 0 else (_ for _ in ()).throw(AssertionError(str(rec5)[:200] + f" 남은 저장 {left}"))))
         p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=splendor]")
+        # ---------- 스플렌더: 스킨(점수·비용이 그림에 들어 있는 그림 세트) ----------
+        TINY = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAEklEQVR4nGNgGAWjYBSMAhgAAAgAAAHqYDa2AAAAAElFTkSuQmCC"
+        p2.evaluate("""async (u) => {
+          const put = (k) => window.__ba.storage.put('portraits', k, { dataUrl: u, updatedAt: new Date().toISOString() });
+          for (const c of 'wugrk') for (let n = 1; n <= 18; n++) await put(`art:splendor:card-${c}:${String(n).padStart(2, '0')}`);
+          for (let n = 1; n <= 10; n++) await put(`art:splendor:noble:${String(n).padStart(2, '0')}`);
+          for (const c of 'wugrky') await put(`art:splendor:token-${c}:01`);
+          await put('art:splendor:skin:01');
+        }""", TINY)
+        p2.goto(BASE + "?fast=1"); p2.wait_for_selector("#nav a")
+        p2.click(".gcard[data-id=splendor]"); p2.wait_for_selector("#setup .seat"); p2.click("button[data-n='4']"); p2.click("#btnStart")
+        p2.wait_for_selector(".g-splendor .sp-dock.mine", timeout=30000)
+        check("스플렌더", "스킨이 있으면 카드·귀족·보석이 그림으로 바뀌고 앱이 따로 그리는 점수·비용 표시는 사라진다", lambda: (None if p2.locator(".g-splendor .sp-row .sp-card.baked").count() == 12 and p2.locator(".g-splendor .sp-nb.baked").count() == 5 and p2.locator(".g-splendor .sp-tok.baked").count() == 6 and p2.locator(".g-splendor .sp-card.baked .sp-pip:visible").count() == 0 and p2.locator(".g-splendor .sp-card.baked .sp-pt:visible").count() == 0 and p2.locator(".g-splendor .sp-nb.baked .sp-req:visible").count() == 0 else (_ for _ in ()).throw(AssertionError("스킨 적용 안 됨"))))
+        p2.screenshot(path=f"{SHOTS}/13b-splendor-skin.png")
+        p2.evaluate("""async () => { for (const { key } of await window.__ba.storage.all('portraits')) if (key.startsWith('art:splendor:')) await window.__ba.storage.del('portraits', key); }""")
+        p2.goto(BASE + "?fast=1"); p2.wait_for_selector("#nav a")
         check("스플렌더", "게임에서 나오면 스플렌더 전용 스타일이 남지 않는다", lambda: (None if p2.evaluate("![...document.querySelectorAll('style')].some(s => s.textContent.includes('.g-splendor'))") else (_ for _ in ()).throw(AssertionError("스타일이 남음"))))
         # ---------- 레지사이드(협력): 폰 한 화면 · 카드 고르기 · 이어하기 · 한 판 끝까지 · 협력 기록 ----------
         p2.set_viewport_size({"width": 412, "height": 780})
