@@ -63,7 +63,7 @@ def run(viewport, tag):
             def finish():
                 r = page.evaluate(DRIVE, None); assert r["over"], "한 판이 끝나지 않음"
                 page.wait_for_selector("[data-act=quit]", timeout=5000); page.screenshot(path=f"{SHOTS}/{tag}-over.png"); page.click("[data-act=quit]")
-                page.wait_for_selector("text=홈으로", timeout=8000); page.locator("button:has-text(\"홈으로\")").first.dispatch_event("click"); page.wait_for_selector(".gcard[data-id=qoc]")
+                page.wait_for_selector("text=홈으로", timeout=8000); page.locator("button:has-text(\"홈으로\")").first.click(); page.wait_for_selector(".gcard[data-id=qoc]")
             check("끝까지 → 결과 → 홈", finish)
             check("협력 기록으로 저장", lambda: (lambda r: None if r and r["mode"] == "coop" and r["gameId"] == "qoc" else (_ for _ in ()).throw(AssertionError(str(r))))(page.evaluate("window.__ba.storage.all('records').then(a => a.map(x=>x.value).find(v=>v.gameId==='qoc')||null)")))
         br.close()

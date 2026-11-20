@@ -610,7 +610,7 @@ function mountQOC(mod, container, ctx) {
       const canHelp = mv.some(m => m.a === 'help'), canRe = mask && s.l >= 1;
       el.c.innerHTML = `<div class="qc-roll"><div class="qc-rq">${cardHTML(c)}<div class="qc-rt"><b>${esc(c.ko)}</b> <i>${starsTx(c.stars)}</i>${questText(c, o)}</div></div>
         <div class="qc-dice">${s.q.dice.map((d, i) => dieHTML(d, i, ui.sel.includes(i))).join('')}${s.q.bonus ? `<span class="qc-bonus">+${s.q.bonus}</span>` : ''}${s.q.shield ? '<span class="qc-shd" title="상자 준비됨">🛡</span>' : ''}</div>
-        <div class="qc-out ${o.res}"><div class="qc-total" data-total>${o.total}</div><div class="qc-bar"><span class="seg f" style="flex:${c.f.v - 2}">실패 ≤${c.f.v}</span><span class="seg a" style="flex:${c.w.v - c.f.v - 1}">포기</span><span class="seg w" style="flex:${19 - c.w.v}">성공 ≥${c.w.v}</span><i class="mk" style="left:${Math.max(0, Math.min(100, (o.total - 2) / 17 * 100))}%"></i></div>
+        <div class="qc-out ${o.res}"><div class="qc-total" data-total>${o.total}</div><div class="qc-bar"><span class="seg f" style="flex:${c.f.v - 2}">실패 ≤${c.f.v}</span><span class="seg a" style="flex:${c.w.v - c.f.v - 1}">포기</span><span class="seg w" style="flex:${19 - c.w.v}">성공 ≥${c.w.v}</span><i class="mk" style="left:${Math.max(1, Math.min(99, (o.total - 2.5) / 16 * 100))}%"></i></div>
           <div class="qc-rs">${RES_KO[o.res]}${o.special ? ' + 특수조건!' : ''}</div></div>
         <div class="qc-act"><button data-skin="button" class="qc-btn" data-act="reroll" ${canRe && !idle ? '' : 'disabled'}>행운 재굴림<small>${mask ? `선택 ${ui.sel.length}개 · 행운 −1` : '주사위를 눌러 고르세요'}</small></button>
           <button data-skin="button" class="qc-btn" data-act="help" ${canHelp && !idle ? '' : 'disabled'}>도움 요청<small>${s.q.help >= 3 ? '더 못 불러요' : `돈 −${cost} · ${s.q.help}/3`}</small></button>
@@ -770,7 +770,7 @@ function mountQOC(mod, container, ctx) {
     const t = ev.target.closest('[data-act]'); if (!t || dead) return;
     const a = t.dataset.act; if (t.disabled) return;
     safe(() => fx.buzz(6));
-    if (a === 'quit') { if (finished) return; finished = true; ctx.finish(mod.result(s)); return; }
+    if (a === 'quit') { if (finished) return; finished = true; el.over.hidden = true; el.over.innerHTML = ''; el.sheet.hidden = true; root.style.display = 'none'; ctx.finish(mod.result(s)); return; }
     if (a === 'rules') {
       if (s) { ui.sheet = { k: 'rules' }; draw(); return; }
       el.setup.hidden = true; el.sheet.hidden = false;
