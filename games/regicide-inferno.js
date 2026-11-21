@@ -312,7 +312,7 @@ export const _t = { newState, validState, playMoves, legalMoves, applyMove, mkEn
 // =====================================================================
 //  화면 (1인 전용)
 // =====================================================================
-const CC = ['#e3b341', '#9a5ad8', '#3fae6a', '#d6403f', '#3f78d8'];
+const CC = ['#c9a45a', '#b0304f', '#9a5ad8', '#a8a4bd', '#6f8fb8'];   // 마법사 황갈·성직자 자홍·음유시인(연금술) 보라·전사 강철·성기사 청회
 const CI = ['🔥', '🧪', '🎻', '⚔️', '🛡️'];
 const ART_G = ['card-m', 'card-c', 'card-b', 'card-w', 'card-p'];
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
