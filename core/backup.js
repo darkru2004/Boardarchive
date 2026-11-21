@@ -1,5 +1,6 @@
 import { exportFonts, importFonts } from './fonts.js';
 import { SCHEMA, APP_VERSION, validateRecord } from './schema.js';
+import { BGM_MAX_BYTES } from './bgm.js';
 
 export const BACKUP_FORMAT = 'boardarchive-backup';
 // 초상화는 이미지 data URL만 허용(화면에 그대로 쓰이므로 형식 검사)
@@ -7,10 +8,11 @@ export const isSafePortrait = u => typeof u === 'string' && /^data:image\/(jpeg|
 const PORTABLE_SETTINGS = ['unlocked']; // 기기마다 다른 값(마지막 백업 시각 등)은 백업에 넣지 않는다
 
 const fontPart = async storage => { const f = await exportFonts(storage); return Object.keys(f.fonts).length ? { fonts: f } : {}; };
-export async function exportBackup(storage) {
+// images:false = 이미지·폰트를 뺀 '데이터 백업'(기록·캠페인·업적). 기본(true)은 예전과 같은 통째 백업.
+export async function exportBackup(storage, { images = true } = {}) {
   const records = (await storage.all('records')).map(x => x.value);
   const portraits = {};
-  for (const { key, value } of await storage.all('portraits')) portraits[key] = value;
+  if (images) for (const { key, value } of await storage.all('portraits')) portraits[key] = value;
   const campaigns = {};
   for (const { key, value } of await storage.all('campaigns')) campaigns[key] = value;
   const settings = {};
@@ -18,7 +20,7 @@ export async function exportBackup(storage) {
   return {
     format: BACKUP_FORMAT, schemaVersion: SCHEMA.backup, appVersion: APP_VERSION,
     exportedAt: new Date().toISOString(),
-    data: { records, portraits, campaigns, settings, ...(await fontPart(storage)) }
+    data: { records, portraits, campaigns, settings, ...(images ? await fontPart(storage) : {}) }
   };
 }
 
@@ -111,5 +113,34 @@ export async function importImages(storage, obj) {
     else sum.kept++;
   }
   if (obj.data.fonts) sum.fonts = await importFonts(storage, obj.data.fonts);
+  return sum;
+}
+
+// ---- BGM 백업(음악 파일만) ----
+export const BGM_FORMAT = 'boardarchive-bgm';
+const BGM_KEY = /^bgm:[a-z0-9_-]{1,60}:(main|win|lose)$/;
+const isSafeBgm = v => v && typeof v.dataUrl === 'string' && /^data:audio\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+$/.test(v.dataUrl) && v.dataUrl.length < BGM_MAX_BYTES * 1.4 + 200;
+export async function exportBgm(storage) {
+  const bgm = {};
+  for (const { key, value } of await storage.all('settings')) if (BGM_KEY.test(key) && isSafeBgm(value)) bgm[key] = value;
+  return { format: BGM_FORMAT, schemaVersion: 1, appVersion: APP_VERSION, exportedAt: new Date().toISOString(), data: { bgm } };
+}
+export function parseBgm(text) {
+  let obj;
+  try { obj = JSON.parse(text); } catch { throw new Error('BGM 파일을 읽을 수 없습니다 (JSON 형식이 아님)'); }
+  if (!obj || obj.format !== BGM_FORMAT) throw new Error('이 앱의 BGM 백업 파일이 아닙니다 (설정의 "BGM 백업"으로 만든 파일이 필요해요)');
+  if (!obj.data || typeof obj.data.bgm !== 'object' || !obj.data.bgm) throw new Error('BGM 파일 내용이 손상되었습니다');
+  return obj;
+}
+// 같은 칸은 더 늦게 저장된 쪽을 남긴다.
+export async function importBgm(storage, obj) {
+  const sum = { added: 0, updated: 0, kept: 0, invalid: 0 };
+  for (const [key, v] of Object.entries(obj.data.bgm)) {
+    if (!BGM_KEY.test(key) || !isSafeBgm(v)) { sum.invalid++; continue; }
+    const cur = await storage.get('settings', key);
+    if (!cur) { await storage.put('settings', key, v); sum.added++; }
+    else if ((v.updatedAt || '') > (cur.updatedAt || '')) { await storage.put('settings', key, v); sum.updated++; }
+    else sum.kept++;
+  }
   return sum;
 }

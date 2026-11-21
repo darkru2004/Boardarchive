@@ -115,8 +115,8 @@ try:
         with page.expect_download() as dl: page.click("#btnExport")
         bpath = os.path.join(tempfile.gettempdir(), "ba-backup.json"); dl.value.save_as(bpath)
         bk = json.load(open(bpath, encoding="utf-8"))
-        check("백업·복원", "백업 파일이 만들어지고 기록·초상화·캠페인 슬롯이 들어 있다", lambda: (
-            None if bk["format"] == "boardarchive-backup" and len(bk["data"]["records"]) == 1 and "rapi" in bk["data"]["portraits"] and "legacy-x:1" in bk["data"]["campaigns"] else (_ for _ in ()).throw(AssertionError("내용 누락"))))
+        check("백업·복원", "데이터 백업 파일이 만들어지고 기록·캠페인 슬롯이 들어 있으며 이미지는 빠져 있다", lambda: (
+            None if bk["format"] == "boardarchive-backup" and len(bk["data"]["records"]) == 1 and not bk["data"]["portraits"] and "legacy-x:1" in bk["data"]["campaigns"] else (_ for _ in ()).throw(AssertionError("내용 누락"))))
         check("백업·복원", "파일 이름이 날짜가 들어간 boardarchive-backup-날짜-시각.json 이다", lambda: (None if re.match(r"boardarchive-backup-\d{8}-\d{4}\.json", dl.value.suggested_filename) else (_ for _ in ()).throw(AssertionError(dl.value.suggested_filename))))
 
         # 완전히 새 브라우저 = "모바일 기기"
@@ -128,13 +128,13 @@ try:
         p2.click("#nav a[data-tab=settings]"); p2.click("#settabs [data-st=data]"); p2.wait_for_selector("#importFile", state="attached")
         p2.set_input_files("#importFile", bpath); p2.wait_for_selector("#btnMerge")
         p2.screenshot(path=f"{SHOTS}/8-import.png", full_page=True)
-        p2.click("#btnMerge"); p2.wait_for_function("window.__ba.portraits.has('rapi')")
-        check("백업·복원", "PC에서 만든 백업을 새 기기에서 '합치기'하면 기록 1건·초상화·캠페인 슬롯이 복원된다", lambda: (
-            None if count_records(p2) == 1 and p2.evaluate("window.__ba.portraits.has('rapi')") and p2.evaluate("window.__ba.storage.get('campaigns','legacy-x:1').then(c=>c.data.chapter)") == 4 else (_ for _ in ()).throw(AssertionError("복원 실패"))))
+        p2.click("#btnMerge"); p2.wait_for_function("window.__ba.storage.get('campaigns','legacy-x:1').then(c => !!c)"); p2.wait_for_timeout(700)
+        check("백업·복원", "PC에서 만든 데이터 백업을 새 기기에서 '합치기'하면 기록 1건·캠페인 슬롯이 복원된다(이미지는 따로)", lambda: (
+            None if count_records(p2) == 1 and p2.evaluate("window.__ba.storage.get('campaigns','legacy-x:1').then(c=>c.data.chapter)") == 4 else (_ for _ in ()).throw(AssertionError("복원 실패"))))
         p2.set_input_files("#importFile", bpath); p2.wait_for_selector("#btnMerge"); p2.click("#btnMerge"); p2.wait_for_timeout(400)
         check("백업·복원", "같은 백업을 한 번 더 가져와도 기록이 중복되지 않는다", lambda: (None if count_records(p2) == 1 else (_ for _ in ()).throw(AssertionError(str(count_records(p2))))))
         p2.reload(); p2.wait_for_selector("#nav a")
-        check("백업·복원", "복원 후 새로고침해도 유지된다", lambda: (None if count_records(p2) == 1 and p2.evaluate("window.__ba.portraits.has('rapi')") else (_ for _ in ()).throw(AssertionError("사라짐"))))
+        check("백업·복원", "복원 후 새로고침해도 유지된다", lambda: (None if count_records(p2) == 1 else (_ for _ in ()).throw(AssertionError("사라짐"))))
         # 잘못된 파일
         bad = os.path.join(tempfile.gettempdir(), "bad.json"); open(bad, "w").write("{\"hello\": 1}")
         p2.click("#nav a[data-tab=settings]"); p2.click("#settabs [data-st=data]"); p2.wait_for_selector("#importFile", state="attached"); p2.set_input_files("#importFile", bad)
@@ -144,7 +144,7 @@ try:
         page.click("#btnWipe"); page.click("#btnWipe"); page.wait_for_function("window.__ba.portraits.size === 0")
         check("백업·복원", "'모든 데이터 삭제'는 두 번 눌러야 실행되고, 기록·초상화가 비워진다", lambda: (None if count_records(page) == 0 else (_ for _ in ()).throw(AssertionError("안 지워짐"))))
         page.set_input_files("#importFile", bpath); page.wait_for_selector("#btnReplace"); page.click("#btnReplace"); page.click("#btnReplace")
-        page.wait_for_function("window.__ba.portraits.has('rapi')")
+        page.wait_for_function("window.__ba.storage.all('records').then(a => a.length === 1)"); page.wait_for_timeout(800)
         check("백업·복원", "'전체 교체'로 삭제 전 상태가 그대로 복구된다 (기록 1건, 초상화)", lambda: (None if count_records(page) == 1 else (_ for _ in ()).throw(AssertionError(str(count_records(page))))))
         page.screenshot(path=f"{SHOTS}/9-settings.png", full_page=True)
 
@@ -722,6 +722,20 @@ try:
             bad = os.path.join(tempfile.mkdtemp(), "bad.json"); open(bad, "w").write('{"format":"boardarchive-backup"}')
             p4.set_input_files("#imagesFile", bad); p4.wait_for_selector("text=이미지 백업 파일이 아닙니다")
         check("이미지 백업", "이미지만 내보내고(기록 미포함) 비운 뒤 가져오면 복구되고, 기록은 그대로이며, 다른 파일은 거부된다", img_backup)
+        def bgm_backup():
+            p4.click("#nav a[data-tab=settings]"); p4.click("#settabs [data-st=data]"); p4.wait_for_selector("#bgmBackupCard")
+            rec = "{name:'t.mp3',size:4,dataUrl:'data:audio/mpeg;base64,AAAA',updatedAt:'2026-11-22T00:00:00Z'}"
+            p4.evaluate("window.__ba.storage.put('settings','bgm:all:main'," + rec + ")")
+            p4.click("#nav a[data-tab=home]"); p4.click("#nav a[data-tab=settings]"); p4.click("#settabs [data-st=data]"); p4.wait_for_selector("#btnExportBgm:not([disabled])")
+            with p4.expect_download() as dl: p4.click("#btnExportBgm")
+            path = dl.value.path(); o = json.loads(open(path, encoding="utf-8").read())
+            assert o["format"] == "boardarchive-bgm" and "bgm:all:main" in o["data"]["bgm"] and "records" not in o["data"], list(o["data"].keys())
+            p4.evaluate("window.__ba.storage.del('settings','bgm:all:main')")
+            p4.set_input_files("#bgmFile", path); p4.wait_for_function("window.__ba.storage.get('settings','bgm:all:main').then(v => !!v)")
+            bad = os.path.join(tempfile.mkdtemp(), "bad.json"); open(bad, "w").write('{"format":"boardarchive-images","data":{"portraits":{}}}')
+            p4.set_input_files("#bgmFile", bad); p4.wait_for_selector("text=BGM 백업 파일이 아닙니다")
+            p4.evaluate("window.__ba.storage.del('settings','bgm:all:main')")
+        check("BGM 백업", "BGM만 내보내고(기록·이미지 미포함) 지운 뒤 가져오면 복구되고, 다른 파일은 거부된다", bgm_backup)
         def art_slot():
             import shutil
             d = tempfile.mkdtemp(); files = []

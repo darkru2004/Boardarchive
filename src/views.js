@@ -4,7 +4,7 @@ import { drawSeats, DIFFICULTIES, DIFF_LABEL } from '../core/seating.js';
 import { makeRng } from '../core/rng.js';
 import { listRecords } from '../core/records.js';
 import { filterByDifficulty, overall, gameStats, characterStats, botStats, coopStats, isCoop, computeAchievements } from '../core/stats.js';
-import { exportBackup, parseBackup, importBackup, migrateBackup, exportImages, parseImages, importImages } from '../core/backup.js';
+import { exportBackup, parseBackup, importBackup, migrateBackup, exportImages, parseImages, importImages, exportBgm, parseBgm, importBgm } from '../core/backup.js';
 import { activeOnly } from '../core/characters.js';
 import { openArtManager } from './art.js';
 import { skinCard } from './skin.js';
@@ -273,18 +273,18 @@ export async function settingsView(app, root) {
   }
 
   P.data.append(h('div', { class: 'paper taped', id: 'backupCard', style: '--r:-.6deg' },
-    h('h3', {}, '백업'),
-    h('div', { class: 'muted', style: 'margin-bottom:10px' }, `기록 ${recs.length}판 · 초상화·이미지 ${app.portraits.size}개 · 마지막 백업 ${meta.lastAt ? fmtDate(meta.lastAt) : '없음'}`),
+    h('h3', {}, '① 데이터 백업', h('small', { style: 'margin-left:8px' }, '기록')),
+    h('div', { class: 'muted', style: 'margin-bottom:10px' }, `기록 ${recs.length}판 · 업적 · 이어하기 저장. 이미지·폰트·BGM은 들어가지 않아요(아래 ②③). 마지막 백업 ${meta.lastAt ? fmtDate(meta.lastAt) : '없음'}`),
     h('div', { class: 'row wrap' },
       h('button', { class: 'btn go', id: 'btnExport', onclick: async () => {
-        const b = await exportBackup(app.storage);
+        const b = await exportBackup(app.storage, { images: false });
         const d = new Date(), z = n => String(n).padStart(2, '0');
         downloadJson(b, `boardarchive-backup-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.json`);
         await app.storage.put('settings', 'backupMeta', { lastAt: d.toISOString(), recordsAt: recs.length });
         toast('백업 파일을 만들었어요'); app.render();
       } }, '백업 파일 만들기', h('small', {}, 'EXPORT')),
       h('button', { class: 'btn', onclick: () => fileIn.click() }, '백업 가져오기', h('small', {}, 'IMPORT'))),
-    h('div', { class: 'muted', style: 'margin-top:10px' }, 'PC에서 만든 백업 파일을 폰에서 가져오면 기록·초상화가 그대로 옮겨져요.'),
+    h('div', { class: 'muted', style: 'margin-top:10px' }, 'PC에서 만든 백업 파일을 폰에서 가져오면 기록이 그대로 옮겨져요. 예전에 만든 통째 백업 파일(이미지 포함)도 그대로 가져올 수 있어요.'),
     importBox, fileIn));
 
   // 폰트: 파일을 올려 두고 게임·앨범마다 "본문 / 제목·숫자" 폰트를 고른다
@@ -331,8 +331,8 @@ export async function settingsView(app, root) {
     } catch (err) { toast(err.message); }
   } });
   P.data.append(h('div', { class: 'paper taped', id: 'imagesCard', style: '--r:.5deg' },
-    h('h3', {}, '이미지만 백업'),
-    h('div', { class: 'muted', style: 'margin-bottom:10px' }, `캐릭터 초상화 · 게임 타이틀 · 카드 일러스트 ${app.portraits.size}개와 폰트 ${fonts.length}개. 기록은 들어가지 않아요.`),
+    h('h3', {}, '② 이미지 백업', h('small', { style: 'margin-left:8px' }, '그림·폰트·UI 틀')),
+    h('div', { class: 'muted', style: 'margin-bottom:10px' }, `캐릭터 초상화 · 게임 타이틀 · 카드 그림 · UI 틀 ${app.portraits.size}개와 폰트 ${fonts.length}개. 기록·BGM은 들어가지 않아요.`),
     h('div', { class: 'row wrap' },
       h('button', { class: 'btn go', id: 'btnExportImages', onclick: async () => {
         const b = await exportImages(app.storage), d = new Date(), z = n => String(n).padStart(2, '0');
@@ -341,6 +341,28 @@ export async function settingsView(app, root) {
       } }, '이미지만 내보내기', h('small', {}, 'EXPORT')),
       h('button', { class: 'btn', onclick: () => imgIn.click() }, '이미지만 가져오기', h('small', {}, 'IMPORT'))),
     h('div', { class: 'muted', style: 'margin-top:8px' }, '가져오면 같은 이미지는 더 최근 것을 남기고 합쳐요. 기록은 그대로예요.'), imgIn));
+
+  // BGM 백업(음악 파일만)
+  const bgmList = (await app.storage.all('settings')).filter(x => /^bgm:/.test(x.key) && x.value && x.value.dataUrl);
+  const bgmBytes = bgmList.reduce((a, x) => a + (x.value.dataUrl.length * 0.75), 0);
+  const bgmIn = h('input', { type: 'file', accept: '.json,application/json', style: 'display:none', id: 'bgmFile', onchange: async e => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    try {
+      const o = parseBgm(await f.text()), n = Object.keys(o.data.bgm).length, r = await importBgm(app.storage, o);
+      toast(`BGM ${n}개 중 새로 ${r.added} · 갱신 ${r.updated} · 그대로 ${r.kept}${r.invalid ? ` · 건너뜀 ${r.invalid}` : ''}`); app.render();
+    } catch (err) { toast(err.message); }
+  } });
+  P.data.append(h('div', { class: 'paper taped', id: 'bgmBackupCard', style: '--r:-.4deg' },
+    h('h3', {}, '③ BGM 백업', h('small', { style: 'margin-left:8px' }, '음악')),
+    h('div', { class: 'muted', style: 'margin-bottom:10px' }, `저장된 BGM ${bgmList.length}개 · 약 ${(bgmBytes / 1048576).toFixed(1)}MB. 음악 파일만 들어가요. 파일이 크면 폰에서 만들 때 오래 걸릴 수 있어요.`),
+    h('div', { class: 'row wrap' },
+      h('button', { class: 'btn go', id: 'btnExportBgm', disabled: !bgmList.length, onclick: async () => {
+        const b = await exportBgm(app.storage), d = new Date(), z = n => String(n).padStart(2, '0');
+        downloadJson(b, `boardarchive-bgm-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.json`);
+        toast('BGM 파일을 만들었어요');
+      } }, 'BGM 내보내기', h('small', {}, 'EXPORT')),
+      h('button', { class: 'btn', onclick: () => bgmIn.click() }, 'BGM 가져오기', h('small', {}, 'IMPORT'))),
+    h('div', { class: 'muted', style: 'margin-top:8px' }, '가져오면 같은 칸은 더 최근 것을 남기고 합쳐요.'), bgmIn));
 
   P.data.append(h('div', { class: 'paper', id: 'storageCard', style: '--r:.5deg' },
     h('h3', {}, '저장 상태'),
