@@ -345,7 +345,7 @@ function mountInferno(self, container, ctx) {
   const el = { top: q('.ri-top'), enemy: q('.ri-enemy'), piles: q('.ri-piles'), field: q('.ri-field'), dock: q('.ri-dock'), aux: q('.ri-aux'), hand: q('.ri-hand'), log: q('.ri-log'), ov: q('.ri-ov') };
 
   function fit() { const k = Math.max(0.85, Math.min(3, Math.min(innerHeight / 780, innerWidth / 1300))); root.style.setProperty('--k', k.toFixed(3)); }
-  const onResize = () => fit(); window.addEventListener('resize', onResize); fit();
+  const onResize = () => { fit(); if (s) fitHand(); }; window.addEventListener('resize', onResize); fit();
 
   const log = (t, cls) => { logs.push({ t, cls: cls || '' }); if (logs.length > 80) logs.shift(); };
 
@@ -464,7 +464,18 @@ function mountInferno(self, container, ctx) {
     el.ov.innerHTML = `<div data-skin="panel" class="ri-sheet"><h3>${s.won ? '🏆 승리' : '💀 패배'}</h3><p>${esc(self.result(s).summary)}</p>
       <button data-skin="button" class="ri-b pri wide" data-a="finish">${finished ? '저장됨' : '결과 저장하고 마치기'}</button></div>`;
   }
-  function draw() { drawTop(); drawEnemy(); drawPiles(); drawField(); drawDock(); drawAux(); drawHand(); drawLog(); drawMage(); drawEnd(); }
+  function fitHand() {
+    const pc = matchMedia('(min-width:1000px) and (min-height:560px)').matches;
+    root.style.removeProperty('--hw');
+    if (pc || big) return;
+    const hh = el.hand.offsetHeight, rows = Math.ceil((s.hand.length || 1) / 4) || 1;
+    if (rows < 2) return;
+    const top = root.getBoundingClientRect().top + window.scrollY, avail = innerHeight - top - 12;
+    const other = root.scrollHeight - hh, cardH = (avail - other - 6) / 2, colW = (el.hand.clientWidth - 18) / 4;
+    const w = Math.max(52, Math.min(colW, cardH * 5 / 7));
+    root.style.setProperty('--hw', w.toFixed(1) + 'px');
+  }
+  function draw() { drawTop(); drawEnemy(); drawPiles(); drawField(); drawDock(); drawAux(); drawHand(); drawLog(); drawMage(); drawEnd(); fitHand(); }
 
   // ----- 진행 -----
   const nm = id => cardName(id);
@@ -596,23 +607,23 @@ function mountInferno(self, container, ctx) {
 }
 
 const RI_CSS = `
-.g-regicide-inferno{position:relative;padding:8px 8px 18px;border-radius:16px;color:#f3e6d2;font-family:var(--fk,system-ui,sans-serif);
+.g-regicide-inferno{position:relative;padding:6px 6px 10px;border-radius:16px;color:#f3e6d2;font-family:var(--fk,system-ui,sans-serif);
  background:radial-gradient(120% 60% at 50% 0%,#ff9a3a18,transparent 70%),repeating-linear-gradient(0deg,#ffffff05 0 1px,transparent 1px 4px),linear-gradient(180deg,var(--bg1),var(--bg2));
  box-shadow:inset 0 0 0 1.5px #ffffff22,inset 0 0 60px #000a,0 8px 22px #0007;-webkit-user-select:none;user-select:none}
 .g-regicide-inferno *{box-sizing:border-box}
 .g-regicide-inferno button{font-family:inherit;color:inherit}
 .g-regicide-inferno h4{margin:0 0 4px;font-size:12px;color:#e9c98a;font-weight:700}
 .g-regicide-inferno em{font-size:12px;color:#ffffff66;font-style:normal;padding:4px}
-.g-regicide-inferno .ri-top{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.g-regicide-inferno .ri-top{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;margin-bottom:6px}
 .g-regicide-inferno.ri-imm .ri-top{padding-right:52px}
-.g-regicide-inferno .ri-pips{display:flex;gap:3px;flex:1;min-width:150px}
+.g-regicide-inferno .ri-pips{display:flex;gap:3px;flex:1;min-width:80px}
 .g-regicide-inferno .ri-pip{flex:1;height:12px;border-radius:4px;background:#ffffff1c;font-size:9px;font-style:normal;text-align:center;line-height:12px;color:#ffd36b}
 .g-regicide-inferno .ri-pip.done{background:#c8472b}.g-regicide-inferno .ri-pip.cur{background:#ffb347;box-shadow:0 0 8px #ffb347}
-.g-regicide-inferno .ri-tn{font-size:12px;color:#d9c3a0}
-.g-regicide-inferno .ri-ib{border:1px solid #ffffff33;background:#ffffff12;border-radius:14px;padding:3px 10px;font-size:12px;cursor:pointer}
-.g-regicide-inferno .ri-grid{display:flex;flex-direction:column;gap:8px}
-.g-regicide-inferno .ri-l,.g-regicide-inferno .ri-c,.g-regicide-inferno .ri-r{display:flex;flex-direction:column;gap:8px;min-width:0}
-.g-regicide-inferno .ri-enemy,.g-regicide-inferno .ri-piles,.g-regicide-inferno .ri-field,.g-regicide-inferno .ri-dock,.g-regicide-inferno .ri-log{background:#00000055;border:1px solid #ffffff22;border-radius:12px;padding:8px 10px}
+.g-regicide-inferno .ri-tn{white-space:nowrap;font-size:12px;color:#d9c3a0}
+.g-regicide-inferno .ri-ib{border:1px solid #ffffff33;background:#ffffff12;border-radius:14px;padding:3px 8px;font-size:12px;cursor:pointer;white-space:nowrap}
+.g-regicide-inferno .ri-grid{display:flex;flex-direction:column;gap:6px}
+.g-regicide-inferno .ri-l,.g-regicide-inferno .ri-c,.g-regicide-inferno .ri-r{display:flex;flex-direction:column;gap:6px;min-width:0}
+.g-regicide-inferno .ri-enemy,.g-regicide-inferno .ri-piles,.g-regicide-inferno .ri-field,.g-regicide-inferno .ri-dock,.g-regicide-inferno .ri-log{background:#00000055;border:1px solid #ffffff22;border-radius:12px;padding:5px 8px;--sk-panel-d:5px}
 .g-regicide-inferno .ri-r{display:none}
 .g-regicide-inferno .ri-eh{display:flex;gap:10px;align-items:center}
 .g-regicide-inferno .ri-ei{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
@@ -624,23 +635,23 @@ const RI_CSS = `
 .g-regicide-inferno .ri-im{font-size:12px;color:#c9b79a;display:flex;gap:4px;align-items:center}
 .g-regicide-inferno .ri-im i{font-style:normal;border:1px solid var(--cc);border-radius:10px;padding:0 5px;background:#0006}
 .g-regicide-inferno .ri-piles{display:flex;gap:6px}
-.g-regicide-inferno .ri-pl{flex:1;border:1px solid #ffffff2a;background:#ffffff0e;border-radius:10px;padding:5px 2px;font-size:11px;text-align:center;display:flex;flex-direction:column;cursor:pointer}
-.g-regicide-inferno span.ri-pl{cursor:default}.g-regicide-inferno .ri-pl b{font-size:18px;color:#ffd9a0}
-.g-regicide-inferno .ri-fl+.ri-fl{margin-top:6px}
+.g-regicide-inferno .ri-pl{flex:1;border:1px solid #ffffff2a;background:#ffffff0e;border-radius:10px;padding:3px 2px;font-size:11px;display:flex;flex-direction:row;gap:5px;justify-content:center;align-items:baseline;cursor:pointer}
+.g-regicide-inferno span.ri-pl{cursor:default}.g-regicide-inferno .ri-pl b{font-size:16px;color:#ffd9a0}
+.g-regicide-inferno .ri-field{display:grid;grid-template-columns:1fr 1fr;gap:8px}.g-regicide-inferno .ri-field h4{margin:0 0 2px}.g-regicide-inferno .ri-field .ri-card.sm{width:32px}.g-regicide-inferno .ri-field .ri-row{gap:3px;min-height:20px}
 .g-regicide-inferno .ri-row{display:flex;gap:5px;flex-wrap:wrap;align-items:center;min-height:30px}.g-regicide-inferno .ri-row.ctr{justify-content:center}
 .g-regicide-inferno .ri-grp{display:flex;gap:3px;padding:3px;border-radius:8px;background:#ffffff0d}.g-regicide-inferno .ri-grp.j{background:#d9d9e822}
 .g-regicide-inferno .ri-msg{font-size:13px;line-height:1.5;min-height:20px}.g-regicide-inferno .ri-msg b{color:#ffd36b}
-.g-regicide-inferno .ri-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.g-regicide-inferno .ri-b{border:1px solid #ffffff3a;background:#ffffff14;border-radius:10px;padding:8px 14px;font-size:14px;cursor:pointer}
+.g-regicide-inferno .ri-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.g-regicide-inferno .ri-b{border:1px solid #ffffff3a;background:#ffffff14;border-radius:10px;padding:6px 12px;font-size:14px;cursor:pointer}
 .g-regicide-inferno .ri-b.pri{background:linear-gradient(180deg,#e0792b,#a8431a);border-color:#ffb27a;font-weight:800}
 .g-regicide-inferno .ri-b.wide{width:100%;margin-top:10px}.g-regicide-inferno .ri-b:disabled{opacity:.4;cursor:default}
 .g-regicide-inferno .ri-b small{display:block;font-size:10px;color:#e6d6b8;margin-top:2px}
-.g-regicide-inferno .ri-aux{display:flex;gap:8px;flex-wrap:wrap}.g-regicide-inferno .ri-ax{flex:1;min-width:120px;background:#00000040;border-radius:10px;padding:5px 8px}
-.g-regicide-inferno .ri-j{width:54px;height:76px;border-radius:7px;border:1.5px solid #d9d9e8;background:#2a2740;font-size:26px;cursor:pointer;position:relative;overflow:hidden}
+.g-regicide-inferno .ri-aux{display:flex;gap:6px;flex-wrap:nowrap;justify-content:center}.g-regicide-inferno .ri-ax{flex:none;min-width:0;background:#00000040;border-radius:10px;padding:3px 6px}.g-regicide-inferno .ri-ax .ri-row{flex-wrap:nowrap;gap:4px;min-height:0}.g-regicide-inferno .ri-ax h4{margin:0 0 2px;font-size:11px}
+.g-regicide-inferno .ri-j{width:42px;height:59px;padding:0;border-radius:7px;border:1.5px solid #d9d9e8;background:#2a2740;font-size:26px;cursor:pointer;position:relative;overflow:hidden}
 .g-regicide-inferno .ri-j span{position:absolute;inset:0;background-size:cover;background-position:center}
 .g-regicide-inferno .ri-j.used{opacity:.18;border-style:dashed;cursor:default}.g-regicide-inferno .ri-j.dim{opacity:.45}
 .g-regicide-inferno .ri-j.hint,.g-regicide-inferno .ri-card.hint{box-shadow:0 0 0 3px #fff,0 0 14px 4px #ffd36b}
-.g-regicide-inferno .ri-hand{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.g-regicide-inferno .ri-hand{display:grid;grid-template-columns:repeat(4,var(--hw,1fr));gap:6px;justify-content:center}
 .g-regicide-inferno .ri-hand.big{grid-template-columns:repeat(3,1fr)}
 .g-regicide-inferno .ri-emp{grid-column:1/-1;text-align:center;padding:16px}
 .g-regicide-inferno .ri-card{position:relative;width:100%;aspect-ratio:5/7;border-radius:9px;border:2px solid var(--cc);cursor:pointer;overflow:hidden;
@@ -656,8 +667,8 @@ const RI_CSS = `
 .g-regicide-inferno .ri-card.sm{width:46px;border-radius:6px;border-width:1.5px;cursor:default}
 .g-regicide-inferno .ri-card.sm .ri-rk{font-size:14px}.g-regicide-inferno .ri-card.sm .ri-ic{font-size:18px}.g-regicide-inferno .ri-card.sm .ri-vl{font-size:9px;padding:0 4px}
 .g-regicide-inferno .ri-card.sm.side{transform:rotate(8deg);margin-left:4px}
-.g-regicide-inferno [data-a="partner"].ri-card.sm{width:50px;cursor:pointer}.g-regicide-inferno .ri-ax:first-child{flex:3;min-width:290px}
-.g-regicide-inferno .ri-card.en{width:104px;flex:none}
+.g-regicide-inferno [data-a="partner"].ri-card.sm{width:44px;cursor:pointer}
+.g-regicide-inferno .ri-card.en{width:76px;flex:none}
 .g-regicide-inferno .ri-card.zoom{width:min(70vw,260px);cursor:default}.g-regicide-inferno .ri-card.zoom .ri-rk{font-size:30px}.g-regicide-inferno .ri-card.zoom .ri-vl{font-size:15px}
 .g-regicide-inferno .ri-lg{font-size:12px;line-height:1.55;max-height:120px;overflow:auto;color:#d9c9ac}.g-regicide-inferno .ri-lg.full{max-height:60vh;font-size:13px}
 .g-regicide-inferno .ri-lg .g{color:#8be29b}.g-regicide-inferno .ri-lg .r{color:#ff8f7a}
@@ -676,6 +687,10 @@ const RI_CSS = `
  .g-regicide-inferno .ri-hand{grid-template-columns:repeat(8,1fr);gap:calc(var(--k,1)*8px)}
  .g-regicide-inferno .ri-hand.big{grid-template-columns:repeat(4,1fr)}
  .g-regicide-inferno .ri-card.en{width:calc(var(--k,1)*110px)}
+ .g-regicide-inferno .ri-field .ri-card.sm{width:calc(var(--k,1)*50px)}
+ .g-regicide-inferno .ri-ax{flex:1;padding:5px 8px}.g-regicide-inferno .ri-aux{justify-content:stretch}
+ .g-regicide-inferno .ri-j{width:calc(var(--k,1)*54px);height:calc(var(--k,1)*76px)}
+ .g-regicide-inferno .ri-enemy,.g-regicide-inferno .ri-piles,.g-regicide-inferno .ri-field,.g-regicide-inferno .ri-dock,.g-regicide-inferno .ri-log{padding:8px 10px;--sk-panel-d:8px}
  .g-regicide-inferno .ri-card.sm{width:calc(var(--k,1)*50px)}
  .g-regicide-inferno [data-a="partner"].ri-card.sm{width:calc(var(--k,1)*64px)}
  .g-regicide-inferno .ri-rk{font-size:calc(var(--k,1)*22px)}.g-regicide-inferno .ri-card.sm .ri-rk{font-size:calc(var(--k,1)*15px)}
