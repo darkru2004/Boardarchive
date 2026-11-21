@@ -40,6 +40,7 @@ def run(viewport, tag):
                 h = page.evaluate("document.documentElement.scrollHeight"); assert h <= viewport["height"] + 4, f"세로 넘침 {h}"
         check(f"[{tag}] 화면 넘침 없음", overflow)
         def sheets():
+            if page.locator(".ri-ov:not([hidden]) [data-a=mage]").count(): page.locator(".ri-ov:not([hidden]) [data-a=mage]").first.click(); page.wait_for_timeout(200)   # 마법사 선택창이 떠 있으면 먼저 닫기(무작위 시작 패 때문)
             for a in ["rules", "log", "pCastle", "pDisc"]:
                 page.click(f"[data-a={a}]"); page.wait_for_selector(".ri-sheet"); page.click(".ri-sheet [data-a=close]")
             page.click("[data-a=zoomE]"); page.wait_for_selector(".ri-card.zoom"); page.click(".ri-sheet [data-a=close]")

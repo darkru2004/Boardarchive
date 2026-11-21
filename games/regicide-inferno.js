@@ -668,7 +668,7 @@ const RI_CSS = `
 .g-regicide-inferno .ri-card.sm .ri-rk{font-size:14px}.g-regicide-inferno .ri-card.sm .ri-ic{font-size:18px}.g-regicide-inferno .ri-card.sm .ri-vl{font-size:9px;padding:0 4px}
 .g-regicide-inferno .ri-card.sm.side{transform:rotate(8deg);margin-left:4px}
 .g-regicide-inferno [data-a="partner"].ri-card.sm{width:44px;cursor:pointer}
-.g-regicide-inferno .ri-card.en{width:118px;flex:none}
+.g-regicide-inferno .ri-card.en{width:min(136px,38vw);flex:none}
 .g-regicide-inferno .ri-card.zoom{width:min(70vw,260px);cursor:default}.g-regicide-inferno .ri-card.zoom .ri-rk{font-size:30px}.g-regicide-inferno .ri-card.zoom .ri-vl{font-size:15px}
 .g-regicide-inferno .ri-lg{font-size:12px;line-height:1.55;max-height:120px;overflow:auto;color:#d9c9ac}.g-regicide-inferno .ri-lg.full{max-height:60vh;font-size:13px}
 .g-regicide-inferno .ri-lg .g{color:#8be29b}.g-regicide-inferno .ri-lg .r{color:#ff8f7a}
@@ -686,7 +686,7 @@ const RI_CSS = `
  .g-regicide-inferno .ri-r{display:flex}
  .g-regicide-inferno .ri-hand{grid-template-columns:repeat(8,1fr);gap:calc(var(--k,1)*8px)}
  .g-regicide-inferno .ri-hand.big{grid-template-columns:repeat(4,1fr)}
- .g-regicide-inferno .ri-card.en{width:calc(var(--k,1)*110px)}
+ .g-regicide-inferno .ri-card.en{width:calc(var(--k,1)*124px)}
  .g-regicide-inferno .ri-field .ri-card.sm{width:calc(var(--k,1)*50px)}
  .g-regicide-inferno .ri-ax{flex:1;padding:5px 8px}.g-regicide-inferno .ri-aux{justify-content:stretch}
  .g-regicide-inferno .ri-j{width:calc(var(--k,1)*54px);height:calc(var(--k,1)*76px)}
