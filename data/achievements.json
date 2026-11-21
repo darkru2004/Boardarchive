@@ -547,6 +547,42 @@
       "group": "게임별",
       "n": 5,
       "gameId": "qoc"
+    },
+    {
+      "id": "regicide-inferno-first",
+      "name": "인페르노 입문",
+      "desc": "레지사이드 인페르노 한 판 끝내기",
+      "type": "coop_played",
+      "group": "게임별",
+      "n": 1,
+      "gameId": "regicide-inferno"
+    },
+    {
+      "id": "regicide-inferno-win",
+      "name": "왕좌의 불길",
+      "desc": "타차에르까지 15명 모두 격파",
+      "type": "coop_wins",
+      "group": "게임별",
+      "n": 1,
+      "gameId": "regicide-inferno"
+    },
+    {
+      "id": "regicide-inferno-win-5",
+      "name": "불지옥의 정복자",
+      "desc": "레지사이드 인페르노 5번 승리",
+      "type": "coop_wins",
+      "group": "게임별",
+      "n": 5,
+      "gameId": "regicide-inferno"
+    },
+    {
+      "id": "regicide-inferno-streak-3",
+      "name": "3연속 정복",
+      "desc": "레지사이드 인페르노 3연속 승리",
+      "type": "coop_streak",
+      "group": "게임별",
+      "n": 3,
+      "gameId": "regicide-inferno"
     }
   ]
 }
