@@ -206,3 +206,8 @@ body.immersive .gamebar{display:none}
 .settabs{display:flex;gap:6px;margin:10px 0 4px;position:sticky;top:0;z-index:5;padding:6px 0;background:var(--paper)}
 .settabs .btn{flex:1}
 .spane[hidden]{display:none}
+
+.homechips{display:flex;gap:6px;margin:6px 4px 2px;flex-wrap:wrap}
+.homechips .btn small{margin-left:5px;opacity:.6}
+.pol .tag.resume{background:#2f7a4a;color:#fff;border-color:#2f7a4a}
+.resumebox{margin:0 4px 12px}

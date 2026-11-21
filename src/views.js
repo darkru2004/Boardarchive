@@ -45,12 +45,35 @@ export async function homeView(app, root) {
   }
   if (favs.length < Math.min(prefs.count, order.length) && prefs.mode !== 'pin') favs = favs.concat(order.filter(o => !favs.includes(o)).slice(0, prefs.count - favs.length));
   const rest = order.filter(o => !favs.includes(o));
+  // 이어하기: 저장된 판이 있는 게임(AUTO_SLOT) 모으기
+  const resumes = new Map();
+  for (const g of app.games) { try { const r = await loadCampaign(app.storage, g.id, AUTO_SLOT); if (r && r.data && Array.isArray(r.data.seats)) resumes.set(g.id, r); } catch {} }
   const lock = h('div', { class: 'lockcard' }, h('b', {}, 'LOCKED'), lockSvg(), h('span', {}, '다음 게임 자리'));
   const wrap = h('div', { style: 'position:relative' });
-  if (favs.length) wrap.append(h('h2', { class: 'secH' }, 'Favorites', h('small', {}, prefs.mode === 'pin' ? '고정한 게임' : '자주 하는 게임')),
-    h('div', { class: 'ggrid compact', id: 'favGrid' }, ...favs.map(o => gameCard(app, o.g, o.i, st(o.g), true))));
-  wrap.append(rest.length ? h('h2', { class: 'secH' }, 'All Games', h('small', {}, '전체 게임')) : null,
-    h('div', { class: 'ggrid' + (rest.length ? '' : ' compact'), id: 'allGrid' }, ...rest.map(o => gameCard(app, o.g, o.i, st(o.g))), lock));
+  // 분류 칩: 전체 / 경쟁 / 협력 / 1인 (마지막 선택 기억)
+  const FILTERS = [['all', '전체', () => true], ['vs', '경쟁', g => g.mode !== 'coop'], ['coop', '협력', g => g.mode === 'coop'], ['solo', '1인', g => g.players.max === 1]];
+  let hf = 'all'; try { const v = localStorage.getItem('ba_homefilter'); if (FILTERS.some(f => f[0] === v)) hf = v; } catch {}
+  const chips = h('div', { class: 'homechips', id: 'homeFilter' }, ...FILTERS.map(([k, n, fn]) => h('button', { class: 'btn small' + (hf === k ? ' on' : ''), 'data-hf': k,
+    onclick: () => { try { localStorage.setItem('ba_homefilter', k); } catch {} app.render(); } }, n, h('small', {}, String(app.games.filter(fn).length)))));
+  wrap.append(chips);
+  if (resumes.size) wrap.append(h('h2', { class: 'secH' }, 'Continue', h('small', {}, '이어서 하기')),
+    h('div', { class: 'paper resumebox', id: 'resumeList', style: '--r:-.4deg' }, ...[...resumes].map(([id, r]) => {
+      const g = app.games.find(x => x.id === id), d = r.data;
+      return h('div', { class: 'row rsrow', 'data-g': id, style: 'gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed #00000020' },
+        h('div', { class: 'grow' }, h('b', {}, plainName(g.name)), h('div', { class: 'muted', style: 'font-size:11px' }, `${d.seats.length}인${d.state && d.state.round ? ` · ${d.state.round}라운드` : ''} · ${fmtDate(r.updatedAt)}`)),
+        h('button', { class: 'btn small go', onclick: () => launchGame(app, g, d.seats, d.difficulty || null, r).catch(e => toast('실행 오류: ' + e.message)) }, '이어하기'));
+    })));
+  const gc = (o, compact) => gameCard(app, o.g, o.i, st(o.g), compact, resumes.has(o.g.id));
+  if (hf !== 'all') {
+    const fn = FILTERS.find(f => f[0] === hf)[2], list = order.filter(o => fn(o.g));
+    wrap.append(h('h2', { class: 'secH' }, FILTERS.find(f => f[0] === hf)[1], h('small', {}, `${list.length}개 게임`)),
+      h('div', { class: 'ggrid', id: 'allGrid' }, ...list.map(o => gc(o, false))));
+  } else {
+    if (favs.length) wrap.append(h('h2', { class: 'secH' }, 'Favorites', h('small', {}, prefs.mode === 'pin' ? '고정한 게임' : '자주 하는 게임')),
+      h('div', { class: 'ggrid compact', id: 'favGrid' }, ...favs.map(o => gc(o, true))));
+    wrap.append(rest.length ? h('h2', { class: 'secH' }, 'All Games', h('small', {}, '전체 게임')) : null,
+      h('div', { class: 'ggrid' + (rest.length ? '' : ' compact'), id: 'allGrid' }, ...rest.map(o => gc(o, false)), lock));
+  }
   wrap.append(ornament(92, 'left:-12px;top:205px;transform:rotate(-8deg)'), ornament(84, 'right:-6px;top:250px;transform:scaleX(-1) rotate(-6deg)'),
     ...bubbles([['46%', '20px', 14], ['49%', '6px', 8], ['8%', '62%', 10], ['88%', '4px', 11]]));
   root.append(wrap, h('div', { id: 'setupHolder', style: 'margin-top:22px' }));
@@ -63,7 +86,7 @@ export async function homePrefs(app) {
 }
 const coverKey = id => 'game:' + id;
 
-function gameCard(app, g, i, st, compact = false) {
+function gameCard(app, g, i, st, compact = false, resume = false) {
   const maxN = Math.min(g.players.max, activeOnly(app.characters).length + 1);
   const can = maxN >= g.players.min;
   const status = !can ? 'LOCK' : st ? (st.wins ? 'CLEAR' : 'PLAYED') : 'NEW';
@@ -74,7 +97,7 @@ function gameCard(app, g, i, st, compact = false) {
   return h('button', { class: 'pol gcard' + (compact ? ' compact' : '') + (cover ? ' hasimg' : ''), 'data-id': g.id, 'aria-label': `${g.name} 플레이`, disabled: !can,
     onclick: () => can && app.startSetup(g, g.players.min) },
     h('div', { class: 'no' }, String(i + 1).padStart(2, '0')),
-    h('div', { class: 'st' }, status, g.test ? h('span', { class: 'tag test' }, 'TEST') : null, g.mode === 'coop' ? h('span', { class: 'tag test' }, '협력') : null),
+    h('div', { class: 'st' }, status, g.test ? h('span', { class: 'tag test' }, 'TEST') : null, g.mode === 'coop' ? h('span', { class: 'tag test' }, '협력') : null, resume ? h('span', { class: 'tag resume' }, '이어하기') : null),
     h('div', { class: 'pic', style: cover ? `background:#111 url(${cover}) center/cover no-repeat` : th && th.table ? `background:radial-gradient(80% 70% at 40% 35%,${th.table},${th.table2 || th.table})` : '' }, cover ? null : pic),
     h('div', { class: 'ttl' }, plainName(g.name)),
     h('div', { class: 'meta' }, can ? `${g.players.min}~${g.players.max}인` : '캐릭터 부족'));

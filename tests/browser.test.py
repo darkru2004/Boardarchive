@@ -587,6 +587,24 @@ try:
             assert p4.locator("#allGrid .gcard[data-id=nothanks]").count() == 1, "고정 안 한 게임이 전체 게임에 없음"
             p4.click("#nav a[data-tab=settings]"); p4.click("#settabs [data-st=home]"); p4.click("#homePrefs [data-hm=auto]")
         check("홈 화면", "직접 고정 모드에서는 고정한 게임만 위에, 나머지는 '전체 게임'에 나온다", home_pin)
+        def home_filter():
+            p4.click("#nav a[data-tab=home]"); p4.wait_for_selector("#homeFilter")
+            total = p4.locator(".gcard").count()
+            p4.click("#homeFilter [data-hf=coop]"); p4.wait_for_selector("#homeFilter [data-hf=coop].on")
+            n = p4.locator(".gcard").count(); assert 0 < n < total, (n, total)
+            assert p4.locator(".gcard:not(:has(.tag))").count() == 0, "협력 칩에 협력 아닌 게임이 섞임"
+            p4.click("#homeFilter [data-hf=solo]"); p4.wait_for_selector("#homeFilter [data-hf=solo].on")
+            assert 0 < p4.locator(".gcard").count() < total
+            p4.click("#homeFilter [data-hf=all]"); p4.wait_for_selector("#homeFilter [data-hf=all].on"); assert p4.locator(".gcard").count() == total
+        check("홈 화면", "분류 칩(경쟁·협력·1인)을 누르면 그 종류의 게임만 보이고 '전체'로 돌아온다", home_filter)
+        def home_resume():
+            p4.evaluate("window.__ba.storage.put('campaigns','nothanks:auto',{gameId:'nothanks',slot:'auto',data:{seats:[{human:true,seat:0},{seat:1,characterId:'rapi'}],difficulty:null},updatedAt:new Date().toISOString()})")
+            p4.click("#nav a[data-tab=settings]"); p4.click("#nav a[data-tab=home]"); p4.wait_for_selector("#resumeList .rsrow[data-g=nothanks]")
+            assert p4.locator(".gcard[data-id=nothanks] .tag.resume").count() == 1
+            p4.evaluate("window.__ba.storage.del('campaigns','nothanks:auto')")
+            p4.click("#nav a[data-tab=settings]"); p4.click("#nav a[data-tab=home]"); p4.wait_for_selector("#homeFilter")
+            assert p4.locator("#resumeList").count() == 0
+        check("홈 화면", "저장된 판이 있으면 '이어서 하기' 줄과 카드 배지가 나오고, 지우면 사라진다", home_resume)
         def cover_img():
             p4.click("#nav a[data-tab=settings]"); p4.click("#settabs [data-st=deco]"); p4.wait_for_selector("#gameImages")
             with p4.expect_file_chooser() as fc:
