@@ -13,6 +13,7 @@ export const AUTO_SLOT = 'auto';
 import { linesFor, activeOnly, pairLinesFor } from '../core/characters.js';
 import { h, avatar, modal, toast, dieSvg, ornament, bubbles } from './ui.js';
 import { makeFx } from './fx.js';
+import { makeBgm, bgmPrefs } from './bgm.js';
 
 export const achCtx = app => ({ activeIds: activeOnly(app.characters).map(c => c.id), gameIds: app.games.filter(g => !g.test && g.mode !== 'coop').map(g => g.id) });
 
@@ -43,9 +44,11 @@ export async function launchGame(app, entry, seats, difficulty = null, resume = 
     if (!confirmExit) { confirmExit = true; exitBtn.textContent = auto ? '정말 나갈까요? (이어하기 가능)' : '정말 나갈까요? (기록 안 남음)'; setTimeout(() => { confirmExit = false; exitBtn.textContent = '나가기'; }, 3000); return; }
     leave();
   } }, '나가기');
-  root.append(h('div', { class: 'gamebar' }, h('div', { class: 'brand', style: 'font-size:28px' }, entry.name.replace(/\s*\(.*\)\s*$/, ''), h('small', {}, `${players.length}인 · v${entry.version}`)), exitBtn), gameRoot);
+  const bgmBtn = h('button', { class: 'btn small', id: 'barBgm', hidden: true, onclick: () => { bgmBtn.textContent = bgm.toggle() ? '♪ 켜짐' : '♪ 꺼짐'; } }, '♪');
+  root.append(h('div', { class: 'gamebar' }, h('div', { class: 'brand', style: 'font-size:28px' }, entry.name.replace(/\s*\(.*\)\s*$/, ''), h('small', {}, `${players.length}인 · v${entry.version}`)), h('div', { class: 'row', style: 'gap:6px' }, bgmBtn, exitBtn)), gameRoot);
 
-  const leave = () => { if (instance && instance.destroy) instance.destroy(); document.body.classList.remove('playing'); return app.goHome(); };
+  const bgm = makeBgm(app, entry.id);
+  const leave = () => { bgm.destroy(); if (instance && instance.destroy) instance.destroy(); document.body.classList.remove('playing'); return app.goHome(); };
 
   const ctx = {
     gameId: entry.id,
@@ -55,6 +58,7 @@ export async function launchGame(app, entry, seats, difficulty = null, resume = 
     readMs: text => (app.fast ? 5 : Math.min(7500, Math.max(3500, 2200 + String(text || '').length * 95))),
     theme: entry.theme || null,               // games/index.json의 theme (포인트 색 등)
     kit: { dieSvg, ornament, bubbles },
+    bgm,                                      // BGM 재생기(실행기가 알아서 틀어 주므로 게임은 보통 쓰지 않는다)
     fx: makeFx({ fast: app.fast }),           // 공통 이펙트(움직임·소리·진동). 게임에서 ctx.fx.scope(게임루트)로 사용
     rng: makeRng(),
     avatar: (seat, size) => avatar(app, players[seat].characterId, size),
@@ -82,6 +86,7 @@ export async function launchGame(app, entry, seats, difficulty = null, resume = 
       const rec = buildRecord({ game: mod.meta, seats, result, difficulty });
       await saveRecord(app.storage, rec);
       const fresh = await unlockNew(app);
+      { const me = rec.players.find(p => p.human), won = rec.mode === 'coop' ? rec.outcome === 'win' : !!me && me.rank === 1; bgm.play(won ? 'win' : 'lose').catch(() => {}); }   // 승리·패배 곡이 있으면 한 번 들려준다(없으면 BGM 그대로)
       showResult(app, entry, seats, rec, fresh, { again: async () => { await leave(); app.startSetup(entry, seats.length); }, home: leave });
     }
   };
@@ -94,12 +99,16 @@ export async function launchGame(app, entry, seats, difficulty = null, resume = 
     const fsOk = !!(document.documentElement.requestFullscreen && document.fullscreenEnabled);
     const fsBtn = h('button', { onclick: () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => {}); menu.classList.remove('open'); } }, '전체화면 켜기/끄기');
     const outBtn = h('button', { onclick: () => { exitBtn.click(); outBtn.textContent = exitBtn.textContent; } }, '나가기');
-    const menu = h('div', { class: 'gmenu' }, h('button', { class: 'gm', 'aria-label': '메뉴', onclick: () => menu.classList.toggle('open') }, '☰'), h('div', { class: 'gp' }, ...(fsOk ? [fsBtn] : []), outBtn));
+    const mBgm = h('button', { id: 'menuBgm', hidden: true, onclick: () => { const on = bgm.toggle(); mBgm.textContent = on ? 'BGM 끄기' : 'BGM 켜기'; menu.classList.remove('open'); } }, 'BGM 끄기');
+    const menu = h('div', { class: 'gmenu' }, h('button', { class: 'gm', 'aria-label': '메뉴', onclick: () => menu.classList.toggle('open') }, '☰'), h('div', { class: 'gp' }, ...(fsOk ? [fsBtn] : []), mBgm, outBtn));
+    bgm.has().then(has => { if (has) { mBgm.hidden = false; mBgm.textContent = bgmPrefs.on ? 'BGM 끄기' : 'BGM 켜기'; } });
     document.body.append(menu);
   }
   applySkins(app, entry.id, gameRoot);   // 사용자 UI 틀(없으면 기본)
   await applyFonts(app, entry.id, gameRoot);   // 사용자가 고른 폰트(없으면 기본)
   instance = mod.mount(gameRoot, ctx);
+  bgm.has().then(has => { if (has && !entry.immersive) { bgmBtn.hidden = false; bgmBtn.textContent = bgmPrefs.on ? '♪ 켜짐' : '♪ 꺼짐'; } }).catch(() => {});
+  bgm.play('main').catch(() => {});   // 'main' 칸에 파일이 있을 때만 반복 재생
 }
 
 function showResult(app, entry, seats, rec, fresh, { again, home }) {

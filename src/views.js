@@ -10,6 +10,7 @@ import { openArtManager } from './art.js';
 import { skinCard } from './skin.js';
 import { listFonts, saveFont, deleteFont, loadPrefs, savePref, isSafeFont, ALBUM_ID, FONT_MAX_BYTES, FONT_EXT } from '../core/fonts.js';
 import { applyAlbumFonts, forgetFace, ensureFace } from './fontkit.js';
+import { bgmCard } from './bgm.js';
 export { recordsView, gameRecordsView } from './recviews.js';
 import { launchGame, achCtx, AUTO_SLOT } from './host.js';
 import { makeFx, fxPrefs } from './fx.js';
@@ -174,6 +175,7 @@ export async function settingsView(app, root) {
   root.append(h('h2', {}, 'Effects', h('small', {}, '게임 연출')), h('div', { class: 'paper', id: 'fxPrefs', style: '--r:-.4deg' },
     h('div', { class: 'row wrap' }, fxRow('ba_fx', '움직임', () => fxPrefs.motion), fxRow('ba_sfx', '효과음', () => fxPrefs.sound), fxRow('ba_haptic', '진동', () => fxPrefs.haptic)),
     h('div', { class: 'muted', style: 'margin-top:6px' }, '카드·칩·타일이 날아가는 움직임, 효과음, 폰 진동. 진동은 안드로이드에서만 동작해요.')));
+  root.append(h('h2', {}, 'Music', h('small', {}, 'BGM')), bgmCard(app, app.games, plainName));
   // 홈 화면: 자주 하는 게임 + 게임 타이틀 이미지
   const hp = await homePrefs(app);
   const saveHp = async () => { await app.storage.put('settings', 'homePrefs', hp); app.render(); };
