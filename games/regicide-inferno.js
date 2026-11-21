@@ -332,7 +332,7 @@ function mountInferno(self, container, ctx) {
   <div class="g-regicide-inferno" style="--acc:${th.accent || '#f0b24a'};--bg1:${th.table || '#2b1812'};--bg2:${th.table2 || '#110908'}">
     <div class="ri-top"></div>
     <div class="ri-grid">
-      <div class="ri-l"><div data-skin="panel" class="ri-enemy"></div><div data-skin="panel" class="ri-piles"></div></div>
+      <div class="ri-l"><div data-skin="panel" class="ri-enemy"></div><div class="ri-piles"></div></div>
       <div class="ri-c"><div data-skin="panel" class="ri-field"></div><div data-skin="panel" class="ri-dock"></div><div class="ri-hand"></div><div class="ri-aux"></div></div>
       <div class="ri-r"><div data-skin="panel" class="ri-log"></div></div>
     </div>
@@ -387,7 +387,7 @@ function mountInferno(self, container, ctx) {
     const im = [0, 1, 2, 3, 4].filter(c => immuneTo(s, c, null)).map(c => `<i style="--cc:${CC[c]}">${CI[c]}</i>`).join('');
     el.enemy.innerHTML = `<div class="ri-eh">${cardHTML(e.id, { cls: ' en', attr: ' data-a="zoomE"' })}
       <div class="ri-ei"><b class="ri-en">${esc(enemyName(e.id))}</b>
-      <div class="ri-hp"><div style="width:${pct}%"></div><span>${hpL} / ${e.hp}</span></div>
+      <div data-skin="bar" class="ri-hp"><div style="width:${pct}%"></div><span>${hpL} / ${e.hp}</span></div>
       <div class="ri-st"><span title="적 공격력">⚔ 공격 <b>${atk}</b></span>${e.sh ? `<span>🛡 −${e.sh}</span>` : ''}</div>
       <div class="ri-im">면역 ${im || '없음'}</div></div></div>`;
   }
@@ -623,19 +623,19 @@ const RI_CSS = `
 .g-regicide-inferno .ri-ib{border:1px solid #ffffff33;background:#ffffff12;border-radius:14px;padding:3px 8px;font-size:12px;cursor:pointer;white-space:nowrap}
 .g-regicide-inferno .ri-grid{display:flex;flex-direction:column;gap:6px}
 .g-regicide-inferno .ri-l,.g-regicide-inferno .ri-c,.g-regicide-inferno .ri-r{display:flex;flex-direction:column;gap:6px;min-width:0}
-.g-regicide-inferno .ri-enemy,.g-regicide-inferno .ri-piles,.g-regicide-inferno .ri-field,.g-regicide-inferno .ri-dock,.g-regicide-inferno .ri-log{background:#00000055;border:1px solid #ffffff22;border-radius:12px;padding:5px 8px;--sk-panel-d:5px}
+.g-regicide-inferno .ri-enemy,.g-regicide-inferno .ri-field,.g-regicide-inferno .ri-dock,.g-regicide-inferno .ri-log{background:#00000055;border:1px solid #ffffff22;border-radius:12px;padding:5px 8px;--sk-panel-d:5px}
 .g-regicide-inferno .ri-r{display:none}
 .g-regicide-inferno .ri-eh{display:flex;gap:10px;align-items:center}
 .g-regicide-inferno .ri-ei{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
 .g-regicide-inferno .ri-en{font-size:16px;color:#ffd9a0}
-.g-regicide-inferno .ri-hp{position:relative;height:20px;border-radius:10px;background:#0008;overflow:hidden;box-shadow:inset 0 0 0 1px #ffffff2a}
+.g-regicide-inferno .ri-hp{position:relative;height:26px;border-radius:10px;background:#0008;overflow:hidden;box-shadow:inset 0 0 0 1px #ffffff2a}
 .g-regicide-inferno .ri-hp div{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#b8321f,#ef8a3a);transition:width .35s}
-.g-regicide-inferno .ri-hp span{position:absolute;inset:0;text-align:center;line-height:20px;font-size:12px;font-weight:800;text-shadow:0 1px 2px #000}
+.g-regicide-inferno .ri-hp span{position:absolute;inset:0;text-align:center;line-height:26px;font-size:13px;font-weight:800;text-shadow:0 1px 2px #000}
 .g-regicide-inferno .ri-st{display:flex;gap:10px;font-size:13px}.g-regicide-inferno .ri-st b{color:#ff8a6a;font-size:16px}
 .g-regicide-inferno .ri-im{font-size:12px;color:#c9b79a;display:flex;gap:4px;align-items:center}
 .g-regicide-inferno .ri-im i{font-style:normal;border:1px solid var(--cc);border-radius:10px;padding:0 5px;background:#0006}
-.g-regicide-inferno .ri-piles{display:flex;gap:6px}
-.g-regicide-inferno .ri-pl{flex:1;border:1px solid #ffffff2a;background:#ffffff0e;border-radius:10px;padding:3px 2px;font-size:11px;display:flex;flex-direction:row;gap:5px;justify-content:center;align-items:baseline;cursor:pointer}
+.g-regicide-inferno .ri-piles{display:flex;gap:6px;padding:0 4px}
+.g-regicide-inferno .ri-pl{flex:1;border:0;background:none;padding:2px;font-size:11px;display:flex;flex-direction:row;gap:5px;justify-content:center;align-items:baseline;cursor:pointer}
 .g-regicide-inferno span.ri-pl{cursor:default}.g-regicide-inferno .ri-pl b{font-size:16px;color:#ffd9a0}
 .g-regicide-inferno .ri-field{display:grid;grid-template-columns:1fr 1fr;gap:8px}.g-regicide-inferno .ri-field h4{margin:0 0 2px}.g-regicide-inferno .ri-field .ri-card.sm{width:32px}.g-regicide-inferno .ri-field .ri-row{gap:3px;min-height:20px}
 .g-regicide-inferno .ri-row{display:flex;gap:5px;flex-wrap:wrap;align-items:center;min-height:30px}.g-regicide-inferno .ri-row.ctr{justify-content:center}
@@ -668,7 +668,7 @@ const RI_CSS = `
 .g-regicide-inferno .ri-card.sm .ri-rk{font-size:14px}.g-regicide-inferno .ri-card.sm .ri-ic{font-size:18px}.g-regicide-inferno .ri-card.sm .ri-vl{font-size:9px;padding:0 4px}
 .g-regicide-inferno .ri-card.sm.side{transform:rotate(8deg);margin-left:4px}
 .g-regicide-inferno [data-a="partner"].ri-card.sm{width:44px;cursor:pointer}
-.g-regicide-inferno .ri-card.en{width:76px;flex:none}
+.g-regicide-inferno .ri-card.en{width:118px;flex:none}
 .g-regicide-inferno .ri-card.zoom{width:min(70vw,260px);cursor:default}.g-regicide-inferno .ri-card.zoom .ri-rk{font-size:30px}.g-regicide-inferno .ri-card.zoom .ri-vl{font-size:15px}
 .g-regicide-inferno .ri-lg{font-size:12px;line-height:1.55;max-height:120px;overflow:auto;color:#d9c9ac}.g-regicide-inferno .ri-lg.full{max-height:60vh;font-size:13px}
 .g-regicide-inferno .ri-lg .g{color:#8be29b}.g-regicide-inferno .ri-lg .r{color:#ff8f7a}
@@ -690,7 +690,7 @@ const RI_CSS = `
  .g-regicide-inferno .ri-field .ri-card.sm{width:calc(var(--k,1)*50px)}
  .g-regicide-inferno .ri-ax{flex:1;padding:5px 8px}.g-regicide-inferno .ri-aux{justify-content:stretch}
  .g-regicide-inferno .ri-j{width:calc(var(--k,1)*54px);height:calc(var(--k,1)*76px)}
- .g-regicide-inferno .ri-enemy,.g-regicide-inferno .ri-piles,.g-regicide-inferno .ri-field,.g-regicide-inferno .ri-dock,.g-regicide-inferno .ri-log{padding:8px 10px;--sk-panel-d:8px}
+ .g-regicide-inferno .ri-enemy,.g-regicide-inferno .ri-field,.g-regicide-inferno .ri-dock,.g-regicide-inferno .ri-log{padding:8px 10px;--sk-panel-d:8px}
  .g-regicide-inferno .ri-card.sm{width:calc(var(--k,1)*50px)}
  .g-regicide-inferno [data-a="partner"].ri-card.sm{width:calc(var(--k,1)*64px)}
  .g-regicide-inferno .ri-rk{font-size:calc(var(--k,1)*22px)}.g-regicide-inferno .ri-card.sm .ri-rk{font-size:calc(var(--k,1)*15px)}
