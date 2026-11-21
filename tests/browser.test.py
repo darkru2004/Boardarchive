@@ -5,6 +5,13 @@ from playwright.sync_api import sync_playwright
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PORT = 8123
 GAMES_N = len(json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'games', 'index.json'), encoding='utf-8'))['games'])
+def leave(pg):
+    """게임에서 나간다(몰입형 게임은 ☰ 메뉴의 '나가기', 아니면 위쪽 나가기 버튼. 두 번 눌러 확인)."""
+    if pg.locator(".gmenu .gm").count():
+        pg.click(".gmenu .gm"); pg.click(".gmenu .gp button:last-child"); pg.click(".gmenu .gp button:last-child")
+    else:
+        pg.click(".gamebar .row button:last-child"); pg.click(".gamebar .row button:last-child")
+
 BASE = f"http://localhost:{PORT}/"
 SHOTS = os.environ.get("SHOTS", "/tmp/shots"); os.makedirs(SHOTS, exist_ok=True)
 results = []
@@ -104,7 +111,7 @@ try:
 
         # ---------- 백업 → 다른 기기에서 복원 ----------
         page.evaluate("import('./core/storage.js').then(m => m.saveCampaign(window.__ba.storage, {gameId:'legacy-x', slot:1, gameVersion:'1.0.0', data:{chapter:4}}))")
-        page.click("#nav a[data-tab=settings]"); page.wait_for_selector("#btnExport")
+        page.click("#nav a[data-tab=settings]"); page.click("#settabs [data-st=data]"); page.wait_for_selector("#btnExport")
         with page.expect_download() as dl: page.click("#btnExport")
         bpath = os.path.join(tempfile.gettempdir(), "ba-backup.json"); dl.value.save_as(bpath)
         bk = json.load(open(bpath, encoding="utf-8"))
@@ -118,7 +125,7 @@ try:
         p2 = ctx2.new_page(); p2.on("pageerror", lambda e: errors.append("pageerror(기기2): " + str(e)))
         p2.goto(BASE); p2.wait_for_selector("#nav a")
         check("백업·복원", "새 기기(빈 저장소)에서는 기록 0건, 초상화 없음으로 시작한다", lambda: (None if count_records(p2) == 0 and not p2.evaluate("window.__ba.portraits.has('rapi')") else (_ for _ in ()).throw(AssertionError("비어있지 않음"))))
-        p2.click("#nav a[data-tab=settings]"); p2.wait_for_selector("#importFile", state="attached")
+        p2.click("#nav a[data-tab=settings]"); p2.click("#settabs [data-st=data]"); p2.wait_for_selector("#importFile", state="attached")
         p2.set_input_files("#importFile", bpath); p2.wait_for_selector("#btnMerge")
         p2.screenshot(path=f"{SHOTS}/8-import.png", full_page=True)
         p2.click("#btnMerge"); p2.wait_for_function("window.__ba.portraits.has('rapi')")
@@ -130,7 +137,7 @@ try:
         check("백업·복원", "복원 후 새로고침해도 유지된다", lambda: (None if count_records(p2) == 1 and p2.evaluate("window.__ba.portraits.has('rapi')") else (_ for _ in ()).throw(AssertionError("사라짐"))))
         # 잘못된 파일
         bad = os.path.join(tempfile.gettempdir(), "bad.json"); open(bad, "w").write("{\"hello\": 1}")
-        p2.click("#nav a[data-tab=settings]"); p2.wait_for_selector("#importFile", state="attached"); p2.set_input_files("#importFile", bad)
+        p2.click("#nav a[data-tab=settings]"); p2.click("#settabs [data-st=data]"); p2.wait_for_selector("#importFile", state="attached"); p2.set_input_files("#importFile", bad)
         check("백업·복원", "엉뚱한 파일을 가져오면 안내 문구가 뜨고 데이터는 그대로다", lambda: (p2.wait_for_selector("text=이 앱의 백업 파일이 아닙니다"), None if count_records(p2) == 1 else (_ for _ in ()).throw(AssertionError("데이터 변함"))))
 
         # 전체 삭제 후 교체 복원 (기기 1)
@@ -230,7 +237,7 @@ try:
             assert p2.locator(".fx-layer").count() == 0, "게임에서 나왔는데 연출 층이 남음"
         check("연출", "실제 속도에서 받기를 누르면 카드가 내 자리로 날아가고, 끝나면 흔적 없이 사라진다", fx_real)
         def fx_prefs():
-            p2.click("#nav a[data-tab=settings]"); p2.wait_for_selector("#fxPrefs")
+            p2.click("#nav a[data-tab=settings]"); p2.click("#settabs [data-st=general]"); p2.wait_for_selector("#fxPrefs")
             assert p2.locator("#fxPrefs [data-fx]").count() == 3, "설정 버튼 3개(움직임·효과음·진동)가 아님"
             p2.click("#fxPrefs [data-fx=ba_fx]")
             assert p2.evaluate("localStorage.getItem('ba_fx')") == "0", "움직임 끄기가 저장되지 않음"
@@ -381,7 +388,7 @@ try:
         check("레지사이드", "카드를 누르면 올라오고(고름) 취소하면 내려가며, 한 장은 바로 낼 수 있다", rg_select)
         def rg_resume():
             before = p2.evaluate("[...document.querySelectorAll('.g-regicide .rg-hand [data-c]')].map(e => e.dataset.c).join(',') + '|' + document.querySelector('.rg-en').textContent + '|' + document.querySelector('.rg-hp b').textContent")
-            p2.click(".gamebar button"); p2.click(".gamebar button"); p2.wait_for_selector(".gcard[data-id=regicide]")
+            leave(p2); p2.wait_for_selector(".gcard[data-id=regicide]")
             p2.click(".gcard[data-id=regicide]"); p2.wait_for_selector("#resume #btnResume", timeout=5000)
             p2.click("#btnResume"); p2.wait_for_selector(".g-regicide .rg-dock.mine", timeout=30000)
             after = p2.evaluate("[...document.querySelectorAll('.g-regicide .rg-hand [data-c]')].map(e => e.dataset.c).join(',') + '|' + document.querySelector('.rg-en').textContent + '|' + document.querySelector('.rg-hp b').textContent")
@@ -422,7 +429,7 @@ try:
             assert not m["v"] and not m["h"] and m["w"], "2인 손패 7장이 화면 안에 안 들어옴 " + str(m)
             p2.screenshot(path=f"{SHOTS}/15-regicide-2p.png")
         check("레지사이드", "2인(손패 7장)도 360×740 폰 화면 안에 다 들어온다", rg_two)
-        p2.click(".gamebar button"); p2.click(".gamebar button"); p2.wait_for_selector(".gcard[data-id=regicide]")
+        leave(p2); p2.wait_for_selector(".gcard[data-id=regicide]")
         # ---------- 스프롤로폴리스(협력·솔로): 도시 짓기 · 카드 놓기 · 이어하기 · 한 판 끝까지 · 협력 기록 ----------
         p2.set_viewport_size({"width": 390, "height": 844})
         p2.goto(BASE + "?fast=1"); p2.wait_for_selector("#nav a")
@@ -501,7 +508,7 @@ try:
             p2.wait_for_function("document.querySelector('.g-sprawlopolis .sr-prog b') && +document.querySelector('.g-sprawlopolis .sr-prog b').textContent >= 3", timeout=30000)
             p2.wait_for_selector(".g-sprawlopolis .sr-dock.mine", timeout=30000)
             before = p2.evaluate("document.querySelector('.sr-prog b').textContent + '|' + [...document.querySelectorAll('.g-sprawlopolis .sr-hand [data-c]')].map(e => e.dataset.c).join(',')")
-            p2.click(".gamebar button"); p2.click(".gamebar button"); p2.wait_for_selector(".gcard[data-id=sprawlopolis]")
+            leave(p2); p2.wait_for_selector(".gcard[data-id=sprawlopolis]")
             p2.click(".gcard[data-id=sprawlopolis]"); p2.wait_for_selector("#resume #btnResume", timeout=5000)
             p2.click("#btnResume"); p2.wait_for_selector(".g-sprawlopolis .sr-dock.mine", timeout=30000)
             after = p2.evaluate("document.querySelector('.sr-prog b').textContent + '|' + [...document.querySelectorAll('.g-sprawlopolis .sr-hand [data-c]')].map(e => e.dataset.c).join(',')")
@@ -571,19 +578,19 @@ try:
             assert len(ids) == min(6, len(ids)) and len(ids) >= 4, ids
         check("홈 화면", "'자주 하는 게임'에 많이 한 게임이 맨 앞으로 나온다(자동 모드)", home_fav)
         def home_pin():
-            p4.click("#nav a[data-tab=settings]"); p4.wait_for_selector("#homePrefs")
+            p4.click("#nav a[data-tab=settings]"); p4.click("#settabs [data-st=home]"); p4.wait_for_selector("#homePrefs")
             p4.click("#homePrefs [data-hm=pin]"); p4.wait_for_selector("#homePrefs [data-hm=pin].on")
             p4.click("#homePrefs [data-g=loveletter] .pinb"); p4.wait_for_selector("#homePrefs [data-g=loveletter] .pinb.on")
             p4.click("#nav a[data-tab=home]"); p4.wait_for_selector("#favGrid .gcard")
             ids = p4.eval_on_selector_all("#favGrid .gcard", "els => els.map(e => e.dataset.id)")
             assert ids == ["loveletter"], ids
             assert p4.locator("#allGrid .gcard[data-id=nothanks]").count() == 1, "고정 안 한 게임이 전체 게임에 없음"
-            p4.click("#nav a[data-tab=settings]"); p4.click("#homePrefs [data-hm=auto]")
+            p4.click("#nav a[data-tab=settings]"); p4.click("#settabs [data-st=home]"); p4.click("#homePrefs [data-hm=auto]")
         check("홈 화면", "직접 고정 모드에서는 고정한 게임만 위에, 나머지는 '전체 게임'에 나온다", home_pin)
         def cover_img():
-            p4.click("#nav a[data-tab=settings]"); p4.wait_for_selector("#homePrefs")
+            p4.click("#nav a[data-tab=settings]"); p4.click("#settabs [data-st=deco]"); p4.wait_for_selector("#gameImages")
             with p4.expect_file_chooser() as fc:
-                p4.click("#homePrefs [data-g=nothanks] .covb")
+                p4.click("#gameImages [data-g=nothanks] .covb")
             fc.value.set_files("/tmp/portrait-test.png")
             p4.wait_for_function("window.__ba.portraits.has('game:nothanks')")
             p4.click("#nav a[data-tab=home]"); p4.wait_for_selector("#favGrid .gcard[data-id=nothanks].hasimg")
@@ -622,7 +629,7 @@ try:
         check("게임별 기록", "킹도미노 기록 페이지에 최고 점수 TOP10이 높은 순으로 나오고, 저장된 왕국은 그림으로 보이며 눌러서 크게 볼 수 있다", kd_board)
         def fonts_ui():
             ttf = "/usr/share/fonts/truetype/dejavu/DejaVuSans-ExtraLight.ttf"
-            p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#fontsCard")
+            p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#settabs"); p4.click("#settabs [data-st=deco]"); p4.wait_for_selector("#fontsCard")
             p4.set_input_files("#fontFile", ttf); p4.wait_for_selector("#fontsCard [data-f]")
             badf = os.path.join(tempfile.mkdtemp(), "broken.ttf"); open(badf, "wb").write(b"not a font")
             p4.set_input_files("#fontFile", badf); p4.wait_for_selector("text=읽을 수 없는 폰트")
@@ -638,15 +645,17 @@ try:
             assert p4.evaluate("document.fonts.check(\"12px 'baf-%s'\")" % fid), "폰트가 로드되지 않음"
             assert "baf-" in p4.evaluate("getComputedStyle(document.querySelector('.g-splendor')).fontFamily"), "게임 글자에 적용 안 됨"
             p4.click(".gmenu .gm"); p4.click(".gmenu .gp button:last-child"); p4.click(".gmenu .gp button:last-child"); p4.wait_for_selector(".gcard[data-id=splendor]")
-            p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#fontsCard")
+            p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#settabs"); p4.click("#settabs [data-st=deco]"); p4.wait_for_selector("#fontsCard")
+            p4.click("#settabs [data-st=data]")
             with p4.expect_download() as dl: p4.click("#btnExportImages")
             o = json.loads(open(dl.value.path(), encoding="utf-8").read()); assert fid in o["data"]["fonts"]["fonts"] and o["data"]["fonts"]["prefs"]["splendor"]["body"] == fid
+            p4.click("#settabs [data-st=deco]")
             p4.click("#fontsCard [data-f] .btn"); p4.wait_for_function("!document.querySelector('#fontsCard [data-f]')")
             prefs = p4.evaluate("window.__ba.storage.get('settings','fontPrefs')"); assert not prefs or not prefs.get("splendor"), prefs
             assert not p4.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--fd').includes('baf-')"), "앨범 폰트가 안 풀림"
         check("폰트", "폰트 파일을 올리면 저장되고(깨진 파일은 거부), 게임·앨범에 따로 적용되며 백업에 들어가고, 지우면 선택도 함께 풀린다", fonts_ui)
         def skin_ui():
-            p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#skinCard")
+            p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#settabs"); p4.click("#settabs [data-st=deco]"); p4.wait_for_selector("#skinCard")
             p4.set_input_files("#skinCard [data-f=screen]", "/tmp/frame-test.png"); p4.wait_for_selector("#skinCard [data-slot=screen] .skprev")
             p4.set_input_files("#skinCard [data-f=panel]", "/tmp/frame-test.png"); p4.wait_for_selector("#skinCard [data-slot=panel] .skprev")
             p4.fill("#skinCard [data-slot=screen] input[data-n=d]", "30"); p4.dispatch_event("#skinCard [data-slot=screen] input[data-n=d]", "change")
@@ -657,15 +666,16 @@ try:
             r = p4.evaluate("(()=>{const e=document.querySelector('.g-splendor').parentElement;const c=getComputedStyle(e);return [e.getAttribute('data-skin'),c.borderImageSource.slice(0,20),c.borderTopWidth,e.style.getPropertyValue('--sk-button')?'btn':'no',e.style.getPropertyValue('--sk-panel')?'panel':'no']})()")
             assert r[0] == "screen" and r[1].startswith("url(") and r[2] == "30px" and r[3] == "btn" and r[4] == "panel", r
             p4.click(".gmenu .gm"); p4.click(".gmenu .gp button:last-child"); p4.click(".gmenu .gp button:last-child"); p4.wait_for_selector(".gcard[data-id=splendor]")
-            p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#skinCard")
+            p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#settabs"); p4.click("#settabs [data-st=deco]"); p4.wait_for_selector("#skinCard")
+            p4.click("#settabs [data-st=data]")
             with p4.expect_download() as dl: p4.click("#btnExportImages")
             o = json.loads(open(dl.value.path(), encoding="utf-8").read()); assert "skin:all:screen" in o["data"]["portraits"] and o["data"]["portraits"]["skin:all:screen"]["d"] == 30
-            p4.select_option("#skinScope", "all")
+            p4.click("#settabs [data-st=deco]"); p4.select_option("#skinScope", "all")
             for sl in ("screen", "panel"): p4.click(f"#skinCard [data-slot={sl}] .btn:has-text('지우기')"); p4.wait_for_selector(f"#skinCard [data-slot={sl}] .skprev", state="detached")
             p4.select_option("#skinScope", "splendor"); p4.click("#skinCard [data-slot=button] .btn:has-text('지우기')"); p4.wait_for_function("!window.__ba.skinRecs.has('skin:splendor:button')")
         check("UI 틀", "틀 그림을 올리면 공용·게임별로 저장되고 게임 화면에 씌워지며 백업에 들어가고, 지우면 원래 모양으로 돌아간다", skin_ui)
         def skin_ad():
-            p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#skinCard")
+            p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#settabs"); p4.click("#settabs [data-st=deco]"); p4.wait_for_selector("#skinCard")
             p4.select_option("#skinScope", "agentdecker")
             for sl in ("panel", "button", "card", "bar", "button-down"): p4.set_input_files(f"#skinCard [data-f={sl}]", "/tmp/frame-test.png"); p4.wait_for_selector(f"#skinCard [data-slot={sl}] .skprev")
             p4.goto(BASE + "?fast=1"); p4.wait_for_selector(".gcard[data-id=agentdecker]"); p4.click(".gcard[data-id=agentdecker]")
@@ -673,15 +683,16 @@ try:
             r = p4.evaluate("(()=>{const q=s=>getComputedStyle(document.querySelector(s)).borderImageSource.startsWith('url(');const pq=s=>getComputedStyle(document.querySelector(s),'::after').borderImageSource.startsWith('url(');return [q('.g-ad .ad-end'),q('.g-ad .ad-gm'),pq('.g-ad .ad-hs .ad-card'),pq('.g-ad .ad-gauge')]})()")
             assert all(r), r
             assert 'button-down' in p4.evaluate("document.querySelector('.g-ad').parentElement.getAttribute('data-skins')") and p4.evaluate("getComputedStyle(document.querySelector('.g-ad .ad-end')).backgroundColor") == 'rgba(0, 0, 0, 0)', '버튼 배경이 안 꺼짐'
-            p4.click(".gamebar button"); p4.click(".gamebar button"); p4.wait_for_selector(".gcard[data-id=agentdecker]")
-            p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#skinCard"); p4.select_option("#skinScope", "agentdecker")
+            leave(p4); p4.wait_for_selector(".gcard[data-id=agentdecker]")
+            p4.goto(BASE + "?fast=1#/settings"); p4.wait_for_selector("#settabs"); p4.click("#settabs [data-st=deco]"); p4.wait_for_selector("#skinCard"); p4.select_option("#skinScope", "agentdecker")
             for sl in ("button-down", "panel", "button", "card", "bar"): p4.click(f"#skinCard [data-slot={sl}] .btn:has-text('지우기')"); p4.wait_for_selector(f"#skinCard [data-slot={sl}] .skprev", state="detached")
             p4.goto(BASE + "?fast=1"); p4.click(".gcard[data-id=agentdecker]"); p4.wait_for_selector("#setup"); p4.click("#btnStart"); p4.wait_for_selector(".g-ad .ad-end", timeout=30000)
             assert not p4.evaluate("getComputedStyle(document.querySelector('.g-ad .ad-gm')).borderImageSource.startsWith('url(')"), "지웠는데 틀이 남음"
-            p4.click(".gamebar button"); p4.click(".gamebar button")
+            leave(p4)
         check("UI 틀", "에이전트 데커의 패널·버튼·카드에 틀이 씌워지고 지우면 원래 모양으로 돌아간다", skin_ad)
         def img_backup():
-            p4.click("#nav a[data-tab=settings]"); p4.wait_for_selector("#imagesCard")
+            p4.click("#nav a[data-tab=settings]"); p4.click("#settabs [data-st=data]"); p4.wait_for_selector("#imagesCard")
+            p4.click("#settabs [data-st=data]")
             with p4.expect_download() as dl: p4.click("#btnExportImages")
             path = dl.value.path(); txt = open(path, encoding="utf-8").read(); o = json.loads(txt)
             assert o["format"] == "boardarchive-images" and "records" not in o["data"] and len(o["data"]["portraits"]) >= 1, list(o["data"].keys())
@@ -698,8 +709,8 @@ try:
             d = tempfile.mkdtemp(); files = []
             for nm in ["card-w-01", "card-w-02", "card-u-01", "card-u-02", "card-g-01", "card-g-02", "card-r-01", "card-r-02", "card-k-01", "card-k-02", "back-1", "back-2", "back-3", "noble-01", "token-y", "unknown"]:
                 f = os.path.join(d, nm + ".png"); shutil.copy("/tmp/portrait-test.png", f); files.append(f)
-            p4.click("#nav a[data-tab=settings]"); p4.wait_for_selector("#homePrefs")
-            p4.click("#homePrefs [data-g=splendor] .artb"); p4.wait_for_selector("#artManager")
+            p4.click("#nav a[data-tab=settings]"); p4.click("#settabs [data-st=deco]"); p4.wait_for_selector("#gameImages")
+            p4.click("#gameImages [data-g=splendor] .artb"); p4.wait_for_selector("#artManager")
             p4.set_input_files("#artBulkFile", files)
             p4.wait_for_function("[...window.__ba.portraits.keys()].filter(k => k.startsWith('art:splendor:')).length >= 15", timeout=15000)
             keys = p4.evaluate("[...window.__ba.portraits.keys()].filter(k => k.startsWith('art:splendor:')).sort()")

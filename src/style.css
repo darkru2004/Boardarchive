@@ -202,3 +202,7 @@ body.immersive .gamebar{display:none}
 .gmenu .gp{display:none;position:absolute;right:0;top:40px;flex-direction:column;gap:6px;min-width:150px;padding:8px;background:#0b1830;border:1px solid #ffffff33;border-radius:10px}
 .gmenu.open .gp{display:flex}
 .gmenu .gp button{border:0;border-radius:8px;padding:9px 10px;background:#26396a;color:#e8eefc;font:inherit;font-size:13px;cursor:pointer}
+
+.settabs{display:flex;gap:6px;margin:10px 0 4px;position:sticky;top:0;z-index:5;padding:6px 0;background:var(--paper)}
+.settabs .btn{flex:1}
+.spane[hidden]{display:none}

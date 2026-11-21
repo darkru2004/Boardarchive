@@ -167,15 +167,22 @@ export async function dexView(app, root) {
 // ================= 설정: 백업·저장 상태 =================
 export async function settingsView(app, root) {
   root.append(top('Option', '설정', ''));
+  // 설정은 탭 4개로 나눈다: 일반 / 홈 / 꾸미기 / 데이터 (마지막으로 본 탭을 기억)
+  const TABS = [['general', '일반'], ['home', '홈'], ['deco', '꾸미기'], ['data', '데이터']];
+  const P = Object.fromEntries(TABS.map(([k]) => [k, h('div', { class: 'spane', 'data-pane': k })]));
+  let curTab = 'general'; try { const t = localStorage.getItem('ba_settab'); if (P[t]) curTab = t; } catch {}
+  const showTab = k => { curTab = k; try { localStorage.setItem('ba_settab', k); } catch {} for (const [id, el] of Object.entries(P)) el.hidden = id !== k; bar.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.st === k)); };
+  const bar = h('div', { class: 'settabs', id: 'settabs' }, ...TABS.map(([k, n]) => h('button', { class: 'btn small', 'data-st': k, onclick: () => showTab(k) }, n)));
+  root.append(bar, ...Object.values(P));
   // 게임 연출 켜기/끄기 (기기에 저장)
   const fxRow = (key, label, get) => h('button', { class: 'btn small' + (get() ? ' on' : ''), 'data-fx': key, onclick: ev => {
     const on = !get(); fxPrefs.set(key, on); ev.currentTarget.classList.toggle('on', on); ev.currentTarget.lastChild.textContent = on ? '켜짐' : '꺼짐';
     if (on && key === 'ba_sfx') makeFx().sfx('chips'); if (on && key === 'ba_haptic') makeFx().buzz(30);
   } }, label + ' ', h('small', {}, get() ? '켜짐' : '꺼짐'));
-  root.append(h('h2', {}, 'Effects', h('small', {}, '게임 연출')), h('div', { class: 'paper', id: 'fxPrefs', style: '--r:-.4deg' },
+  P.general.append(h('h2', {}, 'Effects', h('small', {}, '게임 연출')), h('div', { class: 'paper', id: 'fxPrefs', style: '--r:-.4deg' },
     h('div', { class: 'row wrap' }, fxRow('ba_fx', '움직임', () => fxPrefs.motion), fxRow('ba_sfx', '효과음', () => fxPrefs.sound), fxRow('ba_haptic', '진동', () => fxPrefs.haptic)),
     h('div', { class: 'muted', style: 'margin-top:6px' }, '카드·칩·타일이 날아가는 움직임, 효과음, 폰 진동. 진동은 안드로이드에서만 동작해요.')));
-  root.append(h('h2', {}, 'Music', h('small', {}, 'BGM')), bgmCard(app, app.games, plainName));
+  P.general.append(h('h2', {}, 'Music', h('small', {}, 'BGM')), bgmCard(app, app.games, plainName));
   // 홈 화면: 자주 하는 게임 + 게임 타이틀 이미지
   const hp = await homePrefs(app);
   const saveHp = async () => { await app.storage.put('settings', 'homePrefs', hp); app.render(); };
@@ -184,22 +191,29 @@ export async function settingsView(app, root) {
     try { const dataUrl = await fileToCover(f); await app.storage.put('portraits', coverKey(id), { dataUrl, updatedAt: new Date().toISOString() }); app.portraits.set(coverKey(id), dataUrl); toast('타이틀 이미지를 저장했어요'); app.render(); }
     catch (err) { toast('이미지를 읽지 못했어요: ' + err.message); }
   } });
-  root.append(h('h2', {}, 'Home', h('small', {}, '홈 화면')), h('div', { class: 'paper', id: 'homePrefs', style: '--r:.3deg' },
+  P.home.append(h('h2', {}, 'Home', h('small', {}, '홈 화면')), h('div', { class: 'paper', id: 'homePrefs', style: '--r:.3deg' },
     h('div', { class: 'row wrap', style: 'gap:6px;align-items:center' }, h('small', {}, '자주 하는 게임'),
       h('button', { class: 'btn small' + (hp.mode === 'auto' ? ' on' : ''), 'data-hm': 'auto', onclick: () => { hp.mode = 'auto'; saveHp(); } }, '자동(많이 한 순)'),
       h('button', { class: 'btn small' + (hp.mode === 'pin' ? ' on' : ''), 'data-hm': 'pin', onclick: () => { hp.mode = 'pin'; saveHp(); } }, '직접 고정')),
     h('div', { class: 'row wrap', style: 'gap:6px;align-items:center;margin-top:6px' }, h('small', {}, '표시 개수'),
       ...[6, 8].map(n => h('button', { class: 'btn small' + (hp.count === n ? ' on' : ''), 'data-hc': n, onclick: () => { hp.count = n; saveHp(); } }, `${n}개`))),
-    h('div', { style: 'margin-top:10px' }, ...app.games.map(g => {
-      const has = app.portraits.has(coverKey(g.id)), pinned = hp.pins.includes(g.id);
+    hp.mode === 'pin' ? h('div', { style: 'margin-top:10px' }, ...app.games.map(g => {
+      const pinned = hp.pins.includes(g.id);
       return h('div', { class: 'row', 'data-g': g.id, style: 'gap:6px;align-items:center;padding:5px 0;border-bottom:1px dashed #00000020' },
         h('div', { class: 'grow' }, plainName(g.name)),
-        hp.mode === 'pin' ? h('button', { class: 'btn small pinb' + (pinned ? ' on' : ''), onclick: () => { hp.pins = pinned ? hp.pins.filter(x => x !== g.id) : [...hp.pins, g.id]; saveHp(); } }, pinned ? '고정됨' : '고정') : null,
+        h('button', { class: 'btn small pinb' + (pinned ? ' on' : ''), onclick: () => { hp.pins = pinned ? hp.pins.filter(x => x !== g.id) : [...hp.pins, g.id]; saveHp(); } }, pinned ? '고정됨' : '고정'));
+    })) : null,
+    h('div', { class: 'muted', style: 'margin-top:6px' }, hp.mode === 'pin' ? '고정한 순서대로 홈 위쪽에 나와요.' : '자동: 많이 한 게임이 위에 나와요. 아직 안 한 게임은 목록 순서대로 채워요.')));
+  P.deco.append(h('h2', {}, 'Images', h('small', {}, '게임 그림')), h('div', { class: 'paper', id: 'gameImages', style: '--r:-.2deg' },
+    h('div', { class: 'muted', style: 'margin-bottom:6px' }, '홈에 보이는 게임 타이틀 이미지와, 카드가 있는 게임의 카드 그림을 넣어요.'),
+    ...app.games.map(g => {
+      const has = app.portraits.has(coverKey(g.id));
+      return h('div', { class: 'row', 'data-g': g.id, style: 'gap:6px;align-items:center;padding:5px 0;border-bottom:1px dashed #00000020' },
+        h('div', { class: 'grow' }, plainName(g.name)),
         g.art ? h('button', { class: 'btn small artb', onclick: () => openArtManager(app, g) }, '카드 그림') : null,
         h('button', { class: 'btn small covb', onclick: () => { coverIn.dataset.gid = g.id; coverIn.click(); } }, has ? '이미지 바꾸기' : '이미지 넣기'),
         has ? h('button', { class: 'btn small', onclick: async () => { await app.storage.del('portraits', coverKey(g.id)); app.portraits.delete(coverKey(g.id)); toast('타이틀 이미지를 지웠어요'); app.render(); } }, '지우기') : null);
-    })),
-    h('div', { class: 'muted', style: 'margin-top:6px' }, hp.mode === 'pin' ? '고정한 순서대로 홈 위쪽에 나와요.' : '자동: 많이 한 게임이 위에 나와요. 아직 안 한 게임은 목록 순서대로 채워요.'), coverIn));
+    }), coverIn));
   const recs = await listRecords(app.storage);
   const meta = (await app.storage.get('settings', 'backupMeta')) || { recordsAt: 0, lastAt: null };
   const persisted = navigator.storage && navigator.storage.persisted ? await navigator.storage.persisted() : null;
@@ -235,7 +249,7 @@ export async function settingsView(app, root) {
     } catch (err) { importBox.replaceChildren(h('div', { class: 'paper taped', style: 'margin-top:14px' }, '가져오기 실패: ' + err.message)); }
   }
 
-  root.append(h('div', { class: 'paper taped', id: 'backupCard', style: '--r:-.6deg' },
+  P.data.append(h('div', { class: 'paper taped', id: 'backupCard', style: '--r:-.6deg' },
     h('h3', {}, '백업'),
     h('div', { class: 'muted', style: 'margin-bottom:10px' }, `기록 ${recs.length}판 · 초상화·이미지 ${app.portraits.size}개 · 마지막 백업 ${meta.lastAt ? fmtDate(meta.lastAt) : '없음'}`),
     h('div', { class: 'row wrap' },
@@ -272,7 +286,7 @@ export async function settingsView(app, root) {
     await savePref(app.storage, gid, slot, e.target.value || null);
     if (gid === ALBUM_ID) await applyAlbumFonts(app); toast('폰트를 바꿨어요' + (gid === ALBUM_ID ? '' : ' (게임을 새로 열면 적용)'));
   } }, h('option', { value: '' }, '기본'), ...fonts.map(f => h('option', { value: f.id, selected: (fprefs[gid] || {})[slot] === f.id }, f.name)));
-  root.append(h('h2', {}, 'Fonts', h('small', {}, '폰트')), h('div', { class: 'paper', id: 'fontsCard', style: '--r:-.3deg' },
+  P.deco.append(h('h2', {}, 'Fonts', h('small', {}, '폰트')), h('div', { class: 'paper', id: 'fontsCard', style: '--r:-.3deg' },
     h('div', { class: 'row wrap', style: 'gap:6px;align-items:center' }, h('button', { class: 'btn small go', id: 'btnAddFont', onclick: () => fontIn.click() }, '폰트 파일 올리기'),
       h('small', {}, `.ttf .otf .woff .woff2 · 6MB 이하 · ${fonts.length}개 저장됨`)),
     fonts.length ? h('div', { style: 'margin-top:6px' }, ...fonts.map(f => h('div', { class: 'row', 'data-f': f.id, style: 'gap:6px;align-items:center;padding:3px 0' },
@@ -283,7 +297,7 @@ export async function settingsView(app, root) {
       ...[{ id: ALBUM_ID, name: '앨범 (홈·기록·설정)' }, ...app.games].map(g => h('div', { class: 'row', 'data-fg': g.id, style: 'gap:6px;align-items:center;padding:4px 0;border-bottom:1px dashed #00000020' },
         h('div', { class: 'grow' }, plainName(g.name)), h('div', { style: 'width:34%' }, fsel(g.id, 'body')), h('div', { style: 'width:34%' }, fsel(g.id, 'title'))))) : h('div', { class: 'muted', style: 'margin-top:8px' }, '폰트를 올리면 게임마다 본문·제목 폰트를 고를 수 있어요. 안 고르면 기본 서체 그대로예요.'),
     fontIn));
-  root.append(h('h2', {}, 'Frames', h('small', {}, 'UI 틀')), skinCard(app, app.games, plainName));
+  P.deco.append(h('h2', {}, 'Frames', h('small', {}, 'UI 틀')), skinCard(app, app.games, plainName));
   // 이미지만 백업(초상화·게임 타이틀·카드 그림)
   const imgIn = h('input', { type: 'file', accept: '.json,application/json', style: 'display:none', id: 'imagesFile', onchange: async e => {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;
@@ -293,7 +307,7 @@ export async function settingsView(app, root) {
       toast(`이미지 ${n}개 중 새로 ${r.added} · 갱신 ${r.updated} · 그대로 ${r.kept}${r.invalid ? ` · 건너뜀 ${r.invalid}` : ''}`); app.render();
     } catch (err) { toast(err.message); }
   } });
-  root.append(h('div', { class: 'paper taped', id: 'imagesCard', style: '--r:.5deg' },
+  P.data.append(h('div', { class: 'paper taped', id: 'imagesCard', style: '--r:.5deg' },
     h('h3', {}, '이미지만 백업'),
     h('div', { class: 'muted', style: 'margin-bottom:10px' }, `캐릭터 초상화 · 게임 타이틀 · 카드 일러스트 ${app.portraits.size}개와 폰트 ${fonts.length}개. 기록은 들어가지 않아요.`),
     h('div', { class: 'row wrap' },
@@ -305,18 +319,18 @@ export async function settingsView(app, root) {
       h('button', { class: 'btn', onclick: () => imgIn.click() }, '이미지만 가져오기', h('small', {}, 'IMPORT'))),
     h('div', { class: 'muted', style: 'margin-top:8px' }, '가져오면 같은 이미지는 더 최근 것을 남기고 합쳐요. 기록은 그대로예요.'), imgIn));
 
-  root.append(h('div', { class: 'paper', id: 'storageCard', style: '--r:.5deg' },
+  P.data.append(h('div', { class: 'paper', id: 'storageCard', style: '--r:.5deg' },
     h('h3', {}, '저장 상태'),
     h('div', { class: 'muted' }, `영구 저장 보호: ${persisted === true ? '켜짐' : persisted === false ? '꺼짐 (브라우저가 공간이 부족하면 지울 수 있어요. 백업을 꼭 만들어 두세요)' : '확인 불가'}`),
     h('div', { class: 'muted' }, `사용량: ${usage}`)));
 
-  root.append(h('div', { class: 'paper', style: '--r:-.3deg' },
+  P.data.append(h('div', { class: 'paper', style: '--r:-.3deg' },
     h('h3', {}, '앱 정보'),
     h('div', { class: 'muted' }, `앱 v${APP_VERSION} · 기록 형식 v${SCHEMA.record} · 백업 형식 v${SCHEMA.backup}`),
     h('div', { class: 'muted' }, `캐릭터 ${app.characters.length}명 (데이터 v${app.charactersVersion ?? '-'}) · 게임 ${app.games.length}개`),
     app.charErrors.length ? h('div', { class: 'muted', style: 'margin-top:8px;color:var(--danger)' }, `캐릭터 데이터 경고 ${app.charErrors.length}건: ${app.charErrors[0]}`) : null));
 
-  root.append(h('div', { class: 'paper', style: '--r:.4deg' },
+  P.data.append(h('div', { class: 'paper', style: '--r:.4deg' },
     h('h3', { style: 'color:var(--danger)' }, '모든 데이터 삭제'),
     h('div', { class: 'muted', style: 'margin-bottom:10px' }, '기록·초상화·캠페인 저장을 모두 지웁니다. 먼저 백업을 만들어 두세요.'),
     h('button', { class: 'btn warn', id: 'btnWipe', onclick: async ev => {
@@ -325,4 +339,5 @@ export async function settingsView(app, root) {
       for (const s of ['records', 'portraits', 'campaigns', 'settings']) await app.storage.clear(s);
       app.portraits.clear(); toast('모두 삭제했어요'); app.render();
     } }, '모두 삭제')));
+  showTab(curTab);
 }
