@@ -333,8 +333,9 @@ function mountInferno(self, container, ctx) {
     <div class="ri-top"></div>
     <div class="ri-grid">
       <div class="ri-l"><div data-skin="panel" class="ri-enemy"></div><div class="ri-piles"></div></div>
-      <div class="ri-c"><div data-skin="panel" class="ri-field"></div><div data-skin="panel" class="ri-dock"></div><div class="ri-hand"></div><div class="ri-aux"></div></div>
+      <div class="ri-c"><div data-skin="panel" class="ri-field"></div><div data-skin="panel" class="ri-dock"></div></div>
       <div class="ri-r"><div data-skin="panel" class="ri-log"></div></div>
+      <div class="ri-bt"><div class="ri-hand"></div><div class="ri-aux"></div></div>
     </div>
     <div class="ri-ov" hidden></div>
   </div>`;
@@ -344,7 +345,7 @@ function mountInferno(self, container, ctx) {
   const q = x => root.querySelector(x);
   const el = { top: q('.ri-top'), enemy: q('.ri-enemy'), piles: q('.ri-piles'), field: q('.ri-field'), dock: q('.ri-dock'), aux: q('.ri-aux'), hand: q('.ri-hand'), log: q('.ri-log'), ov: q('.ri-ov') };
 
-  function fit() { const k = Math.max(0.85, Math.min(3, Math.min(innerHeight / 780, innerWidth / 1300))); root.style.setProperty('--k', k.toFixed(3)); }
+  function fit() { if (!matchMedia('(min-width:1000px) and (min-height:560px)').matches) { root.style.removeProperty('--k'); return; } if (!root.style.getPropertyValue('--k')) root.style.setProperty('--k', '1'); }
   const onResize = () => { fit(); if (s) fitHand(); }; window.addEventListener('resize', onResize); fit();
 
   const log = (t, cls) => { logs.push({ t, cls: cls || '' }); if (logs.length > 80) logs.shift(); };
@@ -467,13 +468,29 @@ function mountInferno(self, container, ctx) {
   function fitHand() {
     const pc = matchMedia('(min-width:1000px) and (min-height:560px)').matches;
     root.style.removeProperty('--hw');
-    if (pc || big) return;
-    const hh = el.hand.offsetHeight, rows = Math.ceil((s.hand.length || 1) / 4) || 1;
-    if (rows < 2) return;
-    const top = root.getBoundingClientRect().top + window.scrollY, avail = innerHeight - top - 12;
-    const other = root.scrollHeight - hh, cardH = (avail - other - 6) / 2, colW = (el.hand.clientWidth - 18) / 4;
-    const w = Math.max(52, Math.min(colW, cardH * 5 / 7));
-    root.style.setProperty('--hw', w.toFixed(1) + 'px');
+    if (!pc) {
+      root.style.removeProperty('--k'); root.style.minHeight = '';
+      if (big) return;
+      const hh = el.hand.offsetHeight, rows = Math.ceil((s.hand.length || 1) / 4) || 1;
+      if (rows < 2) return;
+      const top = root.getBoundingClientRect().top + window.scrollY, avail = innerHeight - top - 12;
+      const other = root.scrollHeight - hh, cardH = (avail - other - 6) / 2, colW = (el.hand.clientWidth - 18) / 4;
+      const w = Math.max(52, Math.min(colW, cardH * 5 / 7));
+      root.style.setProperty('--hw', w.toFixed(1) + 'px');
+      return;
+    }
+    // PC: 화면 높이를 꽉 채운다. 위쪽(적·필드·기록)의 배율 k를 가장 크게 키우되, 손패 한 줄(8장)이 같이 들어가도록 맞춘다.
+    root.style.minHeight = '';
+    const top = root.getBoundingClientRect().top + window.scrollY, avail = Math.max(300, innerHeight - top - 6);
+    const handW = k => { const cs = getComputedStyle(root), pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight); return (root.clientWidth - pad - k * 10 * (big ? 3 : 7)) / (big ? 4 : 8); };
+    const setHand = w => root.style.setProperty('--hw', Math.max(40, w).toFixed(1) + 'px');
+    const tryK = k => { root.style.setProperty('--k', k.toFixed(3)); setHand(handW(k)); return root.scrollHeight <= avail; };
+    let lo = 0.85, hi = Math.min(3, innerWidth / 900);
+    if (tryK(hi)) lo = hi; else { for (let i = 0; i < 9; i++) { const mid = (lo + hi) / 2; if (tryK(mid)) lo = mid; else hi = mid; } }
+    root.style.setProperty('--k', lo.toFixed(3));
+    let w = handW(lo); setHand(w);
+    for (let i = 0; i < 24 && root.scrollHeight > avail + 1 && w > 50; i++) { w *= 0.93; setHand(w); }   // 그래도 넘치면 손패만 줄인다
+    root.style.minHeight = avail + 'px';
   }
   function draw() { drawTop(); drawEnemy(); drawPiles(); drawField(); drawDock(); drawAux(); drawHand(); drawLog(); drawMage(); drawEnd(); fitHand(); }
 
@@ -625,6 +642,7 @@ const RI_CSS = `
 .g-regicide-inferno .ri-l,.g-regicide-inferno .ri-c,.g-regicide-inferno .ri-r{display:flex;flex-direction:column;gap:6px;min-width:0}
 .g-regicide-inferno .ri-enemy,.g-regicide-inferno .ri-field,.g-regicide-inferno .ri-dock,.g-regicide-inferno .ri-log{background:#00000055;border:1px solid #ffffff22;border-radius:12px;padding:5px 8px;--sk-panel-d:5px}
 .g-regicide-inferno .ri-r{display:none}
+.g-regicide-inferno .ri-bt{display:flex;flex-direction:column;gap:6px;min-width:0}
 .g-regicide-inferno .ri-eh{display:flex;gap:10px;align-items:center}
 .g-regicide-inferno .ri-ei{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
 .g-regicide-inferno .ri-en{font-size:16px;color:#ffd9a0}
@@ -681,11 +699,12 @@ const RI_CSS = `
 .g-regicide-inferno .ri-jk{display:grid;gap:8px}.g-regicide-inferno .ri-jk .ri-b{border-color:var(--cc);text-align:left}
 .g-regicide-inferno{--sk-panel-d:8px}.g-regicide-inferno .ri-sheet{--sk-panel-d:14px}
 @media (min-width:1000px) and (min-height:560px){
- .g-regicide-inferno{padding:calc(var(--k,1)*12px)}
- .g-regicide-inferno .ri-grid{display:grid;grid-template-columns:calc(var(--k,1)*300px) 1fr calc(var(--k,1)*250px);gap:calc(var(--k,1)*12px);align-items:start}
+ .g-regicide-inferno{padding:calc(var(--k,1)*12px);display:flex;flex-direction:column}
+ .g-regicide-inferno .ri-grid{display:grid;grid-template-columns:calc(var(--k,1)*300px) 1fr calc(var(--k,1)*250px);gap:calc(var(--k,1)*12px);align-items:start;flex:1;grid-template-rows:auto 1fr}
+ .g-regicide-inferno .ri-bt{grid-column:1/-1;align-self:end}
  .g-regicide-inferno .ri-r{display:flex}
- .g-regicide-inferno .ri-hand{grid-template-columns:repeat(8,1fr);gap:calc(var(--k,1)*8px)}
- .g-regicide-inferno .ri-hand.big{grid-template-columns:repeat(4,1fr)}
+ .g-regicide-inferno .ri-hand{grid-template-columns:repeat(8,var(--hw,1fr));gap:calc(var(--k,1)*10px);justify-content:center}
+ .g-regicide-inferno .ri-hand.big{grid-template-columns:repeat(4,var(--hw,1fr))}
  .g-regicide-inferno .ri-card.en{width:calc(var(--k,1)*124px)}
  .g-regicide-inferno .ri-field .ri-card.sm{width:calc(var(--k,1)*50px)}
  .g-regicide-inferno .ri-ax{flex:1;padding:5px 8px}.g-regicide-inferno .ri-aux{justify-content:stretch}
