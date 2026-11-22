@@ -320,8 +320,12 @@ const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 function mountInferno(self, container, ctx) {
   const rng = ctx.rng, th = ctx.theme || {};
   const fx = ctx.fx ? ctx.fx.scope(container) : new Proxy({}, { get: (t, k) => (k === 'on' ? false : k === 'rect' || k === 'union' ? () => null : () => Promise.resolve()) });
-  const A = g => { try { const a = ctx.art ? ctx.art(g) : []; return Array.isArray(a) ? a : []; } catch (e) { return []; } };
+  // 그림은 긴 데이터 주소 대신 짧은 blob 주소로 바꿔 쓴다: 화면을 다시 그릴 때마다 수 MB 문자열을 해석·디코딩하던 지연을 없앤다.
+  const blobUrls = [];
+  const lite = d => { try { if (!/^data:/.test(d)) return d; const i = d.indexOf(','), mime = d.slice(5, i).split(';')[0] || 'image/png', bin = atob(d.slice(i + 1)), u8 = new Uint8Array(bin.length); for (let k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k); const u = URL.createObjectURL(new Blob([u8], { type: mime })); blobUrls.push(u); return u; } catch (e) { return d; } };
+  const A = g => { try { const a = ctx.art ? ctx.art(g) : []; return Array.isArray(a) ? a.map(lite) : []; } catch (e) { return []; } };
   const ART = ART_G.map(A), BACK = A('back')[0] || null, JOK = A('joker')[0] || null, BG = A('bg')[0] || null;
+  const keep = blobUrls.map(u => { const im = new Image(); im.src = u; if (im.decode) im.decode().catch(() => {}); return im; });   // 미리 디코딩해 두기(첫 표시 끊김 방지)
   const artOf = id => (isJ(id) ? JOK : ART[cl(id)][rk(id) - 1] || null);
   const timers = new Set(); let dead = false;
   const later = (fn, ms) => { const id = setTimeout(() => { timers.delete(id); if (!dead) fn(); }, ms); timers.add(id); return id; };
@@ -465,6 +469,7 @@ function mountInferno(self, container, ctx) {
     el.ov.innerHTML = `<div data-skin="panel" class="ri-sheet"><h3>${s.won ? '🏆 승리' : '💀 패배'}</h3><p>${esc(self.result(s).summary)}</p>
       <button data-skin="button" class="ri-b pri wide" data-a="finish">${finished ? '저장됨' : '결과 저장하고 마치기'}</button></div>`;
   }
+  let fitMemo = {};
   function fitHand() {
     const pc = matchMedia('(min-width:1000px) and (min-height:560px)').matches;
     root.style.removeProperty('--hw');
@@ -486,7 +491,10 @@ function mountInferno(self, container, ctx) {
     const setHand = w => root.style.setProperty('--hw', Math.max(40, w).toFixed(1) + 'px');
     const tryK = k => { root.style.setProperty('--k', k.toFixed(3)); setHand(handW(k)); return root.scrollHeight <= avail; };
     let lo = 0.85, hi = Math.min(3, innerWidth / 900);
-    if (tryK(hi)) lo = hi; else { for (let i = 0; i < 9; i++) { const mid = (lo + hi) / 2; if (tryK(mid)) lo = mid; else hi = mid; } }
+    const memo = fitMemo.key === `${innerWidth}x${innerHeight}|${big}` ? fitMemo.k : null;   // 같은 창 크기면 지난번 배율부터 확인(재계산 한 번으로 끝나는 경우가 대부분)
+    if (memo && tryK(memo) && avail - root.scrollHeight < avail * 0.04) { lo = memo; hi = memo; }
+    else if (tryK(hi)) lo = hi; else { for (let i = 0; i < 9; i++) { const mid = (lo + hi) / 2; if (tryK(mid)) lo = mid; else hi = mid; } }
+    fitMemo = { key: `${innerWidth}x${innerHeight}|${big}`, k: lo };
     root.style.setProperty('--k', lo.toFixed(3));
     let w = handW(lo); setHand(w);
     for (let i = 0; i < 24 && root.scrollHeight > avail + 1 && w > 50; i++) { w *= 0.93; setHand(w); }   // 그래도 넘치면 손패만 줄인다
@@ -620,7 +628,7 @@ function mountInferno(self, container, ctx) {
   const rs = ctx.resumeState;
   if (rs && _t.validState(rs) && !rs.over) begin(rs); else begin(null);
   container._ri = { get state() { return s; }, run, draw, get sel() { return { selC, selP }; } };   // 테스트용 손잡이
-  return { destroy() { dead = true; window.removeEventListener('resize', onResize); timers.forEach(clearTimeout); timers.clear(); container.querySelectorAll('.fx-layer').forEach(n => n.remove()); container.innerHTML = ''; } };
+  return { destroy() { dead = true; blobUrls.forEach(u => URL.revokeObjectURL(u)); keep.length = 0; window.removeEventListener('resize', onResize); timers.forEach(clearTimeout); timers.clear(); container.querySelectorAll('.fx-layer').forEach(n => n.remove()); container.innerHTML = ''; } };
 }
 
 const RI_CSS = `
