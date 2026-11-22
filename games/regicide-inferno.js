@@ -319,7 +319,7 @@ const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 
 function mountInferno(self, container, ctx) {
   const rng = ctx.rng, th = ctx.theme || {};
-  const fx = ctx.fx ? ctx.fx.scope(container) : new Proxy({}, { get: (t, k) => (k === 'on' ? false : k === 'rect' || k === 'union' ? () => null : () => Promise.resolve()) });
+  let fx = ctx.fx ? ctx.fx.scope(container) : new Proxy({}, { get: (t, k) => (k === 'on' ? false : k === 'rect' || k === 'union' ? () => null : () => Promise.resolve()) });
   // 그림은 긴 데이터 주소 대신 짧은 blob 주소로 바꿔 쓴다: 화면을 다시 그릴 때마다 수 MB 문자열을 해석·디코딩하던 지연을 없앤다.
   const blobUrls = [];
   const lite = d => { try { if (!/^data:/.test(d)) return d; const i = d.indexOf(','), mime = d.slice(5, i).split(';')[0] || 'image/png', bin = atob(d.slice(i + 1)), u8 = new Uint8Array(bin.length); for (let k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k); const u = URL.createObjectURL(new Blob([u8], { type: mime })); blobUrls.push(u); return u; } catch (e) { return d; } };
@@ -347,6 +347,8 @@ function mountInferno(self, container, ctx) {
   root.classList.toggle('ri-imm', !!ctx.immersive);
   if (BG) { root.style.backgroundImage = `linear-gradient(#0009,#000c),url(${BG})`; root.style.backgroundSize = 'cover'; root.style.backgroundPosition = 'center'; root.style.backgroundAttachment = 'local'; }
   const q = x => root.querySelector(x);
+  if (ctx.fx) fx = ctx.fx.scope(root);   // 날아가는 카드가 게임 CSS를 물려받도록 게임 루트 안에 띄운다
+  if (BACK) { root.style.setProperty('--bk', `url(${BACK})`); root.classList.add('hasbk'); }
   const el = { top: q('.ri-top'), enemy: q('.ri-enemy'), piles: q('.ri-piles'), field: q('.ri-field'), dock: q('.ri-dock'), aux: q('.ri-aux'), hand: q('.ri-hand'), log: q('.ri-log'), ov: q('.ri-ov') };
 
   function fit() { if (!matchMedia('(min-width:1000px) and (min-height:560px)').matches) { root.style.removeProperty('--k'); return; } if (!root.style.getPropertyValue('--k')) root.style.setProperty('--k', '1'); }
@@ -396,11 +398,16 @@ function mountInferno(self, container, ctx) {
       <div class="ri-st"><span title="적 공격력">⚔ 공격 <b>${atk}</b></span>${e.sh ? `<span>🛡 −${e.sh}</span>` : ''}</div>
       <div class="ri-im">면역 ${im || '없음'}</div></div></div>`;
   }
+  // 성·여관·버림·추방: 카드 뒷면이 쌓인 더미. 버림 더미는 맨 위 카드 앞면이 보인다.
+  function stack(key, n, label, o = {}) {
+    const layers = n ? '<i></i>'.repeat(n >= 12 ? 3 : n >= 4 ? 2 : 1) : '';
+    const face = o.top != null ? cardHTML(o.top, { cls: ' stkf' }) : '';
+    const inner = `<span class="ri-stk${n ? '' : ' emp'}">${layers}${face}<em class="ri-pn">${n}</em></span><small>${label}</small>`;
+    return o.a ? `<button data-a="${o.a}" class="ri-pl ${key}" data-pile="${key}">${inner}</button>` : `<span class="ri-pl ${key}" data-pile="${key}">${inner}</span>`;
+  }
   function drawPiles() {
-    el.piles.innerHTML = `<button data-a="pCastle" class="ri-pl"><b>${s.castle.length}</b>성</button>
-      <span class="ri-pl"><b>${s.tavern.length}</b>여관</span>
-      <button data-a="pDisc" class="ri-pl"><b>${s.discard.length}</b>버림</button>
-      <button data-a="pBan" class="ri-pl"><b>${s.banish.length}</b>추방</button>`;
+    el.piles.innerHTML = `<div class="ri-pg">${stack('castle', s.castle.length, '성', { a: 'pCastle' })}${stack('tavern', s.tavern.length, '여관')}</div>
+      <div class="ri-pg">${stack('disc', s.discard.length, '버림', { a: 'pDisc', top: s.discard.length ? s.discard[s.discard.length - 1] : null })}${stack('ban', s.banish.length, '추방', { a: 'pBan' })}</div>`;
   }
   function drawField() {
     const pl = s.plays.map(g => `<div class="ri-grp${g.j ? ' j' : ''}">${g.c.map(id => cardHTML(id, { cls: ' sm' + (g.add.includes(id) ? ' side' : '') })).join('')}</div>`).join('');
@@ -527,10 +534,11 @@ function mountInferno(self, container, ctx) {
       }
     });
   }
-  function anim() {
+  function anim(rich) {
     (s.ev || []).forEach(e => safe(() => {
       if (e.k === 'play') fx.sfx('card');
-      else if (e.k === 'dmg') { fx.sfx('slam'); const t = q('.ri-card.en'); if (t) fx.shake(t, 4); }
+      else if (e.k === 'dmg') { if (rich) setTimeout(() => safe(() => fx.sfx('slam')), 330); else { fx.sfx('slam'); const t = q('.ri-card.en'); if (t) fx.shake(t, 4); } }
+      else if (rich) { if (e.k === 'win') fx.sfx('win'); else if (e.k === 'lose') fx.sfx('lose'); }
       else if (e.k === 'hit') { fx.sfx('bad'); fx.buzz(20); }
       else if (e.k === 'kill') { fx.sfx('gain'); const t = q('.ri-card.en'); if (t) fx.slam(t); }
       else if (e.k === 'win') fx.sfx('win');
@@ -539,13 +547,129 @@ function mountInferno(self, container, ctx) {
     }));
   }
   function save() { safe(() => { if (!ctx.autosave) return; if (s.over) { if (ctx.clearAutosave) ctx.clearAutosave(); } else ctx.autosave(JSON.parse(JSON.stringify(s))); }); }
+  // ===== 연출: 카드가 날아가고 공격 이펙트가 터진다 (화면은 먼저 새로 그리고, 위에 '유령' 카드만 날린다) =====
+  const FXC = [['#ff6a2b', '#ffb347', '#ffe08a'], ['#ff8fb1', '#fff3c4', '#ffffff'], ['#c28bff', '#e8d2ff', '#8a5cff'], ['#ffffff', '#cfd6e6', '#9aa6c0'], ['#8fb3e8', '#d6e6ff', '#ffffff']];
+  const FXL = () => { let l = root.querySelector('.ri-fxl'); if (!l) { l = document.createElement('div'); l.className = 'ri-fxl'; root.append(l); } return l; };
+  const R = n => (n ? fx.rect(n) : null);
+  const stk = k => root.querySelector(`.ri-pl[data-pile="${k}"] .ri-stk`);
+  const mid = r => r && { x: r.x + r.w / 2 - 1, y: r.y + r.h / 2 - 1, w: 2, h: 2 };
+  function snap() {
+    const cardR = {};
+    root.querySelectorAll('.ri-hand .ri-card[data-id], .ri-aux .ri-card[data-id]').forEach(n => { cardR[n.dataset.id] = R(n); });
+    return { cardR, jR: [...root.querySelectorAll('.ri-aux .ri-j:not(.used)')].map(R), enemyR: R(q('.ri-card.en')), enemyHTML: (q('.ri-card.en') || {}).outerHTML || '', enemyId: s.enemy ? s.enemy.id : null,
+      hand: s.hand.slice(), n: { castle: s.castle.length, tavern: s.tavern.length, disc: s.discard.length, ban: s.banish.length },
+      playsR: R(root.querySelector('.ri-fl:nth-child(2) .ri-row')), cls: s.plays.map(g => g.c).flat() };
+  }
+  const ghost = (id, r, o = {}) => fx.fly({ from: r, node: id === 'back' ? backHTML(' fxg') : cardHTML(id, { cls: ' fxg' }), size: { w: r.w, h: r.h }, ...o });
+  function slash(r, ang = -35, col = '#fff') {
+    if (!r) return; const l = FXL(), w = Math.max(r.w, r.h) * 1.5, d = document.createElement('div');
+    Object.assign(d.style, { position: 'fixed', left: r.x + r.w / 2 - w / 2 + 'px', top: r.y + r.h / 2 - 3 + 'px', width: w + 'px', height: '6px', borderRadius: '3px', background: `linear-gradient(90deg,transparent,${col},transparent)`, boxShadow: `0 0 14px 3px ${col}`, transform: `rotate(${ang}deg) scaleX(0)`, opacity: 0 });
+    l.append(d); d.animate([{ transform: `rotate(${ang}deg) scaleX(0)`, opacity: 1 }, { transform: `rotate(${ang}deg) scaleX(1)`, opacity: 1, offset: .35 }, { transform: `rotate(${ang}deg) scaleX(1)`, opacity: 0 }], { duration: 330, easing: 'ease-out' }).finished.catch(() => {}).then(() => d.remove());
+  }
+  function flash(col, a = .4, dur = 380) {
+    const d = document.createElement('div'); Object.assign(d.style, { position: 'fixed', inset: 0, background: `radial-gradient(ellipse at center,transparent 35%,${col} 130%)` });
+    FXL().append(d); d.animate([{ opacity: 0 }, { opacity: a, offset: .25 }, { opacity: 0 }], { duration: dur }).finished.catch(() => {}).then(() => d.remove());
+  }
+  function impact(classes, e, r, bossEl) {
+    if (!r) return;
+    const T = mid(r), cs = [...new Set(classes)];
+    cs.forEach((c, i) => setTimeout(() => { if (dead) return; safe(() => {
+      fx.burst(T, { color: FXC[c] || FXC[0], n: 14, spread: r.w * 0.8 });
+      if (c === 3) { slash(r, -38, '#fff'); setTimeout(() => safe(() => slash(r, 32, '#ffd9a0')), 90); }
+      if (bossEl && c === 0) fx.glow(bossEl, '#ff8a3a');
+      if (c === 1) { if (bossEl) fx.glow(bossEl, '#ffe9a8'); fx.float(T, '✚', { color: '#ffe9a8', size: 30, dy: -60 }); }
+      if (c === 2) fx.float(T, '♪', { color: '#d9b8ff', size: 30, dy: -60 });
+      if (bossEl && c === 4) fx.glow(bossEl, '#8fb3e8');
+    }); }, i * 80));
+    if (e && e.v > 0) { fx.float(T, `−${e.v}`, { color: e.x2 ? '#ff7a55' : '#ffe08a', size: e.x2 ? 54 : 36, dy: -70, dur: 1000 }); if (e.x2) { fx.float(T, '×2!', { color: '#ff7a55', size: 24, dy: -112, dur: 1000 }); safe(() => fx.shake(root, 5)); } }
+    if (bossEl) safe(() => fx.shake(bossEl, e && e.x2 ? 10 : 6));
+  }
+  const hideNew = [];   // 날아오는 동안 도착 자리를 비워 두기
+  const hide = n => { if (n) { n.style.visibility = 'hidden'; hideNew.push(n); } return n; };
+  const reveal = n => { if (n) n.style.visibility = ''; };
+  async function choreo(sn, evs, after, bossG) {
+    const K = k => evs.filter(e => e.k === k);
+    const en = () => q('.ri-card.en');
+    try {
+      // 1) 공격: 손패(또는 동료·광대)에서 보스에게
+      const play = K('play')[0], dmg = K('dmg')[0], enR = sn.enemyR;
+      if (play) {
+        const jIdx = { n: 0 };
+        const flights = play.c.map((id, i) => {
+          const r = isJ(id) ? sn.jR[jIdx.n++] : sn.cardR[id]; if (!r || !enR) return null;
+          return ghost(id, r, { to: mid(enR), dur: 340, arc: 0.18, spin: (i % 2 ? 1 : -1) * 14, scale: Math.min(1, enR.w / r.w) * 0.85, delay: i * 80, fade: true });
+        }).filter(Boolean);
+        await Promise.all(flights);
+        if (dead) return;
+        const pcs = play.c.map(id => (isJ(id) ? 99 : cl(id))).filter(c => c < 5);
+        impact(pcs.length ? pcs : [0, 2, 3], dmg, enR, bossG ? bossG.firstElementChild : en());
+        await fx.wait(260);
+      }
+      // 2) 격파: 쓰러진 적이 더미로 날아가고, 다음 적이 성에서 등장
+      const kill = K('kill')[0];
+      if (kill && sn.enemyR) {
+        const tgt = stk(kill.exact ? 'tavern' : 'disc');
+        if (tgt) { fx.sfx('gain'); fx.burst(mid(sn.enemyR), { color: ['#ffd36b', '#fff3c4', '#ffb84a'], n: 22, spread: sn.enemyR.w * 1.1 }); fx.float(mid(sn.enemyR), '격파!', { color: '#ffd36b', size: 34, dy: -70 }); }
+        if (bossG) bossG.remove();
+        if (sn.enemyHTML && tgt) await fx.fly({ from: sn.enemyR, to: tgt, node: sn.enemyHTML.replace('class="ri-card', 'class="ri-card fxg'), size: { w: sn.enemyR.w, h: sn.enemyR.h }, dur: 420, arc: 0.2, spin: 12, scale: 0.35, fade: true });
+        if (dead) return;
+        // 이번 공격에 쓴 카드들: 버림/추방 더미로
+        const nb = s.banish.length - sn.n.ban, pr = sn.playsR || sn.enemyR;
+        if (nb > 0 && stk('ban')) { fx.flyMany(Math.min(nb, 5), { from: mid(pr), node: backHTML(' fxg'), size: { w: 40, h: 56 }, to: stk('ban'), dur: 420, arc: .2 }, 40); }
+        const nxt = K('next')[0], ne = en();
+        if (nxt && ne && stk('castle')) {
+          const r = R(ne); fx.sfx('deal');
+          const cr = R(stk('castle')); await fx.fly({ from: cr, to: mid(r), node: backHTML(' fxg'), size: { w: cr.w, h: cr.h }, dur: 460, arc: .15, spin: 0, scale: r.w / cr.w, fade: false });
+          reveal(ne); fx.pop(ne);
+        }
+      }
+      // 3) 방어(성기사) / 회복(성직자) / 뽑기(음유시인)
+      const sh = K('shield')[0], ne2 = en();
+      if (sh && ne2 && !kill) { fx.glow(ne2, '#8fb3e8'); fx.float(ne2, `🛡 −${sh.v}`, { color: '#9cc3ff', size: 26, dy: -50 }); }
+      const cle = K('cleric')[0];
+      if (cle && stk('disc') && stk('tavern')) { fx.sfx('gain'); const f = fx.flyMany(Math.min(cle.n, 6), { from: stk('disc'), to: stk('tavern'), node: backHTML(' fxg'), size: { w: 38, h: 53 }, dur: 380, arc: .2 }, 70); fx.float(stk('tavern'), `+${cle.n}`, { color: '#ffe9a8', size: 22 }); await f; }
+      const drawn = s.hand.filter(id => !sn.hand.includes(id));
+      if (drawn.length && stk('tavern')) {
+        fx.sfx('deal');
+        await Promise.all(drawn.slice(0, 8).map((id, i) => {
+          const n = root.querySelector(`.ri-hand .ri-card[data-id="${id}"]`); if (!n) return null; const r = R(n), pr = R(stk('tavern')), p = fx.fly({ from: pr, to: r, node: backHTML(' fxg'), size: { w: pr.w, h: pr.h }, dur: 400, arc: .2, scale: r.w / pr.w, delay: i * 90 });
+          return p.then(() => reveal(n));
+        }).filter(Boolean));
+      }
+      // 4) 반격 / 버림
+      const hit = K('hit')[0];
+      if (hit) { const e2 = en(); if (hit.need > 0) { fx.sfx('bad'); fx.buzz(25); flash('#d11a1a', .55, 420); fx.shake(root, 7); if (e2) { fx.slam(e2); fx.float(e2, `반격 ${hit.need}`, { color: '#ff6a55', size: 30, dy: -60 }); } } else if (e2) fx.float(e2, '막아냄!', { color: '#9cc3ff', size: 30, dy: -60 }); }
+      for (const d of K('disc')) { const r = sn.cardR[d.id], t = stk('disc'); if (r && t) { ghost(d.id, r, { to: t, dur: 330, arc: .12, spin: 18, scale: 0.5, fade: true }); fx.sfx('tap'); } }
+      const fake = K('fake')[0];
+      if (fake && stk('disc')) { sn.hand.forEach((id, i) => { const r = sn.cardR[id]; if (r) ghost(id, r, { to: stk('disc'), dur: 380, arc: .15, spin: (i % 2 ? 1 : -1) * 20, scale: .4, fade: true, delay: i * 45 }); }); flash('#d11a1a', .4, 500); }
+      const zn = K('zone')[0];
+      if (zn && stk('disc')) { const zc = [...root.querySelectorAll('.ri-fl:first-child .ri-card')].pop(); if (zc) { hide(zc); const r = R(zc); await ghost(zn.id, R(stk('disc')), { to: r, dur: 420, arc: .2, scale: r.w / R(stk('disc')).w }); reveal(zc); } }
+      if (K('win')[0]) { const e3 = sn.enemyR; if (e3) fx.burst(mid(e3), { color: ['#ffd36b', '#fff', '#ff8a3a', '#9cc3ff'], n: 40, spread: 260, dur: 1100 }); flash('#ffd36b', .35, 900); }
+      if (K('lose')[0]) flash('#8a0f0f', .7, 900);
+    } catch (e) { /* 연출 실패는 무시 */ } finally { hideNew.splice(0).forEach(reveal); if (bossG) bossG.remove(); if (after) after(); }
+  }
   function run(m) {
     if (dead || s.over) return false;
+    const sn = fx.on ? safe2(snap) : null;
     try { game.applyMove(s, m); } catch (e) { safe(() => fx.sfx('bad')); return false; }
     selC = []; selP = null; hint = null;
-    narrate(); draw(); anim(); save();
+    narrate(); draw(); save();
+    if (sn) {
+      const evs = (s.ev || []).slice();
+      // 날아오는 카드의 도착 자리를 먼저 비워 둔다
+      s.hand.filter(id => !sn.hand.includes(id)).forEach(id => hide(root.querySelector(`.ri-hand .ri-card[data-id="${id}"]`)));
+      let bossG = null;
+      if (evs.some(e => e.k === 'kill') && sn.enemyR && sn.enemyHTML) {   // 쓰러지는 적은 공격이 닿을 때까지 제자리에 남겨 둔다
+        bossG = document.createElement('div'); bossG.innerHTML = sn.enemyHTML.replace('class="ri-card', 'class="ri-card fxg'); const c0 = bossG.firstElementChild;
+        Object.assign(bossG.style, { position: 'fixed', left: sn.enemyR.x + 'px', top: sn.enemyR.y + 'px', width: sn.enemyR.w + 'px', height: sn.enemyR.h + 'px' }); c0.style.width = '100%'; FXL().append(bossG);
+        hide(q('.ri-card.en'));
+      }
+      if (s.phase === 'mage') { el.ov.style.visibility = 'hidden'; later(() => { el.ov.style.visibility = ''; }, 700); }   // 공격이 먼저 보이도록 선택창은 잠시 뒤에
+      anim(true); choreo(sn, evs, () => { if (!dead) ['castle', 'tavern', 'disc', 'ban'].forEach(k => { const n = root.querySelector(`.ri-pl[data-pile="${k}"] .ri-pn`); if (n && +n.textContent !== sn.n[k]) safe(() => fx.pop(n, 1.4)); }); }, bossG);
+    } else anim(false);
     return true;
   }
+  const safe2 = fn => { try { return fn(); } catch (e) { return null; } };
   function begin(state) {
     s = state || game.newGame({ rng });
     s.ev = []; selC = []; selP = null; hint = null;
@@ -651,7 +775,7 @@ const RI_CSS = `
 .g-regicide-inferno .ri-enemy,.g-regicide-inferno .ri-field,.g-regicide-inferno .ri-dock,.g-regicide-inferno .ri-log{background:#00000055;border:1px solid #ffffff22;border-radius:12px;padding:5px 8px;--sk-panel-d:5px}
 .g-regicide-inferno .ri-r{display:none}
 .g-regicide-inferno .ri-bt{display:flex;flex-direction:column;gap:6px;min-width:0}
-.g-regicide-inferno .ri-eh{display:flex;gap:10px;align-items:center}
+.g-regicide-inferno .ri-eh{display:flex;gap:10px;align-items:flex-start}
 .g-regicide-inferno .ri-ei{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
 .g-regicide-inferno .ri-en{font-size:16px;color:#ffd9a0}
 .g-regicide-inferno .ri-hp{position:relative;height:26px;border-radius:10px;background:#0008;overflow:hidden;box-shadow:inset 0 0 0 1px #ffffff2a}
@@ -660,9 +784,25 @@ const RI_CSS = `
 .g-regicide-inferno .ri-st{display:flex;gap:10px;font-size:13px}.g-regicide-inferno .ri-st b{color:#ff8a6a;font-size:16px}
 .g-regicide-inferno .ri-im{font-size:12px;color:#c9b79a;display:flex;gap:4px;align-items:center}
 .g-regicide-inferno .ri-im i{font-style:normal;border:1px solid var(--cc);border-radius:10px;padding:0 5px;background:#0006}
-.g-regicide-inferno .ri-piles{display:flex;gap:6px;padding:0 4px}
-.g-regicide-inferno .ri-pl{flex:1;border:0;background:none;padding:2px;font-size:11px;display:flex;flex-direction:row;gap:5px;justify-content:center;align-items:baseline;cursor:pointer}
-.g-regicide-inferno span.ri-pl{cursor:default}.g-regicide-inferno .ri-pl b{font-size:16px;color:#ffd9a0}
+.g-regicide-inferno .ri-l{position:relative}
+.g-regicide-inferno .ri-piles{position:absolute;right:12px;bottom:9px;display:flex;gap:8px;z-index:2}
+.g-regicide-inferno .ri-pg{display:contents}
+.g-regicide-inferno .ri-pl{border:0;background:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;font-size:9px;color:#e9d9bd}
+.g-regicide-inferno span.ri-pl{cursor:default}.g-regicide-inferno .ri-pl small{line-height:1;text-shadow:0 1px 2px #000}
+.g-regicide-inferno .ri-stk{position:relative;display:block;width:var(--sw,34px);aspect-ratio:5/7;margin-bottom:5px}
+.g-regicide-inferno .ri-stk>i{position:absolute;inset:0;border-radius:calc(var(--sw,34px)*.1);background:var(--bk,none) center/cover,linear-gradient(160deg,#6a3320,#2a120c);border:1px solid #d9a35a88;box-shadow:0 2px 5px #000b}
+.g-regicide-inferno .ri-stk>i:last-of-type::after{content:'🔥';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:calc(var(--sw,34px)*.42);opacity:.55}
+.g-regicide-inferno.hasbk .ri-stk>i::after{display:none}
+.g-regicide-inferno .ri-stk>i:nth-child(1){transform:translate(-4px,-4px) rotate(-3deg)}.g-regicide-inferno .ri-stk>i:nth-child(2){transform:translate(-2px,-2px) rotate(2deg)}
+.g-regicide-inferno .ri-stk>i:nth-child(3){transform:translate(2px,1px) rotate(-1deg)}.g-regicide-inferno .ri-stk>i:last-of-type{transform:none}
+.g-regicide-inferno .ri-stk .ri-card.stkf{position:absolute;inset:0;width:100%;margin:0;border-radius:calc(var(--sw,34px)*.1);cursor:inherit}
+.g-regicide-inferno .ri-stk.emp{border:1.5px dashed #ffffff44;border-radius:calc(var(--sw,34px)*.1);background:#00000033}
+.g-regicide-inferno .ri-pn{position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);background:#000d;color:#ffd36b;font-style:normal;font-weight:800;font-size:11px;line-height:1.25;padding:0 6px;border-radius:9px;border:1px solid #ffffff3a;z-index:3;min-width:20px;text-align:center}
+.g-regicide-inferno .ri-pl.castle .ri-stk>i{border-color:#ffd36bcc;box-shadow:0 2px 5px #000b,0 0 8px #ffb84a55}
+.g-regicide-inferno .ri-pl.ban .ri-stk>i{filter:grayscale(1) brightness(.55)}
+.g-regicide-inferno .ri-pl.disc .ri-stk .ri-card{filter:saturate(.7) brightness(.85)}
+.g-regicide-inferno .ri-card.fxg{pointer-events:none;transition:none;cursor:default;border-radius:6px}
+.g-regicide-inferno .ri-fxl{position:fixed;inset:0;pointer-events:none;z-index:8999;overflow:hidden}
 .g-regicide-inferno .ri-field{display:grid;grid-template-columns:1fr 1fr;gap:8px}.g-regicide-inferno .ri-field h4{margin:0 0 2px}.g-regicide-inferno .ri-field .ri-card.sm{width:32px}.g-regicide-inferno .ri-field .ri-row{gap:3px;min-height:20px}
 .g-regicide-inferno .ri-row{display:flex;gap:5px;flex-wrap:wrap;align-items:center;min-height:30px}.g-regicide-inferno .ri-row.ctr{justify-content:center}
 .g-regicide-inferno .ri-grp{display:flex;gap:3px;padding:3px;border-radius:8px;background:#ffffff0d}.g-regicide-inferno .ri-grp.j{background:#d9d9e822}
@@ -708,13 +848,21 @@ const RI_CSS = `
 .g-regicide-inferno{--sk-panel-d:8px}.g-regicide-inferno .ri-sheet{--sk-panel-d:14px}
 @media (min-width:1000px) and (min-height:560px){
  .g-regicide-inferno{padding:calc(var(--k,1)*12px);display:flex;flex-direction:column}
- .g-regicide-inferno .ri-grid{display:grid;grid-template-columns:calc(var(--k,1)*300px) 1fr calc(var(--k,1)*250px);gap:calc(var(--k,1)*12px);align-items:start;flex:1;grid-template-rows:auto 1fr}
- .g-regicide-inferno .ri-bt{grid-column:1/-1;align-self:end}
+ .g-regicide-inferno .ri-grid{display:grid;grid-template-columns:calc(var(--k,1)*300px) 1fr calc(var(--k,1)*250px);gap:calc(var(--k,1)*12px);align-items:start;flex:1;grid-template-rows:auto 1fr auto}
+ .g-regicide-inferno .ri-l,.g-regicide-inferno .ri-c{display:contents}
+ .g-regicide-inferno .ri-eh{align-items:center}
+ .g-regicide-inferno .ri-enemy{grid-column:1;grid-row:1}.g-regicide-inferno .ri-dock{grid-column:2;grid-row:1}.g-regicide-inferno .ri-r{grid-column:3;grid-row:1}
+ .g-regicide-inferno .ri-field{grid-column:2;grid-row:2;align-self:stretch;align-content:center}
+ .g-regicide-inferno .ri-piles{position:static;display:contents}
+ .g-regicide-inferno .ri-pg{display:flex;grid-row:2;align-self:center;justify-content:center;gap:calc(var(--k,1)*18px);--sw:calc(var(--k,1)*62px)}
+ .g-regicide-inferno .ri-pg:first-child{grid-column:1}.g-regicide-inferno .ri-pg:last-child{grid-column:3}
+ .g-regicide-inferno .ri-pl{font-size:calc(var(--k,1)*12px);gap:calc(var(--k,1)*4px)}.g-regicide-inferno .ri-pn{font-size:calc(var(--k,1)*13px);bottom:calc(var(--k,1)*-9px)}
+ .g-regicide-inferno .ri-bt{grid-column:1/-1;grid-row:3;align-self:end}
  .g-regicide-inferno .ri-r{display:flex}
  .g-regicide-inferno .ri-hand{grid-template-columns:repeat(8,var(--hw,1fr));gap:calc(var(--k,1)*10px);justify-content:center}
  .g-regicide-inferno .ri-hand.big{grid-template-columns:repeat(4,var(--hw,1fr))}
  .g-regicide-inferno .ri-card.en{width:calc(var(--k,1)*124px)}
- .g-regicide-inferno .ri-field .ri-card.sm{width:calc(var(--k,1)*50px)}
+ .g-regicide-inferno .ri-field .ri-card.sm{width:calc(var(--k,1)*62px)}
  .g-regicide-inferno .ri-ax{flex:1;padding:5px 8px}.g-regicide-inferno .ri-aux{justify-content:stretch}
  .g-regicide-inferno .ri-j{width:calc(var(--k,1)*54px);height:calc(var(--k,1)*76px)}
  .g-regicide-inferno .ri-enemy,.g-regicide-inferno .ri-field,.g-regicide-inferno .ri-dock,.g-regicide-inferno .ri-log{padding:8px 10px;--sk-panel-d:8px}
@@ -722,6 +870,6 @@ const RI_CSS = `
  .g-regicide-inferno [data-a="partner"].ri-card.sm{width:calc(var(--k,1)*64px)}
  .g-regicide-inferno .ri-rk{font-size:calc(var(--k,1)*22px)}.g-regicide-inferno .ri-card.sm .ri-rk{font-size:calc(var(--k,1)*15px)}
  .g-regicide-inferno .ri-msg{font-size:calc(var(--k,1)*14px)}.g-regicide-inferno .ri-b{font-size:calc(var(--k,1)*14px);padding:calc(var(--k,1)*8px) calc(var(--k,1)*16px)}
- .g-regicide-inferno .ri-lg{max-height:calc(var(--k,1)*420px);font-size:calc(var(--k,1)*12.5px)}
+ .g-regicide-inferno .ri-lg{max-height:calc(var(--k,1)*210px);font-size:calc(var(--k,1)*12.5px)}
  .g-regicide-inferno .ri-en{font-size:calc(var(--k,1)*18px)}
 }`;
