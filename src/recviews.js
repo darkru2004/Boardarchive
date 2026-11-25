@@ -41,15 +41,16 @@ const achList = (comp, sticky, id) => comp.map(a => {
 export async function recordsView(app, root) {
   const recs = await listRecords(app.storage);
   const fdiff = getDiff(), frecs = filterByDifficulty(recs, fdiff);
-  const gname = id => plainName((app.games.find(g => g.id === id) || { name: `(없는 게임 ${id})` }).name);
+  const ALL = app.allGames || app.games;
+  const gname = id => plainName((ALL.find(g => g.id === id) || { name: `(없는 게임 ${id})` }).name);
   root.append(top('Record', '기록', `총 <b>${recs.length}</b>판`));
 
   // 게임별 기록으로 가는 길
   const gs = gameStats(recs), cs0 = coopStats(recs).byGame;
-  root.append(h('h2', {}, 'Games', h('small', {}, '게임별 기록 · 눌러서 보기')), h('div', { class: 'recgames', id: 'recGames' }, ...app.games.map(g => {
+  root.append(h('h2', {}, 'Games', h('small', {}, '게임별 기록 · 눌러서 보기')), h('div', { class: 'recgames', id: 'recGames' }, ...ALL.filter(g => app.games.includes(g) || recs.some(r => r.gameId === g.id)).map(g => {   // 개발 중단 게임은 기록이 있을 때만 남긴다
     const n = recs.filter(r => r.gameId === g.id).length;
     const sub = !n ? '기록 없음' : g.mode === 'coop' && cs0[g.id] ? `${n}판 · 클리어 ${pct(cs0[g.id].clearRate)}` : gs[g.id] ? `${n}판 · 승률 ${pct(gs[g.id].winRate)}` : `${n}판`;
-    return h('a', { class: 'paper recg', 'data-id': g.id, href: `#/records/${g.id}` }, h('b', {}, plainName(g.name)), h('small', {}, sub));
+    return h('a', { class: 'paper recg' + (g.retired ? ' retired' : ''), 'data-id': g.id, href: `#/records/${g.id}` }, h('b', {}, plainName(g.name)), h('small', {}, g.retired ? `개발 중단 · ${sub}` : sub));
   })));
 
   // 캐릭터별 통계
@@ -88,14 +89,15 @@ export async function recordsView(app, root) {
 
 // ---------- 게임별 기록 페이지 (#/records/<게임id>) ----------
 export async function gameRecordsView(app, root, gameId) {
-  const entry = app.games.find(g => g.id === gameId);
+  const entry = (app.allGames || app.games).find(g => g.id === gameId);
   const back = h('button', { class: 'btn small', id: 'recBack', style: 'margin:6px 0', onclick: () => { location.hash = '#/records'; } }, '← 기록 목록');
   if (!entry) { root.append(top('Record', '기록', ''), back, h('div', { class: 'banner' }, '없는 게임이에요: ' + gameId)); return; }
   const recsAll = await listRecords(app.storage);
   const all = recsAll.filter(r => r.gameId === gameId);
   const comp = all.filter(r => !isCoop(r)), coop = all.filter(isCoop);
-  const gname = id => plainName((app.games.find(g => g.id === id) || { name: id }).name);
+  const gname = id => plainName(((app.allGames || app.games).find(g => g.id === id) || { name: id }).name);
   root.append(top(plainName(entry.name), '게임 기록', `<b>${all.length}</b>판`), back);
+  if (entry.retired) root.append(h('div', { class: 'muted', id: 'retiredNote', style: 'margin:4px 0 8px' }, '개발이 중단된 게임이에요. 지난 기록만 볼 수 있어요.'));
   if (!all.length) root.append(h('div', { class: 'paper', style: '--r:-.5deg' }, '아직 이 게임 기록이 없어요. 한 판 끝내면 여기에 쌓입니다.'));
 
   // 경쟁 기록

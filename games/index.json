@@ -3,6 +3,7 @@
   "games": [
     {
       "id": "nothanks",
+      "retired": true,
       "file": "nothanks.js",
       "name": "노땡스!",
       "version": "1.9.0",
@@ -21,6 +22,7 @@
     },
     {
       "id": "loveletter",
+      "retired": true,
       "file": "loveletter.js",
       "name": "러브레터",
       "version": "1.2.0",
@@ -217,6 +219,7 @@
     },
     {
       "id": "regicide",
+      "retired": true,
       "file": "regicide.js",
       "name": "레지사이드",
       "version": "1.0.0",
@@ -569,6 +572,7 @@
     },
     {
       "id": "qoc",
+      "retired": true,
       "file": "qoc.js",
       "name": "Quests Over Coffee",
       "version": "1.0.0",

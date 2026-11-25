@@ -30,6 +30,7 @@ try:
         # 테스트 환경은 외부 인터넷이 막혀 있어 글꼴(구글 폰트)은 빈 응답으로 대체 (실제 기기에서는 정상 로드)
         FONT_STUB = lambda r: r.fulfill(status=200, body="", content_type="text/css")
         ctx = br.new_context(viewport={"width": 390, "height": 844}, accept_downloads=True)
+        ctx.add_init_script("try{localStorage.setItem('ba_showretired','1')}catch(e){}")   # 개발 중단 게임도 보이게 (테스트용)
         ctx.route(re.compile(r"https://fonts\.(googleapis|gstatic)\.com/.*"), FONT_STUB)
         page = ctx.new_page()
         page.on("pageerror", lambda e: errors.append("pageerror: " + str(e)))
@@ -120,7 +121,7 @@ try:
         check("백업·복원", "파일 이름이 날짜가 들어간 boardarchive-backup-날짜-시각.json 이다", lambda: (None if re.match(r"boardarchive-backup-\d{8}-\d{4}\.json", dl.value.suggested_filename) else (_ for _ in ()).throw(AssertionError(dl.value.suggested_filename))))
 
         # 완전히 새 브라우저 = "모바일 기기"
-        ctx2 = br.new_context(viewport={"width": 390, "height": 844}, accept_downloads=True)
+        ctx2 = br.new_context(viewport={"width": 390, "height": 844}, accept_downloads=True); ctx2.add_init_script("try{localStorage.setItem('ba_showretired','1')}catch(e){}")
         ctx2.route(re.compile(r"https://fonts\.(googleapis|gstatic)\.com/.*"), FONT_STUB)
         p2 = ctx2.new_page(); p2.on("pageerror", lambda e: errors.append("pageerror(기기2): " + str(e)))
         p2.goto(BASE); p2.wait_for_selector("#nav a")
@@ -178,7 +179,7 @@ try:
         page.set_viewport_size({"width": 390, "height": 844})
 
         # ---------- 노땡스 (게임별 테마·대사 표시 시간) : 새 저장공간에서 따로 점검 ----------
-        ctx2 = br.new_context(viewport={"width": 390, "height": 844})
+        ctx2 = br.new_context(viewport={"width": 390, "height": 844}); ctx2.add_init_script("try{localStorage.setItem('ba_showretired','1')}catch(e){}")
         ctx2.route(re.compile(r"https://fonts\.(googleapis|gstatic)\.com/.*"), FONT_STUB)
         p2 = ctx2.new_page()
         p2.on("pageerror", lambda e: errors.append("pageerror(nt): " + str(e)))
@@ -536,7 +537,7 @@ try:
         check("스프롤로폴리스", "솔로(사람 1명): 동료 없이 손패 3장을 유지하며 끝까지 플레이하고 기록된다", sr_solo)
         p2.click("text=홈으로"); p2.wait_for_selector(".gcard[data-id=sprawlopolis]")
         # ---------- 협력 게임 기록: 경쟁 기록과 따로 보이는지 (새 저장공간) ----------
-        ctx3 = br.new_context(viewport={"width": 390, "height": 844}); p3 = ctx3.new_page(); p3.on("pageerror", lambda e: errors.append("pageerror(coop): " + str(e)))
+        ctx3 = br.new_context(viewport={"width": 390, "height": 844}); ctx3.add_init_script("try{localStorage.setItem('ba_showretired','1')}catch(e){}"); p3 = ctx3.new_page(); p3.on("pageerror", lambda e: errors.append("pageerror(coop): " + str(e)))
         p3.goto(BASE + "?fast=1"); p3.wait_for_selector("#nav a")
         p3.evaluate("""import('./core/records.js').then(async m => { const st = window.__ba.storage;
           for (const [won, sc] of [[true, 12], [false, 3], [true, 15]]) await m.saveRecord(st, m.buildRecord({ game: { id: 'nothanks', version: '1.9.0' }, at: new Date(), result: { coop: { won, score: sc }, summary: '시험' },
@@ -553,7 +554,7 @@ try:
         check("협력 게임", "협력 기록은 경쟁 총 판수·캐릭터 표에 섞이지 않고 '협력 게임 기록'에 클리어율·동료별로 따로 나온다", coop_view)
         ctx3.close()
         # ---------- 난이도 필터 / 홈 자주 하는 게임 / 타이틀 이미지 ----------
-        ctx4 = br.new_context(viewport={"width": 390, "height": 844}); p4 = ctx4.new_page(); p4.on("pageerror", lambda e: errors.append("pageerror(home): " + str(e)))
+        ctx4 = br.new_context(viewport={"width": 390, "height": 844}); ctx4.add_init_script("try{localStorage.setItem('ba_showretired','1')}catch(e){}"); p4 = ctx4.new_page(); p4.on("pageerror", lambda e: errors.append("pageerror(home): " + str(e)))
         p4.goto(BASE + "?fast=1"); p4.wait_for_selector("#nav a")
         p4.evaluate("""import('./core/records.js').then(async m => { const st = window.__ba.storage;
           for (const [d, rk] of [['easy', 1], ['easy', 1], ['hard', 2]]) await m.saveRecord(st, m.buildRecord({ game: { id: 'nothanks', version: '1.9.0' }, at: new Date(), difficulty: d,

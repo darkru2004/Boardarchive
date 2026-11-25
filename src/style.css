@@ -65,6 +65,7 @@ h2 small{font-family:var(--fk);font-size:11px;font-weight:400;color:var(--ink2);
 
 /* 버튼 = 종이 꼬리표 */
 .btn{border:0;cursor:pointer;padding:11px 14px;background:linear-gradient(170deg,var(--card),var(--card2));box-shadow:0 4px 10px #0004;font-weight:800;font-size:14px;color:var(--ink)}
+a.btn{text-decoration:none;display:inline-block}
 .btn small{display:block;font-family:var(--fd);font-weight:500;font-size:10px;letter-spacing:.25em;color:var(--ink2)}
 .btn.go{background:linear-gradient(170deg,#7aa0e6,var(--blue2));color:#fff;box-shadow:0 0 0 1px var(--glow),0 0 18px #a9c8ffbb,0 4px 10px #0004}
 .btn.go small{color:#e3ecff}
@@ -174,6 +175,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .recgames{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
 .recg{display:flex;flex-direction:column;gap:2px;padding:10px 12px;text-decoration:none;color:inherit;min-height:52px}
 .recg b{font-size:15px}.recg small{color:var(--ink2);font-size:11px}
+.recg.retired{opacity:.62;filter:grayscale(.6)}
 .kdthumb{width:58px;height:58px;display:grid;place-items:center;background:#00000014;border-radius:6px;flex:none;overflow:hidden}.kdthumb svg{max-width:54px;max-height:54px}
 .paper select{width:100%;max-width:100%;font:inherit;font-size:12px;padding:3px 2px;border:1px solid #00000030;border-radius:6px;background:#fffdf6;color:inherit}
 

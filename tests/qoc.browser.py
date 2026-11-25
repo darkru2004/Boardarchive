@@ -19,6 +19,7 @@ def run(viewport, tag):
     with sync_playwright() as pw:
         br = pw.chromium.launch(executable_path="/usr/bin/google-chrome", headless=True, args=["--no-sandbox"])
         ctx = br.new_context(viewport=viewport)
+        ctx.add_init_script("try{localStorage.setItem('ba_showretired','1')}catch(e){}")   # 개발 중단 게임도 보이게 (테스트용)
         ctx.route(re.compile(r"https://fonts\.(googleapis|gstatic)\.com/.*"), lambda r: r.fulfill(status=200, body="", content_type="text/css"))
         page = ctx.new_page()
         page.on("pageerror", lambda e: errors.append("pageerror: " + str(e)))
