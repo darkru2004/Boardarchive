@@ -786,7 +786,7 @@
             "line": "불꽃은… 다시… 타오른다…"
           },
           {
-            "id": "vo.king.cleric.enter",
+            "id": "vo.cleric.enter",
             "group": "목소리: 왕 (2순위)",
             "kind": "voice",
             "label": "성직자 왕 · 등장",
@@ -794,7 +794,7 @@
             "line": "빛이 너희의 죄를 심판하리라."
           },
           {
-            "id": "vo.king.cleric.down",
+            "id": "vo.cleric.down",
             "group": "목소리: 왕 (2순위)",
             "kind": "voice",
             "label": "성직자 왕 · 격파당함",
@@ -802,7 +802,7 @@
             "line": "빛이… 꺼져 가는구나…"
           },
           {
-            "id": "vo.king.bard.enter",
+            "id": "vo.bard.enter",
             "group": "목소리: 왕 (2순위)",
             "kind": "voice",
             "label": "음유시인 왕 · 등장",
@@ -810,7 +810,7 @@
             "line": "마지막 노래를 들려주지."
           },
           {
-            "id": "vo.king.bard.down",
+            "id": "vo.bard.down",
             "group": "목소리: 왕 (2순위)",
             "kind": "voice",
             "label": "음유시인 왕 · 격파당함",
@@ -818,7 +818,7 @@
             "line": "노래가… 끝났군."
           },
           {
-            "id": "vo.king.warrior.enter",
+            "id": "vo.warrior.enter",
             "group": "목소리: 왕 (2순위)",
             "kind": "voice",
             "label": "전사 왕 · 등장",
@@ -826,7 +826,7 @@
             "line": "검을 들어라. 끝을 보자!"
           },
           {
-            "id": "vo.king.warrior.down",
+            "id": "vo.warrior.down",
             "group": "목소리: 왕 (2순위)",
             "kind": "voice",
             "label": "전사 왕 · 격파당함",
@@ -834,7 +834,7 @@
             "line": "훌륭한… 싸움이었다…"
           },
           {
-            "id": "vo.king.paladin.enter",
+            "id": "vo.paladin.enter",
             "group": "목소리: 왕 (2순위)",
             "kind": "voice",
             "label": "성기사 왕 · 등장",
@@ -842,7 +842,7 @@
             "line": "내 방패는 무너지지 않는다."
           },
           {
-            "id": "vo.king.paladin.down",
+            "id": "vo.paladin.down",
             "group": "목소리: 왕 (2순위)",
             "kind": "voice",
             "label": "성기사 왕 · 격파당함",
