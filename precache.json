@@ -39,6 +39,7 @@
   "src/fx.js",
   "src/fx1.js",
   "src/fxlab.js",
+  "src/fxscenes.js",
   "src/host.js",
   "src/recviews.js",
   "src/skin.js",
