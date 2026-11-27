@@ -40,6 +40,10 @@ const { makeFx, fxPrefs } = (() => {
 ${strip(read('src/fx.js'))}
 return { makeFx, fxPrefs };
 })();
+const { makeFx: makeFx1 } = (() => {
+${strip(read('src/fx1.js'))}
+return { makeFx };
+})();
 const { fxLabView } = (() => {
 ${strip(read('src/fxlab.js'))}
 return { fxLabView };

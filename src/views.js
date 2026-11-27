@@ -14,6 +14,7 @@ import { bgmCard } from './bgm.js';
 export { recordsView, gameRecordsView } from './recviews.js';
 import { launchGame, achCtx, AUTO_SLOT } from './host.js';
 import { makeFx, fxPrefs } from './fx.js';
+import { fxControls } from './fxlab.js';
 import { loadCampaign, deleteCampaign } from '../core/storage.js';
 
 export const BACKUP_NUDGE_EVERY = 10;
@@ -204,6 +205,7 @@ export async function settingsView(app, root) {
   } }, label + ' ', h('small', {}, get() ? '켜짐' : '꺼짐'));
   P.general.append(h('h2', {}, 'Effects', h('small', {}, '게임 연출')), h('div', { class: 'paper', id: 'fxPrefs', style: '--r:-.4deg' },
     h('div', { class: 'row wrap' }, fxRow('ba_fx', '움직임', () => fxPrefs.motion), fxRow('ba_sfx', '효과음', () => fxPrefs.sound), fxRow('ba_haptic', '진동', () => fxPrefs.haptic)),
+    h('div', { style: 'margin-top:8px' }, fxControls()),
     h('div', { class: 'muted', style: 'margin-top:6px' }, '카드·칩·타일이 날아가는 움직임, 효과음, 폰 진동. 진동은 안드로이드에서만 동작해요.'),
     h('div', { class: 'row', style: 'margin-top:8px' }, h('a', { class: 'btn small go', id: 'fxLabLink', href: '#/fxlab' }, '연출 시험장 열기'))));
   P.general.append(h('h2', {}, 'Music', h('small', {}, 'BGM')), bgmCard(app, app.games, plainName));

@@ -37,6 +37,7 @@
   "src/bgm.js",
   "src/fontkit.js",
   "src/fx.js",
+  "src/fx1.js",
   "src/fxlab.js",
   "src/host.js",
   "src/recviews.js",

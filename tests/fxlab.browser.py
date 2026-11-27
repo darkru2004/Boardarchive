@@ -63,9 +63,10 @@ try:
             n = page.evaluate("window.__fxlab.scenes.length")
             assert page.locator("[data-run]").count() == n == page.locator("[data-weak]").count(), "장면 목록과 버튼 수가 다름"
             groups = page.eval_on_selector_all("#fxlList [data-g]", "els => els.map(e => e.dataset.g)")
-            assert groups == ["부품", "장면", "효과음"], groups
-            assert page.locator("[data-run^='snd.']").count() == 14
-        check("버튼이 장면 목록에서 자동으로 만들어진다 (부품·장면·효과음 14)", lab_buttons)
+            assert groups == ["부품", "장면", "v2 신규", "효과음"], groups
+            assert page.locator("[data-run^='snd.']").count() == 20
+            assert page.evaluate("window.__fxlab.ver") == "v2", "기본은 새 엔진(v2)"
+        check("버튼이 장면 목록에서 자동으로 만들어진다 (부품·장면·v2 신규·효과음 20)", lab_buttons)
         def lab_run_each():
             ids = page.evaluate("window.__fxlab.scenes.map(s => s.id)")
             bad = []
@@ -74,10 +75,37 @@ try:
                 if i == 0 or sid in ("s.win", "s.hit", "s.deal"):
                     page.wait_for_timeout(180); page.screenshot(path=f"{SHOTS}/fxlab_{sid}.png")
                 page.wait_for_timeout(2000)
-                left = page.evaluate("document.querySelectorAll('.fx-ghost,.fx-float,.fx-spark').length")
-                if left: bad.append(f"{sid}:{left}")
-            assert not bad, "연출이 끝나도 남은 조각: " + ", ".join(bad)
-        check("모든 장면을 하나씩 실제로 재생해도 조각이 남지 않는다", lab_run_each)
+                page.wait_for_timeout(900)
+                left = page.evaluate("[document.querySelectorAll('.fx-ghost,.fx-float,.fx-spark,.fx-glint,.fx-banner,.fx-flash,.fx-lock').length, [...document.querySelectorAll('#fxlBoard *')].filter(e => e.style.visibility === 'hidden').length]")
+                if left != [0, 0]: bad.append(f"{sid}:{left}")
+            assert not bad, "연출이 끝나도 남은 조각/숨은 자리: " + ", ".join(bad)
+        check("v2: 모든 장면을 하나씩 실제로 재생해도 조각이 남지 않고 숨긴 자리도 돌아온다", lab_run_each)
+        def lab_v1():
+            page.click("[data-ver=v1]"); page.wait_for_selector("#fxlBoard")
+            assert page.evaluate("window.__fxlab.ver") == "v1"
+            assert page.locator("[data-run^='n.']:disabled").count() == page.locator("[data-run^='n.']").count() > 0, "v1에서 v2 신규 장면이 막혀 있지 않음"
+            for sid in ["p.fly", "s.hit", "s.win"]:
+                page.click(f"[data-run='{sid}']"); page.wait_for_timeout(1800)
+            assert page.evaluate("document.querySelectorAll('.fx-ghost,.fx-float,.fx-spark').length") == 0
+            page.click("[data-ver=v2]"); page.wait_for_selector("#fxlCtl")
+        check("v1/v2 스위치로 예전 엔진과 비교할 수 있다", lab_v1)
+        def lab_ghost_hides_target():
+            page.click("[data-run='s.play']"); page.wait_for_timeout(180)
+            st = page.evaluate("[document.querySelectorAll('.fx-ghost').length, getComputedStyle(document.getElementById('fxlPlay')).visibility]")
+            assert st == [1, "hidden"], f"날아가는 동안 도착 자리가 숨지 않음: {st}"
+            page.wait_for_timeout(1500)
+            assert page.evaluate("getComputedStyle(document.getElementById('fxlPlay')).visibility") == "visible"
+        check("v2 날리기: 날아가는 동안 도착 자리를 숨겼다가 도착하면 드러낸다 (두 장 문제)", lab_ghost_hides_target)
+        def lab_controls():
+            page.click("#fxlCtl [data-lv='1']"); assert page.evaluate("localStorage.getItem('ba_fxlv')") == "1"
+            page.click("#fxlCtl [data-spd='1.3']"); assert page.evaluate("localStorage.getItem('ba_fxspd')") == "1.3"
+            page.click("#fxlCtl [data-shake]"); assert page.evaluate("localStorage.getItem('ba_shake')") == "0"
+            page.fill("#sfxVol", "40"); page.dispatch_event("#sfxVol", "change"); assert page.evaluate("localStorage.getItem('ba_sfxvol')") == "40"
+            page.click("#fxlCtl [data-lv='0']"); page.click("[data-run='s.play']"); page.wait_for_timeout(120)
+            assert page.evaluate("document.querySelectorAll('.fx-ghost').length") == 0, "세기 '끔'인데 움직임이 나옴"
+            page.evaluate("['ba_fxlv','ba_fxspd','ba_shake','ba_sfxvol'].forEach(k => localStorage.removeItem(k))")
+            page.reload(); page.wait_for_selector("#fxlCtl [data-lv='3'].on")
+        check("연출 조절판: 세기·속도·흔들림·음량이 저장되고 '끔'이면 움직임이 멈춘다", lab_controls)
         def lab_run_all_fast():
             page.goto(BASE + "?fast=1#/fxlab"); page.wait_for_selector("#fxlBoard")
             page.evaluate("window.__fxlab.runAll(window.__fxlab.scenes)")
@@ -86,7 +114,7 @@ try:
         check("빠른 모드에서 전부 이어서 재생이 오류 없이 끝난다", lab_run_all_fast)
         def lab_weak():
             page.click("[data-weak='p.flip']"); page.click("[data-weak='s.gain']")
-            assert page.evaluate("localStorage.getItem('ba_fxlab_weak')").split(",") == ["p.flip", "s.gain"]
+            assert page.evaluate("localStorage.getItem('ba_fxlab_weak_v2')").split(",") == ["p.flip", "s.gain"]
             assert page.inner_text("#fxlWeakN") == "2"
             page.reload(); page.wait_for_selector("#fxlBoard")
             assert page.locator("[data-weak].on").count() == 2, "약함 표시가 기억되지 않음"
