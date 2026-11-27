@@ -585,8 +585,14 @@ function mountInferno(self, container, ctx) {
       if (c === 2) fx.float(T, '♪', { color: '#d9b8ff', size: 30, dy: -60 });
       if (bossEl && c === 4) fx.glow(bossEl, '#8fb3e8');
     }); }, i * 80));
-    if (e && e.v > 0) { fx.float(T, `−${e.v}`, { color: e.x2 ? '#ff7a55' : '#ffe08a', size: e.x2 ? 54 : 36, dy: -70, dur: 1000 }); if (e.x2) { fx.float(T, '×2!', { color: '#ff7a55', size: 24, dy: -112, dur: 1000 }); safe(() => fx.shake(root, 5)); } }
-    if (bossEl) safe(() => fx.shake(bossEl, e && e.x2 ? 10 : 6));
+    if (e && e.v > 0) {
+      fx.float(T, `−${e.v}`, { color: e.x2 ? '#ff7a55' : '#ffe08a', size: e.x2 ? 54 : 36, dy: -70, dur: 1000 });
+      const heavy = e.x2 || e.v >= 15;   // 큰 한 방: 잠깐 멈춤 + 화면 흔들림
+      if (heavy) safe(() => { fx.hitstop(e.x2 ? 110 : 70); fx.shakeScreen(e.x2 ? 8 : 5, e.x2 ? 340 : 240); });
+      if (e.x2) fx.float(T, '×2!', { color: '#ff7a55', size: 24, dy: -112, dur: 1000 });
+    }
+    if (bossEl) safe(() => { fx.shake(bossEl, e && e.x2 ? 10 : 6); fx.ring(bossEl, { color: FXC[cs[0]] ? FXC[cs[0]][0] : '#ffffff', power: e && e.x2 ? 1.4 : 1 }); });
+    if (cs.includes(0)) safe(() => fx.burst(T, { kind: 'ember', n: 16, spread: r.w }));   // 마법사: 불씨
   }
   const hideNew = [];   // 날아오는 동안 도착 자리를 비워 두기
   const hide = n => { if (n) { n.style.visibility = 'hidden'; hideNew.push(n); } return n; };
@@ -607,29 +613,32 @@ function mountInferno(self, container, ctx) {
         if (dead) return;
         const pcs = play.c.map(id => (isJ(id) ? 99 : cl(id))).filter(c => c < 5);
         impact(pcs.length ? pcs : [0, 2, 3], dmg, enR, bossG ? bossG.firstElementChild : en());
+        if (dmg && dmg.v > 0 && !K('kill').length && s.enemy) { const hpS = q('.ri-hp span'), now = Math.max(0, s.enemy.hp - s.enemy.dmg); if (hpS) safe(() => fx.countTo(hpS, now, { from: Math.min(s.enemy.hp, now + dmg.v), color: '#ff6b5e' })); }
         await fx.wait(260);
       }
       // 2) 격파: 쓰러진 적이 더미로 날아가고, 다음 적이 성에서 등장
       const kill = K('kill')[0];
       if (kill && sn.enemyR) {
         const tgt = stk(kill.exact ? 'tavern' : 'disc');
-        if (tgt) { fx.sfx('gain'); fx.burst(mid(sn.enemyR), { color: ['#ffd36b', '#fff3c4', '#ffb84a'], n: 22, spread: sn.enemyR.w * 1.1 }); fx.float(mid(sn.enemyR), '격파!', { color: '#ffd36b', size: 34, dy: -70 }); }
+        if (tgt) { fx.sfx('gain'); fx.burst(mid(sn.enemyR), { color: ['#ffd36b', '#fff3c4', '#ffb84a'], n: 22, spread: sn.enemyR.w * 1.1 }); fx.burst(mid(sn.enemyR), { kind: 'star', n: 10, spread: sn.enemyR.w }); fx.float(mid(sn.enemyR), '격파!', { color: '#ffd36b', size: 34, dy: -70 }); if (bossG) fx.ring(bossG.firstElementChild, { color: '#ffd36b', power: 1.5 }); }
+        if (kill.exact && !K('win').length) fx.banner('정확히 격파!', { sub: '쓰러진 적 → 여관 덱 맨 위', color: '#ffe08a', hold: 500 });
         if (bossG) bossG.remove();
         if (sn.enemyHTML && tgt) await fx.fly({ from: sn.enemyR, to: tgt, node: sn.enemyHTML.replace('class="ri-card', 'class="ri-card fxg'), size: { w: sn.enemyR.w, h: sn.enemyR.h }, dur: 420, arc: 0.2, spin: 12, scale: 0.35, fade: true });
         if (dead) return;
         // 이번 공격에 쓴 카드들: 버림/추방 더미로
         const nb = s.banish.length - sn.n.ban, pr = sn.playsR || sn.enemyR;
-        if (nb > 0 && stk('ban')) { fx.flyMany(Math.min(nb, 5), { from: mid(pr), node: backHTML(' fxg'), size: { w: 40, h: 56 }, to: stk('ban'), dur: 420, arc: .2 }, 40); }
+        if (nb > 0 && stk('ban')) { fx.flyMany(Math.min(nb, 5), { from: mid(pr), node: backHTML(' fxg'), size: { w: 40, h: 56 }, to: stk('ban'), dur: 420, arc: .2 }, 40).then(() => { if (!dead) safe(() => fx.burst(stk('ban'), { kind: 'ember', n: 12, spread: 50 })); }); }
         const nxt = K('next')[0], ne = en();
         if (nxt && ne && stk('castle')) {
           const r = R(ne); fx.sfx('deal');
           const cr = R(stk('castle')); await fx.fly({ from: cr, to: mid(r), node: backHTML(' fxg'), size: { w: cr.w, h: cr.h }, dur: 460, arc: .15, spin: 0, scale: r.w / cr.w, fade: false });
-          reveal(ne); fx.pop(ne);
+          reveal(ne); fx.flip(ne);
+          if (isMageEnemy(nxt.id)) { fx.burst(ne, { kind: 'ember', n: 24, spread: r.w * 1.2 }); fx.glow(ne, '#ff8a3a'); fx.banner(enemyName(nxt.id), { sub: '마법사 적 · 적 구역 카드의 직업에도 면역', color: '#ff9a4a', hold: 800 }); }
         }
       }
       // 3) 방어(성기사) / 회복(성직자) / 뽑기(음유시인)
       const sh = K('shield')[0], ne2 = en();
-      if (sh && ne2 && !kill) { fx.glow(ne2, '#8fb3e8'); fx.float(ne2, `🛡 −${sh.v}`, { color: '#9cc3ff', size: 26, dy: -50 }); }
+      if (sh && ne2 && !kill) { fx.glow(ne2, '#8fb3e8'); fx.ring(ne2, { color: '#8fb3e8' }); fx.float(ne2, `🛡 −${sh.v}`, { color: '#9cc3ff', size: 26, dy: -50 }); }
       const cle = K('cleric')[0];
       if (cle && stk('disc') && stk('tavern')) { fx.sfx('gain'); const f = fx.flyMany(Math.min(cle.n, 6), { from: stk('disc'), to: stk('tavern'), node: backHTML(' fxg'), size: { w: 38, h: 53 }, dur: 380, arc: .2 }, 70); fx.float(stk('tavern'), `+${cle.n}`, { color: '#ffe9a8', size: 22 }); await f; }
       const drawn = s.hand.filter(id => !sn.hand.includes(id));
@@ -642,14 +651,14 @@ function mountInferno(self, container, ctx) {
       }
       // 4) 반격 / 버림
       const hit = K('hit')[0];
-      if (hit) { const e2 = en(); if (hit.need > 0) { fx.sfx('bad'); fx.buzz(25); flash('#d11a1a', .55, 420); fx.shake(root, 7); if (e2) { fx.slam(e2); fx.float(e2, `반격 ${hit.need}`, { color: '#ff6a55', size: 30, dy: -60 }); } } else if (e2) fx.float(e2, '막아냄!', { color: '#9cc3ff', size: 30, dy: -60 }); }
+      if (hit) { const e2 = en(); if (hit.need > 0) { fx.sfx('bad'); fx.buzz(25); flash('#d11a1a', .55, 420); fx.shakeScreen(hit.need >= 20 ? 9 : 6, 320); if (e2) { fx.slam(e2); fx.float(e2, `반격 ${hit.need}`, { color: '#ff6a55', size: 30, dy: -60 }); } } else if (e2) fx.float(e2, '막아냄!', { color: '#9cc3ff', size: 30, dy: -60 }); }
       for (const d of K('disc')) { const r = sn.cardR[d.id], t = stk('disc'); if (r && t) { ghost(d.id, r, { to: t, dur: 330, arc: .12, spin: 18, scale: 0.5, fade: true }); fx.sfx('tap'); } }
       const fake = K('fake')[0];
       if (fake && stk('disc')) { sn.hand.forEach((id, i) => { const r = sn.cardR[id]; if (r) ghost(id, r, { to: stk('disc'), dur: 380, arc: .15, spin: (i % 2 ? 1 : -1) * 20, scale: .4, fade: true, delay: i * 45 }); }); flash('#d11a1a', .4, 500); }
       const zn = K('zone')[0];
-      if (zn && stk('disc')) { const zc = [...root.querySelectorAll('.ri-fl:first-child .ri-card')].pop(); if (zc) { hide(zc); const r = R(zc); await ghost(zn.id, R(stk('disc')), { to: r, dur: 420, arc: .2, scale: r.w / R(stk('disc')).w }); reveal(zc); } }
-      if (K('win')[0]) { const e3 = sn.enemyR; if (e3) fx.burst(mid(e3), { color: ['#ffd36b', '#fff', '#ff8a3a', '#9cc3ff'], n: 40, spread: 260, dur: 1100 }); flash('#ffd36b', .35, 900); }
-      if (K('lose')[0]) flash('#8a0f0f', .7, 900);
+      if (zn && stk('disc')) { const zc = [...root.querySelectorAll('.ri-fl:first-child .ri-card')].pop(); if (zc) { hide(zc); const r = R(zc); await ghost(zn.id, R(stk('disc')), { to: r, dur: 420, arc: .2, scale: r.w / R(stk('disc')).w }); reveal(zc); fx.slam(zc, { power: .7 }); fx.burst(zc, { kind: 'smoke', n: 8, spread: 40 }); const e4 = en(); if (e4 && val(zn.id) > 0) { fx.float(e4, `공격 +${val(zn.id)}`, { color: '#ff6a55', size: 24, dy: -40 }); fx.glow(e4, '#e0553b'); } } }
+      if (K('win')[0]) { const e3 = sn.enemyR; if (e3) fx.burst(mid(e3), { color: ['#ffd36b', '#fff', '#ff8a3a', '#9cc3ff'], n: 40, spread: 260, dur: 1100 }); flash('#ffd36b', .35, 900); fx.burst(mid(e3 || R(root)), { kind: 'confetti', n: 60, spread: 320 }); fx.banner('승리!', { sub: '타차에르를 쓰러뜨렸습니다', color: '#ffd36b', hold: 1200 }); }
+      if (K('lose')[0]) { flash('#8a0f0f', .7, 900); fx.shakeScreen(6, 400); fx.banner('패배', { sub: s.why || '', color: '#ff6a55', hold: 1000 }); }
     } catch (e) { /* 연출 실패는 무시 */ } finally { hideNew.splice(0).forEach(reveal); if (bossG) bossG.remove(); if (after) after(); }
   }
   function run(m) {
