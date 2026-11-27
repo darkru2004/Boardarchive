@@ -1,4 +1,6 @@
 import { createIdbStorage, ensureDataSchema } from '../core/storage.js';
+import { initSounds, loadScope } from './sounds.js';
+import { migrateBgm } from '../core/sounds.js';
 import { parseCharacters, makeLookup } from '../core/characters.js';
 import { isSafePortrait } from '../core/backup.js';
 import { loadSkins } from './skin.js';
@@ -54,7 +56,7 @@ async function boot() {
     app.storage = createIdbStorage();
     await ensureDataSchema(app.storage);
     const get = u => fetch(u).then(r => { if (!r.ok) throw new Error(`${u} 불러오기 실패`); return r.json(); });
-    const [chars, ach, games] = await Promise.all([get('data/characters.json'), get('data/achievements.json'), get('games/index.json')]);
+    const [chars, ach, games, sounds] = await Promise.all([get('data/characters.json'), get('data/achievements.json'), get('games/index.json'), get('core/sounds.json')]);
     const parsed = parseCharacters(chars);
     app.characters = parsed.characters; app.charErrors = parsed.errors; app.charactersVersion = parsed.dataVersion;
     app.lookup = makeLookup(app.characters);
@@ -63,6 +65,9 @@ async function boot() {
     const showRetired = (() => { try { return localStorage.getItem('ba_showretired') === '1'; } catch { return false; } })();
     app.allGames = games.games;
     app.games = showRetired ? games.games : games.games.filter(g => !g.retired);
+    app.soundCatalog = sounds; initSounds(app);
+    try { await migrateBgm(app.storage); } catch { /* 옛 BGM 이전 실패는 무시(다음 시작에 다시 시도) */ }
+    loadScope(app, 'all').catch(() => {});
     await app.loadPortraits();
     try { await applyAlbumFonts(app); } catch { /* 폰트 실패는 기본 서체로 */ }
     if (navigator.storage && navigator.storage.persist) { try { await navigator.storage.persist(); } catch { /* 무시 */ } }

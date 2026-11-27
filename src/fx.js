@@ -23,9 +23,11 @@ export const fxPrefs = {
   get haptic() { return LS('ba_haptic') !== '0'; },
   get speed() { const v = +LS('ba_fxspd'); return v > 0.3 && v < 3 ? v : 1; },
   get screenShake() { return LS('ba_shake') !== '0'; },
+  get voice() { return LS('ba_voice') !== '0'; },
+  get voiceVol() { const v = LS('ba_voicevol'); return v == null ? 0.9 : Math.max(0, Math.min(1, (+v || 0) / 100)); },
   get volume() { const v = LS('ba_sfxvol'); return v == null ? 0.8 : Math.max(0, Math.min(1, (+v || 0) / 100)); },
   set(k, on) { try { localStorage.setItem(k, on ? '1' : '0'); } catch {} },
-  setVal(k, v) { try { localStorage.setItem(k, String(v)); } catch {} if (k === 'ba_sfxvol') applyVolume(); }
+  setVal(k, v) { try { localStorage.setItem(k, String(v)); } catch {} if (k === 'ba_sfxvol') applyVolume(); if (k === 'ba_voicevol' && SoundHook.voiceChanged) SoundHook.voiceChanged(); }
 };
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -50,12 +52,13 @@ const EASE = {
 
 // ---------- 소리: 파일 없이 합성 (WebAudio) ----------
 // 바로 소리(dry) + 울림(reverb) 두 갈래 → 압축기 → 스피커. 재생할 때마다 음 높이를 살짝 바꿔 같은 소리 반복 느낌을 줄인다.
-let AC = null, master = null, dry = null, verb = null, noiseBuf = null, PITCH = 1;
+export const SoundHook = { play: null, say: null, voiceChanged: null };   // 소리 파일 재생기(src/sounds.js)가 채워 넣는다. 비어 있으면 합성음만.
+let comp = null, AC = null, master = null, dry = null, verb = null, noiseBuf = null, PITCH = 1;
 function audio() {
   if (AC) return AC;
   const C = window.AudioContext || window.webkitAudioContext; if (!C) return null;
   AC = new C();
-  const comp = AC.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 10; comp.ratio.value = 4; comp.attack.value = 0.002; comp.release.value = 0.15;
+  comp = AC.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 10; comp.ratio.value = 4; comp.attack.value = 0.002; comp.release.value = 0.15;
   master = AC.createGain(); master.connect(comp); comp.connect(AC.destination); applyVolume();
   dry = AC.createGain(); dry.connect(master);
   const conv = AC.createConvolver(), len = Math.floor(AC.sampleRate * 1.6), ir = AC.createBuffer(2, len, AC.sampleRate);
@@ -65,6 +68,8 @@ function audio() {
   const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   return AC;
 }
+// 소리 파일 재생기가 같은 압축기·음량 경로를 쓰도록 내어 준다
+export function audioBus() { const a = audio(); return a ? { AC: a, master, comp, dry, verb } : null; }
 function applyVolume() { if (master) master.gain.value = 0.9 * fxPrefs.volume; }
 if (typeof window !== 'undefined') {   // 폰은 첫 터치 이후에만 소리가 난다 → 첫 터치에 깨워 둔다
   const wake = () => { const a = audio(); if (a && a.state === 'suspended') a.resume(); };
@@ -208,7 +213,7 @@ function hideEl(el) { const s = HIDDEN.get(el); if (s) s.n++; else { HIDDEN.set(
 function showEl(el) { const s = HIDDEN.get(el); if (!s) return; if (--s.n <= 0) { el.style.visibility = s.v; HIDDEN.delete(el); } }
 
 // ---------- 엔진 ----------
-export function makeFx({ fast = false } = {}) {
+export function makeFx({ fast = false, game = null } = {}) {
   const reduced = () => typeof window !== 'undefined' && window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const off = () => fast || !fxPrefs.motion || reduced();
   const LV = () => (off() ? 0 : fxPrefs.level);
@@ -512,12 +517,21 @@ export function makeFx({ fast = false } = {}) {
 
       // ── 소리·진동 ──
       sfx(name, { pitch = null } = {}) {
-        if (fast || !fxPrefs.sound) return; const fn = SOUNDS[name]; if (!fn) return;
+        if (fast || !fxPrefs.sound) return;
+        let fn = SOUNDS[name], base = 1;
+        if (SoundHook.play) {   // 사용자 소리 파일이 있으면 그것을, 칸이 합성음을 지정했으면 그 합성음을
+          let r = null; try { r = SoundHook.play(game, name, pitch); } catch { r = null; }
+          if (r === true) return;
+          if (r && r.synth) { fn = SOUNDS[r.synth]; base = r.pitch || 1; } else if (r === 'mute') return;
+        }
+        if (!fn) return;
         try {
           const a = audio(); if (!a) return; if (a.state === 'suspended') a.resume();
-          PITCH = pitch ?? rnd(0.95, 1.05); fn(a.currentTime + 0.005); PITCH = 1;
+          PITCH = (pitch ?? rnd(0.95, 1.05)) * base; fn(a.currentTime + 0.005); PITCH = 1;
         } catch { PITCH = 1; }
       },
+      // 목소리: 재생이 끝나면 풀리는 Promise. 파일이 없거나 목소리를 껐으면 바로 풀린다. {line}은 자막용 대사.
+      say(id) { if (fast || !SoundHook.say) return Promise.resolve({ line: null }); try { return SoundHook.say(game, id); } catch { return Promise.resolve({ line: null }); } },
       buzz(ms = 12) { if (fast || !fxPrefs.haptic) return; try { navigator.vibrate && navigator.vibrate(ms); } catch {} },
       wait: ms => (off() ? Promise.resolve() : sleep(D(ms))),
       rect: rectOf,
@@ -536,7 +550,7 @@ export const SFX_NAMES = Object.keys(SOUNDS);
 // 게임이 ctx.fx 없이 돌 때(자동 대전 등)를 위한 빈 도구
 export const NOFX = (() => {
   const nop = () => Promise.resolve();
-  const api = { on: false, level: 0, speed: 1, union: () => null, rect: () => null, sfx() {}, buzz() {}, skip() {}, lock: () => () => {} };
+  const api = { on: false, level: 0, speed: 1, union: () => null, rect: () => null, sfx() {}, say: () => Promise.resolve({ line: null }), buzz() {}, skip() {}, lock: () => () => {} };
   for (const k of ['fly', 'flyMany', 'pop', 'slam', 'shake', 'flip', 'glow', 'float', 'burst', 'dust', 'ring', 'glint', 'shakeScreen', 'hitstop', 'flash', 'countTo', 'banner', 'seq', 'wait']) api[k] = nop;
   api.scope = () => api; return api;
 })();

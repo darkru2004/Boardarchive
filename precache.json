@@ -11,6 +11,8 @@
   "core/runner.js",
   "core/schema.js",
   "core/seating.js",
+  "core/sounds.js",
+  "core/sounds.json",
   "core/stats.js",
   "core/storage.js",
   "data/achievements.json",
@@ -43,6 +45,7 @@
   "src/host.js",
   "src/recviews.js",
   "src/skin.js",
+  "src/sounds.js",
   "src/style.css",
   "src/ui.js",
   "src/views.js"

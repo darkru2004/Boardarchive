@@ -324,7 +324,569 @@
         ]
       },
       "wide": true,
-      "immersive": true
+      "immersive": true,
+      "sound": {
+        "slots": [
+          {
+            "id": "bgm.mage",
+            "group": "BGM",
+            "kind": "loop",
+            "label": "마법사 적 전투",
+            "desc": "칼란나르·말리스와 싸우는 동안 반복",
+            "pri": 1
+          },
+          {
+            "id": "bgm.final",
+            "group": "BGM",
+            "kind": "loop",
+            "label": "최종 적 타차에르",
+            "desc": "타차에르와 싸우는 동안 반복",
+            "pri": 1
+          },
+          {
+            "id": "ui.select",
+            "group": "손·카드 조작",
+            "kind": "sfx",
+            "label": "손패 고르기·풀기",
+            "desc": "손패 카드를 눌러 고르거나 풀 때",
+            "synth": "tap",
+            "variants": 2,
+            "pri": 1
+          },
+          {
+            "id": "ui.confirm",
+            "group": "손·카드 조작",
+            "kind": "sfx",
+            "label": "공격·버리기 확인",
+            "desc": "공격·버리기 확인 버튼",
+            "synth": "tap",
+            "pitch": 1.35,
+            "pri": 1
+          },
+          {
+            "id": "ui.error",
+            "group": "손·카드 조작",
+            "kind": "sfx",
+            "label": "낼 수 없는 카드",
+            "desc": "낼 수 없는 카드를 눌렀을 때",
+            "synth": "tap",
+            "pitch": 0.6
+          },
+          {
+            "id": "card.draw",
+            "group": "손·카드 조작",
+            "kind": "sfx",
+            "label": "여관에서 뽑기",
+            "desc": "여관 덱에서 뽑기(음유시인 포함)",
+            "synth": "pick",
+            "variants": 3,
+            "pri": 1
+          },
+          {
+            "id": "card.shuffle",
+            "group": "손·카드 조작",
+            "kind": "sfx",
+            "label": "섞어 되돌리기",
+            "desc": "성직자: 버림 더미를 섞어 되돌림",
+            "synth": "chips",
+            "pitch": 1.4
+          },
+          {
+            "id": "card.discard",
+            "group": "손·카드 조작",
+            "kind": "sfx",
+            "label": "손패 버리기",
+            "desc": "반격 때 손패를 버림",
+            "synth": "card",
+            "pitch": 0.85,
+            "variants": 2,
+            "pri": 1
+          },
+          {
+            "id": "card.yield",
+            "group": "손·카드 조작",
+            "kind": "sfx",
+            "label": "양보",
+            "desc": "양보를 선택",
+            "synth": "whoosh",
+            "pitch": 0.8
+          },
+          {
+            "id": "atk.mage",
+            "group": "직업별 공격",
+            "kind": "sfx",
+            "label": "마법사 (불꽃)",
+            "desc": "마법사 공격",
+            "synth": "impact",
+            "pitch": 1.25,
+            "variants": 2,
+            "pri": 1
+          },
+          {
+            "id": "atk.cleric",
+            "group": "직업별 공격",
+            "kind": "sfx",
+            "label": "성직자",
+            "desc": "성직자 공격",
+            "synth": "sparkle",
+            "variants": 2,
+            "pri": 1
+          },
+          {
+            "id": "atk.bard",
+            "group": "직업별 공격",
+            "kind": "sfx",
+            "label": "음유시인",
+            "desc": "음유시인 공격",
+            "synth": "coin",
+            "variants": 2,
+            "pri": 1
+          },
+          {
+            "id": "atk.warrior",
+            "group": "직업별 공격",
+            "kind": "sfx",
+            "label": "전사",
+            "desc": "전사 공격",
+            "synth": "slam",
+            "pitch": 0.9,
+            "variants": 2,
+            "pri": 1
+          },
+          {
+            "id": "atk.paladin",
+            "group": "직업별 공격",
+            "kind": "sfx",
+            "label": "성기사",
+            "desc": "성기사 공격",
+            "synth": "slam",
+            "pitch": 0.75,
+            "variants": 2,
+            "pri": 1
+          },
+          {
+            "id": "atk.multi",
+            "group": "직업별 공격",
+            "kind": "sfx",
+            "label": "여러 직업 섞임 (선택)",
+            "desc": "여러 직업 카드를 섞은 공격",
+            "synth": "impact"
+          },
+          {
+            "id": "hit.light",
+            "group": "피해·능력",
+            "kind": "sfx",
+            "label": "보통 피해",
+            "desc": "보통 피해",
+            "synth": "slam",
+            "pitch": 1.15,
+            "variants": 2,
+            "pri": 1
+          },
+          {
+            "id": "hit.heavy",
+            "group": "피해·능력",
+            "kind": "sfx",
+            "label": "큰 한 방",
+            "desc": "피해 15 이상, 히트스톱과 함께",
+            "synth": "impact",
+            "variants": 2,
+            "pri": 1
+          },
+          {
+            "id": "hit.crit",
+            "group": "피해·능력",
+            "kind": "sfx",
+            "label": "전사 ×2",
+            "desc": "전사 치명타",
+            "synth": "impact",
+            "pitch": 1.1,
+            "pri": 1
+          },
+          {
+            "id": "pow.shield",
+            "group": "피해·능력",
+            "kind": "sfx",
+            "label": "성기사 방어 누적",
+            "desc": "방어가 쌓임",
+            "synth": "tick",
+            "pitch": 0.6
+          },
+          {
+            "id": "pow.heal",
+            "group": "피해·능력",
+            "kind": "sfx",
+            "label": "성직자 회복",
+            "desc": "카드가 여관으로 돌아감",
+            "synth": "sparkle",
+            "pitch": 1.1
+          },
+          {
+            "id": "pow.draw",
+            "group": "피해·능력",
+            "kind": "sfx",
+            "label": "음유시인 뽑기 시작",
+            "desc": "음유시인 능력으로 뽑기",
+            "synth": "coin",
+            "pitch": 1.2
+          },
+          {
+            "id": "mage.peek",
+            "group": "피해·능력",
+            "kind": "sfx",
+            "label": "마법사: 여관 몰래 보기",
+            "desc": "여관 덱을 몰래 보는 창이 열림",
+            "synth": "flip",
+            "pitch": 1.2,
+            "pri": 1
+          },
+          {
+            "id": "mage.chain",
+            "group": "피해·능력",
+            "kind": "sfx",
+            "label": "마법사 연쇄",
+            "desc": "또 마법사 카드를 이어 냄",
+            "synth": "rise",
+            "pitch": 1.2
+          },
+          {
+            "id": "enemy.counter",
+            "group": "적의 행동",
+            "kind": "sfx",
+            "label": "적의 반격",
+            "desc": "적의 반격 공격",
+            "synth": "impact",
+            "pitch": 0.85,
+            "variants": 2,
+            "pri": 1
+          },
+          {
+            "id": "enemy.block",
+            "group": "적의 행동",
+            "kind": "sfx",
+            "label": "막아냄! (피해 0)",
+            "desc": "반격 피해가 0",
+            "synth": "tick",
+            "pitch": 0.6,
+            "pri": 1
+          },
+          {
+            "id": "enemy.zone",
+            "group": "적의 행동",
+            "kind": "sfx",
+            "label": "적 구역에 카드 올라감",
+            "desc": "공격력이 올라가는 순간",
+            "synth": "rise",
+            "pitch": 0.7,
+            "pri": 1
+          },
+          {
+            "id": "enemy.immune",
+            "group": "적의 행동",
+            "kind": "sfx",
+            "label": "면역 (능력 무효)",
+            "desc": "면역으로 능력이 무효",
+            "synth": "tick",
+            "pitch": 0.5
+          },
+          {
+            "id": "enemy.kill",
+            "group": "적의 행동",
+            "kind": "sfx",
+            "label": "적 격파",
+            "desc": "적을 쓰러뜨림",
+            "synth": "out",
+            "variants": 2,
+            "pri": 1
+          },
+          {
+            "id": "enemy.exact",
+            "group": "적의 행동",
+            "kind": "sfx",
+            "label": "정확히 격파",
+            "desc": "여관 맨 위로 보내는 정확 격파",
+            "synth": "sparkle",
+            "pri": 1
+          },
+          {
+            "id": "enemy.banish",
+            "group": "적의 행동",
+            "kind": "sfx",
+            "label": "마법사 카드 추방",
+            "desc": "마법사 공격 카드가 추방됨",
+            "synth": "out",
+            "pitch": 1.3
+          },
+          {
+            "id": "enemy.enter",
+            "group": "적의 행동",
+            "kind": "sfx",
+            "label": "다음 적 등장",
+            "desc": "일반 적 등장",
+            "synth": "flip",
+            "pitch": 0.8,
+            "pri": 1
+          },
+          {
+            "id": "enemy.enter.mage",
+            "group": "적의 행동",
+            "kind": "sfx",
+            "label": "마법사 적 등장",
+            "desc": "마법사 적 등장",
+            "synth": "impact",
+            "pitch": 0.8,
+            "pri": 1
+          },
+          {
+            "id": "jester.use",
+            "group": "특수",
+            "kind": "sfx",
+            "label": "어릿광대 사용",
+            "desc": "어릿광대를 냄",
+            "synth": "coin",
+            "pitch": 1.3,
+            "pri": 1
+          },
+          {
+            "id": "jester.pick",
+            "group": "특수",
+            "kind": "sfx",
+            "label": "광대 직업 고르기",
+            "desc": "광대의 직업을 고름",
+            "synth": "coin",
+            "pitch": 1.5
+          },
+          {
+            "id": "fake.dead",
+            "group": "특수",
+            "kind": "sfx",
+            "label": "죽은 척하기",
+            "desc": "죽은 척을 선택",
+            "synth": "slam",
+            "pitch": 0.6
+          },
+          {
+            "id": "vo.kalannar.enter",
+            "group": "목소리: 마법사 적 (1순위)",
+            "kind": "voice",
+            "label": "칼란나르 · 등장",
+            "desc": "칼란나르의 등장 대사",
+            "variants": 2,
+            "pri": 1,
+            "line": "불꽃 앞에서 무릎 꿇어라."
+          },
+          {
+            "id": "vo.kalannar.hurt",
+            "group": "목소리: 마법사 적 (1순위)",
+            "kind": "voice",
+            "label": "칼란나르 · 큰 피해",
+            "desc": "칼란나르의 큰 피해 대사",
+            "variants": 2,
+            "pri": 1,
+            "line": "건방진 것들이…!"
+          },
+          {
+            "id": "vo.kalannar.counter",
+            "group": "목소리: 마법사 적 (1순위)",
+            "kind": "voice",
+            "label": "칼란나르 · 반격",
+            "desc": "칼란나르의 반격 대사",
+            "variants": 2,
+            "pri": 1,
+            "line": "타 버려라!"
+          },
+          {
+            "id": "vo.kalannar.down",
+            "group": "목소리: 마법사 적 (1순위)",
+            "kind": "voice",
+            "label": "칼란나르 · 격파당함",
+            "desc": "칼란나르의 격파당함 대사",
+            "variants": 2,
+            "pri": 1,
+            "line": "이 불길이… 꺼지다니…"
+          },
+          {
+            "id": "vo.malis.enter",
+            "group": "목소리: 마법사 적 (1순위)",
+            "kind": "voice",
+            "label": "말리스 · 등장",
+            "desc": "말리스의 등장 대사",
+            "variants": 2,
+            "pri": 1,
+            "line": "재가 되기 전에, 이름이나 남기렴."
+          },
+          {
+            "id": "vo.malis.hurt",
+            "group": "목소리: 마법사 적 (1순위)",
+            "kind": "voice",
+            "label": "말리스 · 큰 피해",
+            "desc": "말리스의 큰 피해 대사",
+            "variants": 2,
+            "pri": 1,
+            "line": "흥… 제법이구나."
+          },
+          {
+            "id": "vo.malis.counter",
+            "group": "목소리: 마법사 적 (1순위)",
+            "kind": "voice",
+            "label": "말리스 · 반격",
+            "desc": "말리스의 반격 대사",
+            "variants": 2,
+            "pri": 1,
+            "line": "얼어붙을 만큼 뜨겁게 해 주지."
+          },
+          {
+            "id": "vo.malis.down",
+            "group": "목소리: 마법사 적 (1순위)",
+            "kind": "voice",
+            "label": "말리스 · 격파당함",
+            "desc": "말리스의 격파당함 대사",
+            "variants": 2,
+            "pri": 1,
+            "line": "기억해 둬… 내 저주를…"
+          },
+          {
+            "id": "vo.tachaer.enter",
+            "group": "목소리: 마법사 적 (1순위)",
+            "kind": "voice",
+            "label": "타차에르 · 등장",
+            "desc": "타차에르의 등장 대사",
+            "variants": 2,
+            "pri": 1,
+            "line": "천 년의 불꽃이 너희를 부른다."
+          },
+          {
+            "id": "vo.tachaer.hurt",
+            "group": "목소리: 마법사 적 (1순위)",
+            "kind": "voice",
+            "label": "타차에르 · 큰 피해",
+            "desc": "타차에르의 큰 피해 대사",
+            "variants": 2,
+            "pri": 1,
+            "line": "하찮은 불씨가… 감히!"
+          },
+          {
+            "id": "vo.tachaer.counter",
+            "group": "목소리: 마법사 적 (1순위)",
+            "kind": "voice",
+            "label": "타차에르 · 반격",
+            "desc": "타차에르의 반격 대사",
+            "variants": 2,
+            "pri": 1,
+            "line": "모두 잿더미로 돌아가라!"
+          },
+          {
+            "id": "vo.tachaer.down",
+            "group": "목소리: 마법사 적 (1순위)",
+            "kind": "voice",
+            "label": "타차에르 · 격파당함",
+            "desc": "타차에르의 격파당함 대사",
+            "variants": 2,
+            "pri": 1,
+            "line": "불꽃은… 다시… 타오른다…"
+          },
+          {
+            "id": "vo.king.cleric.enter",
+            "group": "목소리: 왕 (2순위)",
+            "kind": "voice",
+            "label": "성직자 왕 · 등장",
+            "desc": "성직자 왕의 등장 대사",
+            "line": "빛이 너희의 죄를 심판하리라."
+          },
+          {
+            "id": "vo.king.cleric.down",
+            "group": "목소리: 왕 (2순위)",
+            "kind": "voice",
+            "label": "성직자 왕 · 격파당함",
+            "desc": "성직자 왕의 격파 대사",
+            "line": "빛이… 꺼져 가는구나…"
+          },
+          {
+            "id": "vo.king.bard.enter",
+            "group": "목소리: 왕 (2순위)",
+            "kind": "voice",
+            "label": "음유시인 왕 · 등장",
+            "desc": "음유시인 왕의 등장 대사",
+            "line": "마지막 노래를 들려주지."
+          },
+          {
+            "id": "vo.king.bard.down",
+            "group": "목소리: 왕 (2순위)",
+            "kind": "voice",
+            "label": "음유시인 왕 · 격파당함",
+            "desc": "음유시인 왕의 격파 대사",
+            "line": "노래가… 끝났군."
+          },
+          {
+            "id": "vo.king.warrior.enter",
+            "group": "목소리: 왕 (2순위)",
+            "kind": "voice",
+            "label": "전사 왕 · 등장",
+            "desc": "전사 왕의 등장 대사",
+            "line": "검을 들어라. 끝을 보자!"
+          },
+          {
+            "id": "vo.king.warrior.down",
+            "group": "목소리: 왕 (2순위)",
+            "kind": "voice",
+            "label": "전사 왕 · 격파당함",
+            "desc": "전사 왕의 격파 대사",
+            "line": "훌륭한… 싸움이었다…"
+          },
+          {
+            "id": "vo.king.paladin.enter",
+            "group": "목소리: 왕 (2순위)",
+            "kind": "voice",
+            "label": "성기사 왕 · 등장",
+            "desc": "성기사 왕의 등장 대사",
+            "line": "내 방패는 무너지지 않는다."
+          },
+          {
+            "id": "vo.king.paladin.down",
+            "group": "목소리: 왕 (2순위)",
+            "kind": "voice",
+            "label": "성기사 왕 · 격파당함",
+            "desc": "성기사 왕의 격파 대사",
+            "line": "맹세가… 깨졌구나…"
+          },
+          {
+            "id": "vo.jester.use",
+            "group": "목소리: 광대·진행 (3순위)",
+            "kind": "voice",
+            "label": "어릿광대 · 사용",
+            "desc": "광대를 낼 때 (대사 2가지 중 하나)",
+            "variants": 2,
+            "line": [
+              "하하! 판을 뒤집어 볼까?",
+              "깜짝 놀랐지?"
+            ]
+          },
+          {
+            "id": "vo.narr.start",
+            "group": "목소리: 광대·진행 (3순위)",
+            "kind": "voice",
+            "label": "내레이터 · 시작",
+            "desc": "판이 시작될 때",
+            "line": "열다섯 왕좌가 불타오른다."
+          },
+          {
+            "id": "vo.narr.win",
+            "group": "목소리: 광대·진행 (3순위)",
+            "kind": "voice",
+            "label": "내레이터 · 승리",
+            "desc": "이겼을 때",
+            "line": "불꽃의 왕좌가 무너졌다."
+          },
+          {
+            "id": "vo.narr.lose",
+            "group": "목소리: 광대·진행 (3순위)",
+            "kind": "voice",
+            "label": "내레이터 · 패배",
+            "desc": "졌을 때",
+            "line": "모든 것이… 재가 되었다."
+          }
+        ]
+      }
     },
     {
       "id": "sprawlopolis",

@@ -723,20 +723,18 @@ try:
             bad = os.path.join(tempfile.mkdtemp(), "bad.json"); open(bad, "w").write('{"format":"boardarchive-backup"}')
             p4.set_input_files("#imagesFile", bad); p4.wait_for_selector("text=이미지 백업 파일이 아닙니다")
         check("이미지 백업", "이미지만 내보내고(기록 미포함) 비운 뒤 가져오면 복구되고, 기록은 그대로이며, 다른 파일은 거부된다", img_backup)
-        def bgm_backup():
-            p4.click("#nav a[data-tab=settings]"); p4.click("#settabs [data-st=data]"); p4.wait_for_selector("#bgmBackupCard")
-            rec = "{name:'t.mp3',size:4,dataUrl:'data:audio/mpeg;base64,AAAA',updatedAt:'2026-11-22T00:00:00Z'}"
-            p4.evaluate("window.__ba.storage.put('settings','bgm:all:main'," + rec + ")")
-            p4.click("#nav a[data-tab=home]"); p4.click("#nav a[data-tab=settings]"); p4.click("#settabs [data-st=data]"); p4.wait_for_selector("#btnExportBgm:not([disabled])")
-            with p4.expect_download() as dl: p4.click("#btnExportBgm")
-            path = dl.value.path(); o = json.loads(open(path, encoding="utf-8").read())
-            assert o["format"] == "boardarchive-bgm" and "bgm:all:main" in o["data"]["bgm"] and "records" not in o["data"], list(o["data"].keys())
-            p4.evaluate("window.__ba.storage.del('settings','bgm:all:main')")
-            p4.set_input_files("#bgmFile", path); p4.wait_for_function("window.__ba.storage.get('settings','bgm:all:main').then(v => !!v)")
-            bad = os.path.join(tempfile.mkdtemp(), "bad.json"); open(bad, "w").write('{"format":"boardarchive-images","data":{"portraits":{}}}')
-            p4.set_input_files("#bgmFile", bad); p4.wait_for_selector("text=BGM 백업 파일이 아닙니다")
-            p4.evaluate("window.__ba.storage.del('settings','bgm:all:main')")
-        check("BGM 백업", "BGM만 내보내고(기록·이미지 미포함) 지운 뒤 가져오면 복구되고, 다른 파일은 거부된다", bgm_backup)
+        def sound_pack():
+            import zipfile
+            p4.click("#nav a[data-tab=settings]"); p4.click("#settabs [data-st=data]"); p4.wait_for_selector("#soundPackCard")
+            p4.evaluate("window.__ba.storage.put('settings','snd:all:hit.heavy',{files:[{name:'a.wav',size:4,type:'audio/wav',blob:new Blob([new Uint8Array([1,2,3,4])],{type:'audio/wav'})}],gain:1.5,updatedAt:'2026-11-22T00:00:00Z'})")
+            p4.click("#nav a[data-tab=home]"); p4.click("#nav a[data-tab=settings]"); p4.click("#settabs [data-st=data]"); p4.wait_for_selector("#btnExportPack:not([disabled])")
+            with p4.expect_download() as dl: p4.click("#btnExportPack")
+            path = dl.value.path(); z = zipfile.ZipFile(path); assert "hit.heavy-01.wav" in z.namelist() and "pack.json" in z.namelist() and z.read("hit.heavy-01.wav") == bytes([1, 2, 3, 4]), z.namelist()
+            assert not any("record" in n for n in z.namelist()), "소리 팩에 기록이 섞임"
+            p4.evaluate("window.__ba.storage.del('settings','snd:all:hit.heavy')")
+            p4.set_input_files("#packFile", path); p4.wait_for_function("window.__ba.storage.get('settings','snd:all:hit.heavy').then(v => !!v && v.gain === 1.5 && v.files[0].size === 4)")
+            p4.evaluate("window.__ba.storage.del('settings','snd:all:hit.heavy')")
+        check("소리 팩", "소리만 zip으로 내보내고(기록 미포함) 지운 뒤 가져오면 파일·음량이 복구된다", sound_pack)
         def art_slot():
             import shutil
             d = tempfile.mkdtemp(); files = []

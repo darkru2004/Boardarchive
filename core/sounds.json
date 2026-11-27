@@ -1,0 +1,407 @@
+{
+  "schemaVersion": 1,
+  "_doc": "소리 칸 목록. kind: sfx(짧은 효과음) · voice(목소리, 한 번에 하나, 재생 중 BGM이 줄어듦) · loop(BGM 반복) · oneshot(BGM 한 번). synth: 파일이 없을 때 대신 낼 합성음(fx.js SOUNDS 이름) · pitch: 그 합성음의 높낮이 · legacy: 옛 호출 이름(fx.sfx('slam'))이 이 칸으로 연결됨. 게임별 칸은 games/index.json 항목의 sound.slots(같은 id면 게임 전용이 먼저).",
+  "groups": [
+    {
+      "id": "ui",
+      "label": "화면·UI"
+    },
+    {
+      "id": "card",
+      "label": "카드·타일"
+    },
+    {
+      "id": "res",
+      "label": "자원"
+    },
+    {
+      "id": "combat",
+      "label": "전투"
+    },
+    {
+      "id": "flow",
+      "label": "흐름"
+    },
+    {
+      "id": "result",
+      "label": "결과"
+    },
+    {
+      "id": "cut",
+      "label": "컷씬"
+    },
+    {
+      "id": "bgm",
+      "label": "BGM"
+    }
+  ],
+  "slots": [
+    {
+      "id": "ui.tap",
+      "group": "ui",
+      "kind": "sfx",
+      "label": "눌러 고르기",
+      "desc": "버튼·카드를 누를 때 (딸깍)",
+      "synth": "tap",
+      "legacy": [
+        "tap"
+      ]
+    },
+    {
+      "id": "ui.confirm",
+      "group": "ui",
+      "kind": "sfx",
+      "label": "확인",
+      "desc": "공격·확정 버튼",
+      "synth": "tap",
+      "pitch": 1.35
+    },
+    {
+      "id": "ui.back",
+      "group": "ui",
+      "kind": "sfx",
+      "label": "취소·뒤로",
+      "desc": "고른 것을 풀거나 닫을 때",
+      "synth": "tap",
+      "pitch": 0.8
+    },
+    {
+      "id": "ui.error",
+      "group": "ui",
+      "kind": "sfx",
+      "label": "할 수 없음",
+      "desc": "낼 수 없는 것을 눌렀을 때",
+      "synth": "tap",
+      "pitch": 0.6
+    },
+    {
+      "id": "card.draw",
+      "group": "card",
+      "kind": "sfx",
+      "label": "카드 뽑기",
+      "desc": "덱에서 한 장 집어 옴",
+      "synth": "pick",
+      "legacy": [
+        "pick"
+      ]
+    },
+    {
+      "id": "card.play",
+      "group": "card",
+      "kind": "sfx",
+      "label": "카드 내기",
+      "desc": "손에서 카드를 던지듯 냄",
+      "synth": "card",
+      "legacy": [
+        "card"
+      ]
+    },
+    {
+      "id": "card.slam",
+      "group": "card",
+      "kind": "sfx",
+      "label": "카드 꽂힘 (탁)",
+      "desc": "카드·조각이 자리에 닿는 순간",
+      "synth": "slam",
+      "legacy": [
+        "slam"
+      ]
+    },
+    {
+      "id": "card.flip",
+      "group": "card",
+      "kind": "sfx",
+      "label": "카드 뒤집기",
+      "desc": "뒷면 → 앞면",
+      "synth": "flip",
+      "legacy": [
+        "flip"
+      ]
+    },
+    {
+      "id": "card.shuffle",
+      "group": "card",
+      "kind": "sfx",
+      "label": "섞기",
+      "desc": "덱을 섞음",
+      "synth": "chips",
+      "pitch": 1.4
+    },
+    {
+      "id": "card.deal",
+      "group": "card",
+      "kind": "sfx",
+      "label": "나눠 주기",
+      "desc": "카드를 한 장씩 돌림",
+      "synth": "deal",
+      "legacy": [
+        "deal"
+      ]
+    },
+    {
+      "id": "card.slide",
+      "group": "card",
+      "kind": "sfx",
+      "label": "휙 (날아감)",
+      "desc": "카드·조각이 미끄러지듯 이동",
+      "synth": "whoosh",
+      "legacy": [
+        "whoosh"
+      ]
+    },
+    {
+      "id": "tile.place",
+      "group": "card",
+      "kind": "sfx",
+      "label": "타일 놓기",
+      "desc": "타일을 판에 톡 놓음",
+      "synth": "place",
+      "legacy": [
+        "place"
+      ]
+    },
+    {
+      "id": "chip.one",
+      "group": "res",
+      "kind": "sfx",
+      "label": "칩 하나",
+      "desc": "칩 한 개를 놓거나 집음",
+      "synth": "chip",
+      "legacy": [
+        "chip"
+      ]
+    },
+    {
+      "id": "chip.many",
+      "group": "res",
+      "kind": "sfx",
+      "label": "칩 여러 개",
+      "desc": "칩이 촤르륵 이동",
+      "synth": "chips",
+      "legacy": [
+        "chips"
+      ]
+    },
+    {
+      "id": "coin",
+      "group": "res",
+      "kind": "sfx",
+      "label": "동전",
+      "desc": "동전·보석이 짤랑",
+      "synth": "coin",
+      "legacy": [
+        "coin"
+      ]
+    },
+    {
+      "id": "res.gain",
+      "group": "res",
+      "kind": "sfx",
+      "label": "이득",
+      "desc": "점수·자원을 얻음 (띠리링)",
+      "synth": "gain",
+      "legacy": [
+        "gain"
+      ]
+    },
+    {
+      "id": "res.loss",
+      "group": "res",
+      "kind": "sfx",
+      "label": "손해",
+      "desc": "점수·자원을 잃음",
+      "synth": "bad",
+      "legacy": [
+        "bad"
+      ]
+    },
+    {
+      "id": "hit.light",
+      "group": "combat",
+      "kind": "sfx",
+      "label": "보통 타격",
+      "desc": "보통 피해",
+      "synth": "slam",
+      "pitch": 1.15
+    },
+    {
+      "id": "hit.heavy",
+      "group": "combat",
+      "kind": "sfx",
+      "label": "강타 (쿵)",
+      "desc": "큰 피해, 히트스톱과 함께",
+      "synth": "impact",
+      "legacy": [
+        "impact"
+      ]
+    },
+    {
+      "id": "block",
+      "group": "combat",
+      "kind": "sfx",
+      "label": "막기",
+      "desc": "피해를 막아 냄",
+      "synth": "tick",
+      "pitch": 0.6
+    },
+    {
+      "id": "heal",
+      "group": "combat",
+      "kind": "sfx",
+      "label": "회복",
+      "desc": "따뜻하게 차오름",
+      "synth": "sparkle",
+      "pitch": 1.1
+    },
+    {
+      "id": "power.up",
+      "group": "combat",
+      "kind": "sfx",
+      "label": "강화",
+      "desc": "능력이 올라감",
+      "synth": "rise",
+      "pitch": 1.15
+    },
+    {
+      "id": "turn.mine",
+      "group": "flow",
+      "kind": "sfx",
+      "label": "내 턴",
+      "desc": "내 차례 띠가 나올 때",
+      "synth": "rise",
+      "legacy": [
+        "rise"
+      ]
+    },
+    {
+      "id": "turn.other",
+      "group": "flow",
+      "kind": "sfx",
+      "label": "상대 턴",
+      "desc": "상대 차례로 넘어감",
+      "synth": "tick",
+      "pitch": 0.8
+    },
+    {
+      "id": "reveal",
+      "group": "flow",
+      "kind": "sfx",
+      "label": "공개",
+      "desc": "숨겨진 것이 드러남",
+      "synth": "flip",
+      "pitch": 1.2
+    },
+    {
+      "id": "round.end",
+      "group": "flow",
+      "kind": "sfx",
+      "label": "라운드 끝",
+      "desc": "라운드가 바뀜",
+      "synth": "tick",
+      "legacy": [
+        "tick"
+      ]
+    },
+    {
+      "id": "alert",
+      "group": "flow",
+      "kind": "sfx",
+      "label": "경고",
+      "desc": "위험·주의",
+      "synth": "bad",
+      "pitch": 1.5
+    },
+    {
+      "id": "fx.sparkle",
+      "group": "flow",
+      "kind": "sfx",
+      "label": "반짝",
+      "desc": "광택·별이 반짝",
+      "synth": "sparkle",
+      "legacy": [
+        "sparkle"
+      ]
+    },
+    {
+      "id": "eliminate",
+      "group": "result",
+      "kind": "sfx",
+      "label": "탈락·격파",
+      "desc": "상대가 쓰러짐",
+      "synth": "out",
+      "legacy": [
+        "out"
+      ]
+    },
+    {
+      "id": "win.sting",
+      "group": "result",
+      "kind": "sfx",
+      "label": "승리 효과음",
+      "desc": "이겼을 때 짧게",
+      "synth": "win",
+      "legacy": [
+        "win"
+      ]
+    },
+    {
+      "id": "lose.sting",
+      "group": "result",
+      "kind": "sfx",
+      "label": "패배 효과음",
+      "desc": "졌을 때 짧게",
+      "synth": "lose",
+      "legacy": [
+        "lose"
+      ]
+    },
+    {
+      "id": "cut.charge",
+      "group": "cut",
+      "kind": "sfx",
+      "label": "컷씬: 모으기",
+      "desc": "기운이 차오름",
+      "synth": "rise",
+      "pitch": 0.7
+    },
+    {
+      "id": "cut.release",
+      "group": "cut",
+      "kind": "sfx",
+      "label": "컷씬: 발사",
+      "desc": "힘이 터져 나감",
+      "synth": "whoosh",
+      "pitch": 0.8
+    },
+    {
+      "id": "cut.impact",
+      "group": "cut",
+      "kind": "sfx",
+      "label": "컷씬: 착탄",
+      "desc": "거대한 충격",
+      "synth": "impact",
+      "pitch": 0.8
+    },
+    {
+      "id": "bgm.main",
+      "group": "bgm",
+      "kind": "loop",
+      "label": "플레이 중 (계속 반복)",
+      "desc": "판이 시작되면 자동으로 반복 재생"
+    },
+    {
+      "id": "bgm.win",
+      "group": "bgm",
+      "kind": "oneshot",
+      "label": "승리 (한 번)",
+      "desc": "이기면 한 번 재생"
+    },
+    {
+      "id": "bgm.lose",
+      "group": "bgm",
+      "kind": "oneshot",
+      "label": "패배 (한 번)",
+      "desc": "지면 한 번 재생"
+    }
+  ]
+}

@@ -15,13 +15,13 @@ with sync_playwright() as pw:
     ctx.route(re.compile(r"https://fonts\.(googleapis|gstatic)\.com/.*"), lambda r: r.fulfill(status=200, body="", content_type="text/css"))
     page = ctx.new_page()
     page.on("pageerror", lambda e: errors.append("pageerror: " + str(e)))
-    page.goto(BASE + "#/settings"); page.wait_for_selector("#bgmCard")
+    page.goto(BASE + "#/settings"); page.wait_for_selector("#soundCard")
     def upload():
-        page.click("#bgmAll"); page.wait_for_selector("#bgmManager")
-        page.set_input_files(".artg[data-s=main] input[type=file]", WAV); page.wait_for_selector(".artg[data-s=main] button:has-text('바꾸기')")
-        assert "test_bgm.wav" in page.inner_text(".artg[data-s=main]")
-        page.click(".artg[data-s=main] button:has-text('미리듣기')"); page.wait_for_timeout(300)
-        page.click(".artg[data-s=main] button:has-text('멈춤')"); page.click("#bgmManager .btn.go")
+        page.click("#soundAll"); page.wait_for_selector("#soundManager"); page.click("details[data-g=bgm] summary")
+        page.set_input_files(".snd-slot[data-s='bgm.main'] input[type=file]", WAV); page.wait_for_selector(".snd-slot[data-s='bgm.main'] button:has-text('바꾸기')")
+        assert "test_bgm.wav" in page.inner_text(".snd-slot[data-s='bgm.main']")
+        page.click(".snd-slot[data-s='bgm.main'] button:has-text('듣기')"); page.wait_for_timeout(300)
+        page.click(".snd-slot[data-s='bgm.main'] button:has-text('멈춤')"); page.click("#soundManager .btn.go.grow")
     check("공용 BGM 올리기·미리듣기", upload)
     def play():
         page.goto(BASE); page.wait_for_selector(".gcard[data-id=regicide-inferno]")
@@ -40,13 +40,13 @@ with sync_playwright() as pw:
         page.wait_for_selector(".gcard[data-id=regicide-inferno]"); st = page.evaluate(STATE); assert not st["playing"], st
     check("나가면 멈춤", leave)
     def other():   # 게임 전용이 없는 다른 게임에서도(공용) 재생 + 일반 게임바 ♪ 버튼
-        page.click(".gcard[data-id=loveletter]"); page.wait_for_selector("#setup .seat"); page.click("button[data-n='2']"); page.click("#btnStart"); page.wait_for_selector("#barBgm:visible"); page.wait_for_timeout(1200)
+        page.click(".gcard[data-id=kingdomino]"); page.wait_for_selector("#setup .seat"); page.click("button[data-n='2']"); page.click("#btnStart"); page.wait_for_selector("#barBgm:visible"); page.wait_for_timeout(1200)
         st = page.evaluate(STATE); assert st["playing"], st
     check("다른 게임에서도 공용 BGM·♪ 버튼", other)
     def wipe():
-        page.goto(BASE + "#/settings"); page.reload(); page.wait_for_selector("#bgmCard"); page.click("#bgmAll"); page.wait_for_selector("#bgmManager")
-        page.click(".artg[data-s=main] button:has-text('지우기')"); page.wait_for_timeout(300)
-        assert "비어 있음" in page.inner_text(".artg[data-s=main]")
+        page.goto(BASE + "#/settings"); page.reload(); page.wait_for_selector("#soundCard"); page.click("#soundAll"); page.wait_for_selector("#soundManager"); page.click("details[data-g=bgm] summary")
+        page.click(".snd-slot[data-s='bgm.main'] button:has-text('지우기')"); page.wait_for_timeout(300)
+        assert "비어 있음" in page.inner_text(".snd-slot[data-s='bgm.main']")
     check("지우기", wipe)
     br.close()
 srv.terminate()

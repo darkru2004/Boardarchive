@@ -31,8 +31,8 @@ try:
             assert set(ids) == set(ACTIVE), f"홈 게임 목록이 다름: {sorted(ids)}"
         check("홈에서 중단 4종이 안 보이고 7종만 보인다", hidden_home)
         def hidden_settings():
-            page.goto(BASE + "?fast=1#/settings"); page.wait_for_selector("#bgmCard")
-            ids = page.eval_on_selector_all("#bgmCard [data-bg]", "els => els.map(e => e.dataset.bg)")
+            page.goto(BASE + "?fast=1#/settings"); page.wait_for_selector("#soundCard")
+            ids = page.eval_on_selector_all("#soundCard [data-bg]", "els => els.map(e => e.dataset.bg)")
             assert not set(ids) & set(RETIRED) and len(ids) == len(ACTIVE), ids
         check("설정 BGM 게임 목록에도 중단 게임이 없다", hidden_settings)
         def retired_records():

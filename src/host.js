@@ -14,6 +14,7 @@ import { linesFor, activeOnly, pairLinesFor } from '../core/characters.js';
 import { h, avatar, modal, toast, dieSvg, ornament, bubbles } from './ui.js';
 import { makeFx } from './fx.js';
 import { makeBgm, bgmPrefs } from './bgm.js';
+import { loadScope } from './sounds.js';
 
 export const achCtx = app => ({ activeIds: activeOnly(app.characters).map(c => c.id), gameIds: app.games.filter(g => !g.test && g.mode !== 'coop').map(g => g.id) });
 
@@ -48,6 +49,7 @@ export async function launchGame(app, entry, seats, difficulty = null, resume = 
   root.append(h('div', { class: 'gamebar' }, h('div', { class: 'brand', style: 'font-size:28px' }, entry.name.replace(/\s*\(.*\)\s*$/, ''), h('small', {}, `${players.length}인 · v${entry.version}`)), h('div', { class: 'row', style: 'gap:6px' }, bgmBtn, exitBtn)), gameRoot);
 
   const bgm = makeBgm(app, entry.id);
+  loadScope(app, entry.id).catch(() => {});   // 이 게임의 소리 파일을 미리 풀어 둔다(공용은 앱 시작 때 풀어 둠)
   const leave = () => { bgm.destroy(); if (instance && instance.destroy) instance.destroy(); document.body.classList.remove('playing'); return app.goHome(); };
 
   const ctx = {
@@ -59,7 +61,7 @@ export async function launchGame(app, entry, seats, difficulty = null, resume = 
     theme: entry.theme || null,               // games/index.json의 theme (포인트 색 등)
     kit: { dieSvg, ornament, bubbles },
     bgm,                                      // BGM 재생기(실행기가 알아서 틀어 주므로 게임은 보통 쓰지 않는다)
-    fx: makeFx({ fast: app.fast }),           // 공통 이펙트(움직임·소리·진동). 게임에서 ctx.fx.scope(게임루트)로 사용
+    fx: makeFx({ fast: app.fast, game: entry.id }),           // 공통 이펙트(움직임·소리·진동). 게임에서 ctx.fx.scope(게임루트)로 사용
     rng: makeRng(),
     avatar: (seat, size) => avatar(app, players[seat].characterId, size),
     art: group => artList(app, entry.id, group),   // 사용자가 올린 일러스트 주소 배열(없으면 [])
