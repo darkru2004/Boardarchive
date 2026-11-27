@@ -330,7 +330,7 @@ function mountInferno(self, container, ctx) {
   const timers = new Set(); let dead = false;
   const later = (fn, ms) => { const id = setTimeout(() => { timers.delete(id); if (!dead) fn(); }, ms); timers.add(id); return id; };
   const safe = fn => { try { fn(); } catch (e) { /* 연출 실패는 무시 */ } };
-  let s = null, selC = [], selP = null, hint = null, big = false, logs = [], finished = false, sheet = null;
+  let s = null, selC = [], selD = [], selP = null, hint = null, big = false, logs = [], finished = false, sheet = null;
 
   container.innerHTML = `<style>${RI_CSS}</style>
   <div class="g-regicide-inferno" style="--acc:${th.accent || '#f0b24a'};--bg1:${th.table || '#2b1812'};--bg2:${th.table2 || '#110908'}">
@@ -425,11 +425,15 @@ function mountInferno(self, container, ctx) {
     const bad = [0, 1, 2, 3, 4].filter(c => has(c) && immuneTo(s, c, g)); if (bad.length) p.push(`면역 ${bad.map(c => CI[c]).join('')} 무효`);
     return p.join(' · ');
   }
+  function selSum() { return selD.reduce((a, c) => a + val(c), 0); }
   function drawDock() {
     const m = ms(); let msg = '', btn = '';
     if (s.over) msg = s.won ? '타차에르를 쓰러뜨렸어요!' : '패배… ' + (s.why || '');
     else if (s.phase === 'dmg') {
-      msg = `<b>피해를 받습니다</b> — 손패를 버려 <b>${s.need}</b> 이상 채우세요 (${s.paid}/${s.need})`;
+      const got = s.paid + selSum(), okD = got >= s.need;
+      msg = `<b>피해를 받습니다</b> — 버릴 카드를 골라 <b>${s.need}</b> 이상 채운 뒤 확인하세요 (<b style="color:${okD ? '#8fe38f' : '#ffb08a'}">${got}</b>/${s.need})`;
+      btn += `<button data-skin="button" class="ri-b pri" data-a="dconf"${okD ? '' : ' disabled'}>버리기 확인${selD.length ? ` (${selD.length}장)` : ''}</button>`;
+      if (selD.length) btn += `<button data-skin="button" class="ri-b" data-a="dclear">선택 해제</button>`;
       if (m.some(x => x.t === 'fake')) btn += `<button data-skin="button" class="ri-b" data-a="fake">죽은 척하기</button>`;
     } else if (s.phase === 'mage') msg = `<b>마법사</b> — 위 카드 중 하나를 골라 공격에 더하세요`;
     else {
@@ -453,11 +457,11 @@ function mountInferno(self, container, ctx) {
   }
   function drawHand() {
     const m = ms(), dmg = s.phase === 'dmg', play = s.phase === 'play';
-    const hintC = hint && (hint.t === 'play' ? hint.c : hint.t === 'disc' ? [hint.c] : []);
+    const hintC = hint && (hint.t === 'play' ? hint.c : hint.t === 'disc' ? [hint.c] : []), full = dmg && s.paid + selSum() >= s.need;
     el.hand.className = 'ri-hand' + (big ? ' big' : '');
     el.hand.innerHTML = s.hand.map(id => {
-      const can = dmg ? m.some(x => x.t === 'disc' && x.c === id) : play ? extendable(id) : false;
-      const cls = (selC.includes(id) ? ' sel' : '') + (!can && !selC.includes(id) ? ' dim' : '') + (hintC && hintC.includes(id) ? ' hint' : '') + (dmg && can ? ' dsc' : '');
+      const can = dmg ? !full && m.some(x => x.t === 'disc' && x.c === id) : play ? extendable(id) : false;
+      const cls = (selC.includes(id) || selD.includes(id) ? ' sel' : '') + (!can && !selC.includes(id) && !selD.includes(id) ? ' dim' : '') + (hintC && hintC.includes(id) ? ' hint' : '') + (dmg && can ? ' dsc' : '');
       return cardHTML(id, { cls, attr: ` data-a="hand" data-id="${id}"` });
     }).join('') || '<em class="ri-emp">손패가 없습니다</em>';
   }
@@ -651,8 +655,10 @@ function mountInferno(self, container, ctx) {
   function run(m) {
     if (dead || s.over) return false;
     const sn = fx.on ? safe2(snap) : null;
-    try { game.applyMove(s, m); } catch (e) { safe(() => fx.sfx('bad')); return false; }
-    selC = []; selP = null; hint = null;
+    const list = Array.isArray(m) ? m : [m], allEv = [];
+    try { for (const x of list) { if (s.over) break; game.applyMove(s, x); allEv.push(...(s.ev || [])); } } catch (e) { safe(() => fx.sfx('bad')); s.ev = allEv; selD = []; narrate(); draw(); save(); return false; }
+    s.ev = allEv;
+    selC = []; selP = null; hint = null; selD = [];
     narrate(); draw(); save();
     if (sn) {
       const evs = (s.ev || []).slice();
@@ -672,7 +678,7 @@ function mountInferno(self, container, ctx) {
   const safe2 = fn => { try { return fn(); } catch (e) { return null; } };
   function begin(state) {
     s = state || game.newGame({ rng });
-    s.ev = []; selC = []; selP = null; hint = null;
+    s.ev = []; selC = []; selD = []; selP = null; hint = null;
     log(state ? '이어서 진행합니다.' : '여정 시작! 15명의 왕족을 쓰러뜨리세요. 첫 적: ' + enemyName(s.enemy.id));
     draw();
   }
@@ -716,7 +722,13 @@ function mountInferno(self, container, ctx) {
     if (k === 'mage') return void run({ t: 'mage', i: +a.dataset.i });
     if (k === 'hand') {
       const id = +a.dataset.id;
-      if (s.phase === 'dmg') return void run({ t: 'disc', c: id });
+      if (s.phase === 'dmg') {   // 반격: 누르면 고르기만, '버리기 확인'으로 한꺼번에 버린다
+        hint = null;
+        if (selD.includes(id)) selD = selD.filter(x => x !== id);
+        else if (s.paid + selSum() < s.need && s.hand.includes(id)) selD = selD.concat(id);
+        else { safe(() => fx.sfx('bad')); return; }
+        safe(() => fx.sfx('tap')); drawDock(); drawHand(); return;
+      }
       if (s.phase !== 'play') return;
       hint = null;
       if (selC.includes(id)) selC = selC.filter(x => x !== id);
@@ -733,6 +745,8 @@ function mountInferno(self, container, ctx) {
     if (k === 'atk') { const m = curMove(); if (m) run(m); return; }
     if (k === 'yield') return void run({ t: 'yield' });
     if (k === 'fake') return void run({ t: 'fake' });
+    if (k === 'dclear') { selD = []; hint = null; drawDock(); drawHand(); return; }
+    if (k === 'dconf') { if (s.phase !== 'dmg' || s.paid + selSum() < s.need) return; return void run(selD.map(c => ({ t: 'disc', c }))); }
     if (k === 'jester') {
       if (!ms().some(m => m.t === 'jester')) return;
       openSheet(`<h3>🃏 어릿광대 (공격 8, 면역 무시)</h3><p class="ri-sub">능력으로 쓸 직업을 고르세요</p><div class="ri-jk">${[1, 2, 3, 4].map(c => `<button data-skin="button" class="ri-b" data-a="jk" data-c="${c}" style="--cc:${CC[c]}">${CI[c]} ${CLS_KO[c]}<small>${POWER_KO[c]}</small></button>`).join('')}</div>`);
@@ -740,6 +754,12 @@ function mountInferno(self, container, ctx) {
     }
     if (k === 'jk') { el.ov.hidden = true; el.ov.innerHTML = ''; sheet = null; return void run({ t: 'jester', k: +a.dataset.c }); }
     if (k === 'hint') {
+      if (s.phase === 'dmg') {
+        const c = JSON.parse(JSON.stringify(s)), pick = []; let fk = false;
+        for (let i = 0; i < 12 && c.phase === 'dmg' && !c.over; i++) { const mv = game.botChoose(JSON.parse(JSON.stringify(c)), {}, rng).move; if (mv.t !== 'disc') { fk = mv.t === 'fake'; break; } pick.push(mv.c); game.applyMove(c, mv); }
+        if (fk) { selD = []; hint = { t: 'fake' }; log('추천: 죽은 척하기', 'g'); } else { selD = pick; hint = null; log(`추천: ${pick.length}장 버리기`, 'g'); }
+        draw(); return;
+      }
       const r = game.botChoose(JSON.parse(JSON.stringify(s)), {}, rng), m = r.move; hint = m;
       if (m.t === 'play') { selC = m.c.slice().sort((x, y) => x - y); selP = m.p != null ? m.p : null; hint = { t: 'play', c: selC }; }
       else if (m.t === 'yield') log('추천: 양보', 'g');
@@ -751,7 +771,7 @@ function mountInferno(self, container, ctx) {
 
   const rs = ctx.resumeState;
   if (rs && _t.validState(rs) && !rs.over) begin(rs); else begin(null);
-  container._ri = { get state() { return s; }, run, draw, get sel() { return { selC, selP }; } };   // 테스트용 손잡이
+  container._ri = { get state() { return s; }, run, draw, get sel() { return { selC, selD, selP }; } };   // 테스트용 손잡이
   return { destroy() { dead = true; blobUrls.forEach(u => URL.revokeObjectURL(u)); keep.length = 0; window.removeEventListener('resize', onResize); timers.forEach(clearTimeout); timers.clear(); container.querySelectorAll('.fx-layer').forEach(n => n.remove()); container.innerHTML = ''; } };
 }
 

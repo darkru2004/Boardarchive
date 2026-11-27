@@ -15,6 +15,14 @@ DRIVE = """async (stopAt) => {
   while (!root.state.over && n < 600 && (stopAt == null || n < stopAt)) { const m = mod.botChoose(JSON.parse(JSON.stringify(root.state)), {}, rr).move; root.run(m); n++; }
   return {n, over: root.state.over};
 }"""
+TO_DMG = """async () => {
+  const mod = (await import('/games/regicide-inferno.js')).default;
+  const root = document.querySelector('.g-regicide-inferno').parentElement._ri; let n = 0;
+  const rr = {next:Math.random,int:k=>Math.floor(Math.random()*k),pick:a=>a[Math.floor(Math.random()*a.length)],shuffle:a=>a.slice()};
+  while (!root.state.over && n < 300 && !(root.state.phase === 'dmg' && root.state.need > 0)) { const m = mod.botChoose(JSON.parse(JSON.stringify(root.state)), {}, rr).move; root.run(m); n++; }
+  root.draw();
+  return {n, dmg: root.state.phase === 'dmg' && !root.state.over};
+}"""
 def run(viewport, tag):
     with sync_playwright() as pw:
         br = pw.chromium.launch(executable_path="/usr/bin/google-chrome", headless=True, args=["--no-sandbox"])
@@ -45,6 +53,23 @@ def run(viewport, tag):
                 page.click(f"[data-a={a}]"); page.wait_for_selector(".ri-sheet"); page.click(".ri-sheet [data-a=close]")
             page.click("[data-a=zoomE]"); page.wait_for_selector(".ri-card.zoom"); page.click(".ri-sheet [data-a=close]")
         check(f"[{tag}] 규칙·기록·성·버림·확대 시트", sheets)
+        def confirm_discard():   # 반격: 카드를 눌러도 바로 버려지지 않고 '버리기 확인'으로 한꺼번에 버린다
+            r = page.evaluate(TO_DMG); assert r["dmg"], f"반격 단계에 못 감 {r}"
+            page.wait_for_timeout(200); n0 = page.locator(".ri-hand .ri-card").count()
+            assert page.locator("[data-a=dconf][disabled]").count() == 1, "고르기 전부터 확인 버튼이 켜져 있음"
+            page.locator(".ri-hand .ri-card.dsc").first.click(); page.wait_for_timeout(150)
+            assert page.locator(".ri-hand .ri-card").count() == n0, "누르자마자 버려짐"
+            assert page.locator(".ri-hand .ri-card.sel").count() == 1, "선택 표시 없음"
+            page.locator(".ri-hand .ri-card.sel").first.click(); page.wait_for_timeout(150)
+            assert page.locator(".ri-hand .ri-card.sel").count() == 0, "다시 눌러도 선택이 안 풀림"
+            page.click("[data-a=hint]"); page.wait_for_timeout(200)
+            if page.locator(".ri-hand .ri-card.sel").count():
+                assert page.locator("[data-a=dconf]:not([disabled])").count() == 1, "추천 후 확인 버튼이 꺼져 있음"
+                page.screenshot(path=f"{SHOTS}/{tag}-dmgsel.png")
+                page.click("[data-a=dconf]"); page.wait_for_timeout(300)
+                st = page.evaluate("document.querySelector('.g-regicide-inferno').parentElement._ri.state.phase")
+                assert st != "dmg", f"확인 후에도 반격 단계 {st}"
+        check(f"[{tag}] 반격: 골라서 확인으로 버리기", confirm_discard)
         if tag == "pc":
             def resume():
                 page.evaluate(DRIVE, 6); page.wait_for_timeout(400)
